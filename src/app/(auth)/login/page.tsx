@@ -1,21 +1,43 @@
-// src/app/(auth)/login/page.tsx
-"use client";
+'use client';
 
-import { auth } from "@/lib/firebase/client";
-import { signInWithEmailAndPassword } from "firebase/auth";
-import { useState } from "react";
+import { useState, useEffect } from 'react';
+import { signInWithEmailAndPassword, onAuthStateChanged } from 'firebase/auth';
+import { auth } from '@/lib/firebase/client';
+import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
+
+  // Si ya hay sesión activa, redirigir automáticamente
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        router.push('/dashboard');
+      }
+    });
+    return () => unsubscribe();
+  }, [router]);
 
   const handleLogin = async () => {
+    setLoading(true);
     try {
-      const userCred = await signInWithEmailAndPassword(auth, email, password);
-      alert("Login exitoso: " + userCred.user.email);
+      await signInWithEmailAndPassword(auth, email, password);
+      router.push('/dashboard');
     } catch (err) {
-      alert("Error: " + (err as any).message);
+      if (err instanceof Error) {
+        if (err.message.includes('auth/wrong-password')) {
+          alert('Contraseña incorrecta');
+        } else if (err.message.includes('auth/user-not-found')) {
+          alert('Usuario no encontrado');
+        } else {
+          alert('Error: ' + err.message);
+        }
+      }
     }
+    setLoading(false);
   };
 
   return (
@@ -24,7 +46,7 @@ export default function LoginPage() {
         type="email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
-        placeholder="Correo"
+        placeholder="Correo electrónico"
         className="w-full border px-4 py-2"
       />
       <input
@@ -36,9 +58,10 @@ export default function LoginPage() {
       />
       <button
         onClick={handleLogin}
-        className="bg-black text-white px-4 py-2 w-full"
+        disabled={loading}
+        className="bg-black text-white px-4 py-2 w-full disabled:opacity-50"
       >
-        Iniciar sesión
+        {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
       </button>
     </div>
   );
