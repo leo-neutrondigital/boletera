@@ -4,7 +4,7 @@ import { Edit, Trash2, Calendar, MapPin, Users, Settings } from "lucide-react"
 import { format } from "date-fns"
 import { EventFormDialog } from "./EventFormDialog"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
-import { PermissionWrapper } from "@/components/auth/PermissionWrapper"
+import { Can } from "@/components/auth/Can"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import type { Event } from "@/types"
@@ -133,18 +133,18 @@ export default function EventTable({
 
                 {/* Acciones */}
                 <div className="flex gap-2 ml-4 flex-shrink-0">
-                  {/* 🔐 Botón para gestionar tipos de boletos - Solo admin y gestor */}
-                  <PermissionWrapper resource="ticketTypes" action="read">
+                  {/* 🔐 Botón para gestionar tipos de boletos - Admin y gestor */}
+                  <Can do="read" on="ticketTypes">
                     <Link href={`/dashboard/eventos/${event.id}/boletos`}>
                       <Button variant="outline" size="sm" className="h-8 px-3 text-xs">
                         <Settings className="h-3 w-3 mr-1" />
                         Boletos
                       </Button>
                     </Link>
-                  </PermissionWrapper>
+                  </Can>
 
-                  {/* 🔐 Botón Editar - Solo admin y gestor */}
-                  <PermissionWrapper resource="events" action="update">
+                  {/* 🔐 Botón Editar - Admin y gestor */}
+                  <Can do="update" on="events">
                     <EventFormDialog 
                       eventToEdit={eventToEdit}
                       onSuccess={handleEventSuccess}
@@ -154,10 +154,10 @@ export default function EventTable({
                         </Button>
                       }
                     />
-                  </PermissionWrapper>
+                  </Can>
                   
                   {/* 🔐 Botón Eliminar - Solo admin */}
-                  <PermissionWrapper resource="events" action="delete">
+                  <Can do="delete" on="events">
                     <ConfirmDialog
                       trigger={
                         <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-600 hover:text-red-800">
@@ -171,7 +171,7 @@ export default function EventTable({
                       cancelText="Cancelar"
                       destructive
                     />
-                  </PermissionWrapper>
+                  </Can>
                 </div>
               </div>
             </div>

@@ -19,6 +19,13 @@ export function formatPrice(amount: number, currency: "MXN" | "USD"): string {
 }
 
 /**
+ * Alias para formatPrice (para compatibilidad)
+ */
+export function formatCurrency(amount: number, currency: "MXN" | "USD"): string {
+  return formatPrice(amount, currency);
+}
+
+/**
  * Parsea un string de precio a número
  */
 export function parsePrice(priceStr: string): number {
@@ -37,4 +44,39 @@ export function isValidPrice(price: number): boolean {
  */
 export function formatPriceForInput(price: number): string {
   return price.toFixed(2);
+}
+
+/**
+ * Convierte entre monedas (placeholder para futura implementación)
+ */
+export function convertCurrency(
+  amount: number, 
+  fromCurrency: "MXN" | "USD", 
+  toCurrency: "MXN" | "USD",
+  exchangeRate?: number
+): number {
+  if (fromCurrency === toCurrency) return amount;
+  
+  // Por ahora usar tasa fija (en producción, usar API de cambio)
+  const defaultRate = fromCurrency === "USD" ? 18 : 1/18;
+  const rate = exchangeRate || defaultRate;
+  
+  return amount * rate;
+}
+
+/**
+ * Obtiene el símbolo de la moneda
+ */
+export function getCurrencySymbol(currency: "MXN" | "USD"): string {
+  return CURRENCIES[currency].symbol;
+}
+
+/**
+ * Formatea cantidad sin símbolo de moneda
+ */
+export function formatAmount(amount: number): string {
+  return new Intl.NumberFormat("es-MX", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
 }

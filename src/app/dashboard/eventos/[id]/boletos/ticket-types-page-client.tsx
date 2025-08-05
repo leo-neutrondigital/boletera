@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Breadcrumb } from "@/components/shared/Breadcrumb";
 import { TicketTypesList } from "@/components/dashboard/TicketTypesList";
 import { TicketTypeFormDialog } from "@/components/dashboard/TicketTypeFormDialog";
-import { PermissionWrapper } from "@/components/auth/PermissionWrapper";
+import { Can } from "@/components/auth/Can";
 import { useTicketTypes } from "@/hooks/use-ticket-types";
 import { getEventDateInfo } from "@/lib/utils/event-dates";
 import type { Event, TicketType } from "@/types";
@@ -71,7 +71,7 @@ export function TicketTypesPageClient({ event, initialTicketTypes }: TicketTypes
             </Button>
 
             {/* 🔐 Solo admin y gestor pueden crear tipos de boletos */}
-            <PermissionWrapper resource="ticketTypes" action="create">
+            <Can do="create" on="ticketTypes">
               <TicketTypeFormDialog
                 event={event}
                 onSuccess={handleTicketTypeSuccess}
@@ -82,7 +82,7 @@ export function TicketTypesPageClient({ event, initialTicketTypes }: TicketTypes
                   </Button>
                 }
               />
-            </PermissionWrapper>
+            </Can>
           </div>
         </div>
 

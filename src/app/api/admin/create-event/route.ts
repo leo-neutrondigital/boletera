@@ -24,6 +24,8 @@ export async function POST(req: Request) {
       published 
     } = body;
 
+    const slug = name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+
     if (!name || !start_date || !end_date || !location) {
       return NextResponse.json({ error: "Missing required fields." }, { status: 400 });
     }
@@ -41,6 +43,7 @@ export async function POST(req: Request) {
 
     const newEvent = {
       name,
+      slug,
       start_date: startDate,
       end_date: endDate,
       location,

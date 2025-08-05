@@ -2,6 +2,18 @@ import { adminDb } from "@/lib/firebase/admin"
 import { NextResponse } from "next/server"
 import { getAuthFromRequest } from "@/lib/auth/server-auth"
 
+// Tipo para los datos de actualización de evento
+interface EventUpdateData {
+  name?: string;
+  start_date?: string | Date;
+  end_date?: string | Date;
+  location?: string;
+  description?: string;
+  internal_notes?: string;
+  published?: boolean;
+  [key: string]: unknown; // Para otros campos que puedan venir
+}
+
 export async function PUT(req: Request) {
   try {
     console.log("🔄 PUT /api/admin/update-event triggered");
@@ -17,7 +29,7 @@ export async function PUT(req: Request) {
     const body = await req.json()
     console.log("📦 Update request body:", body);
     
-    const { id, ...updateData } = body
+    const { id, ...updateData }: { id: string } & EventUpdateData = body
 
     if (!id) {
       console.error("❌ Missing event ID");
@@ -31,7 +43,7 @@ export async function PUT(req: Request) {
     }
 
     // Procesar fechas si están presentes
-    const processedData: any = { ...updateData };
+    const processedData: EventUpdateData = { ...updateData };
     
     if (updateData.start_date) {
       processedData.start_date = new Date(updateData.start_date);
@@ -42,7 +54,14 @@ export async function PUT(req: Request) {
 
     // Validar que end_date >= start_date si ambas están presentes
     if (processedData.start_date && processedData.end_date) {
-      if (processedData.end_date < processedData.start_date) {
+      const startDate = processedData.start_date instanceof Date 
+        ? processedData.start_date 
+        : new Date(processedData.start_date);
+      const endDate = processedData.end_date instanceof Date 
+        ? processedData.end_date 
+        : new Date(processedData.end_date);
+        
+      if (endDate < startDate) {
         return NextResponse.json(
           { error: "La fecha de fin debe ser igual o posterior a la fecha de inicio" }, 
           { status: 400 }

@@ -25,6 +25,7 @@ import { Calendar, Clock } from "lucide-react";
 
 const eventSchema = z.object({
   name: z.string().min(1, "Nombre requerido"),
+  slug: z.string().min(1, "Slug requerido"),
   start_date: z.string().min(1, "Fecha de inicio requerida"),
   end_date: z.string().min(1, "Fecha de fin requerida"),
   location: z.string().min(1, "Lugar requerido"),
@@ -47,6 +48,7 @@ export interface EventFormDialogProps {
   eventToEdit?: {
     id: string;
     name: string;
+    slug: string;
     start_date: string;
     end_date: string;
     location: string;
@@ -77,6 +79,7 @@ export function EventFormDialog({
     resolver: zodResolver(eventSchema),
     defaultValues: {
       name: eventToEdit?.name ?? "",
+      slug: eventToEdit?.slug ?? "",
       start_date: eventToEdit?.start_date ?? "",
       end_date: eventToEdit?.end_date ?? eventToEdit?.start_date ?? "", // Si no hay end_date, usar start_date
       location: eventToEdit?.location ?? "",
@@ -102,6 +105,14 @@ export function EventFormDialog({
 
   const onSubmit = async (data: EventFormData) => {
     try {
+      if (!data.slug) {
+        data.slug = data.name
+          .toLowerCase()
+          .trim()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/(^-|-$)+/g, "");
+      }
+
       const currentUser = auth.currentUser;
       if (!currentUser) throw new Error("Usuario no autenticado");
 
@@ -186,6 +197,14 @@ export function EventFormDialog({
             <Input {...register("name")} placeholder="Ej: Congreso de Tecnología 2024" />
             {errors.name && (
               <p className="text-sm text-red-500">{errors.name.message}</p>
+            )}
+          </div>
+
+          <div>
+            <Label>Slug (URL amigable)</Label>
+            <Input {...register("slug")} placeholder="Ej: congreso-tecnologia-2024" />
+            {errors.slug && (
+              <p className="text-sm text-red-500">{errors.slug.message}</p>
             )}
           </div>
 

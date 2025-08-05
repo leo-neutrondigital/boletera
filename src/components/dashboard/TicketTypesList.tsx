@@ -6,6 +6,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { TicketTypeFormDialog } from "./TicketTypeFormDialog";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { Can } from "@/components/auth/Can";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatPrice } from "@/lib/utils/currency";
@@ -103,7 +104,7 @@ export function TicketTypesList({
     const saleStart = ticketType.sale_start;
     const saleEnd = ticketType.sale_end;
     
-    // 🆕 Si es cortesía, mostrar estado especial
+    // Si es cortesía, mostrar estado especial
     if (ticketType.is_courtesy) {
       return { status: "courtesy", text: "Solo administrador" };
     }
@@ -122,16 +123,20 @@ export function TicketTypesList({
         <DollarSign className="w-12 h-12 mx-auto mb-4 opacity-50" />
         <p className="text-lg mb-2">No hay tipos de boletos creados</p>
         <p className="text-sm mb-4">Crea el primer tipo de boleto para este evento</p>
-        <TicketTypeFormDialog
-          event={event}
-          onSuccess={handleTicketTypeSuccess}
-          trigger={
-            <Button>
-              <DollarSign className="w-4 h-4 mr-2" />
-              Crear primer tipo
-            </Button>
-          }
-        />
+        
+        {/* 🔐 Solo admin y gestor pueden crear el primer tipo */}
+        <Can do="create" on="ticketTypes">
+          <TicketTypeFormDialog
+            event={event}
+            onSuccess={handleTicketTypeSuccess}
+            trigger={
+              <Button>
+                <DollarSign className="w-4 h-4 mr-2" />
+                Crear primer tipo
+              </Button>
+            }
+          />
+        </Can>
       </div>
     );
   }
@@ -143,7 +148,7 @@ export function TicketTypesList({
         const saleStatus = getSaleStatus(ticketType);
         const accessDays = getAccessDaysList(ticketType);
         const currentlyOnSale = isCurrentlyOnSale(ticketType);
-        const isCourtesy = ticketType.is_courtesy; // 🆕 Verificar si es cortesía
+        const isCourtesy = ticketType.is_courtesy;
 
         // Preparar datos para editar
         const ticketTypeToEdit = {
@@ -156,7 +161,7 @@ export function TicketTypesList({
             key={ticketType.id}
             className={`border rounded-lg p-4 transition-all ${
               isCourtesy 
-                ? "bg-amber-50 border-amber-200 hover:shadow-md" // 🆕 Estilo especial para cortesías
+                ? "bg-amber-50 border-amber-200 hover:shadow-md"
                 : currentlyOnSale 
                 ? "bg-white hover:shadow-md" 
                 : "bg-gray-50"
@@ -167,7 +172,6 @@ export function TicketTypesList({
                 {/* Header */}
                 <div className="flex items-center gap-3 mb-2">
                   <div className="flex items-center gap-2">
-                    {/* 🆕 Icono de cortesía */}
                     {isCourtesy && <Gift className="w-5 h-5 text-amber-600" />}
                     <h3 className={`text-lg font-semibold truncate ${isCourtesy ? 'text-amber-800' : ''}`}>
                       {ticketType.name}
@@ -229,7 +233,7 @@ export function TicketTypesList({
                       <span>{formatAccessType(ticketType)}</span>
                     </div>
 
-                    {/* Límite por usuario - 🆕 Solo mostrar si tiene límite */}
+                    {/* Límite por usuario */}
                     {ticketType.limit_per_user && (
                       <div className="flex items-center gap-1">
                         <Users className="w-4 h-4" />
@@ -257,7 +261,7 @@ export function TicketTypesList({
                     </div>
                   )}
 
-                  {/* 🆕 Nota especial para cortesías */}
+                  {/* Nota especial para cortesías */}
                   {isCourtesy && (
                     <div className="flex items-center gap-1 text-amber-700 bg-amber-100 p-2 rounded text-xs">
                       <Gift className="w-3 h-3" />
@@ -269,34 +273,40 @@ export function TicketTypesList({
 
               {/* Acciones */}
               <div className="flex gap-2 ml-4 flex-shrink-0">
-                <TicketTypeFormDialog
-                  event={event}
-                  ticketTypeToEdit={ticketTypeToEdit}
-                  onSuccess={handleTicketTypeSuccess}
-                  trigger={
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                  }
-                />
+                {/* 🔐 Botón Editar - Admin y gestor */}
+                <Can do="update" on="ticketTypes">
+                  <TicketTypeFormDialog
+                    event={event}
+                    ticketTypeToEdit={ticketTypeToEdit}
+                    onSuccess={handleTicketTypeSuccess}
+                    trigger={
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    }
+                  />
+                </Can>
 
-                <ConfirmDialog
-                  trigger={
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 p-0 text-red-600 hover:text-red-800"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  }
-                  title="¿Eliminar tipo de boleto?"
-                  description={`¿Estás seguro de que quieres eliminar "${ticketType.name}"? Esta acción no se puede deshacer.`}
-                  onConfirm={() => handleDelete(ticketType.id)}
-                  confirmText="Eliminar"
-                  cancelText="Cancelar"
-                  destructive
-                />
+                {/* 🔐 Botón Eliminar - Solo admin */}
+                <Can do="delete" on="ticketTypes">
+                  <ConfirmDialog
+                    trigger={
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 text-red-600 hover:text-red-800"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    }
+                    title="¿Eliminar tipo de boleto?"
+                    description={`¿Estás seguro de que quieres eliminar "${ticketType.name}"? Esta acción no se puede deshacer.`}
+                    onConfirm={() => handleDelete(ticketType.id)}
+                    confirmText="Eliminar"
+                    cancelText="Cancelar"
+                    destructive
+                  />
+                </Can>
               </div>
             </div>
           </div>

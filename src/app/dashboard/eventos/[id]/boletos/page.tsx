@@ -2,7 +2,6 @@
 import { notFound } from "next/navigation";
 import { adminDb } from "@/lib/firebase/admin";
 import { TicketTypesPageClient } from "./ticket-types-page-client";
-import { RoleGuard } from "@/components/auth/RoleGuard";
 import type { Event, TicketType } from "@/types";
 
 async function getEventWithTicketTypes(eventId: string): Promise<{ event: Event; ticketTypes: TicketType[] } | null> {
@@ -25,11 +24,11 @@ async function getEventWithTicketTypes(eventId: string): Promise<{ event: Event;
       updated_at: eventData!.updated_at?.toDate() ?? (eventData!.updated_at ? new Date(eventData!.updated_at) : undefined),
     };
 
-    // Obtener tipos de boletos (SIN orderBy por ahora para evitar error de índice)
+    // Obtener tipos de boletos
     const ticketTypesSnapshot = await adminDb
       .collection("ticket_types")
       .where("event_id", "==", eventId)
-      .get(); // Removemos .orderBy("sort_order", "asc") temporalmente
+      .get();
 
     const ticketTypes: TicketType[] = ticketTypesSnapshot.docs.map(doc => {
       const data = doc.data();
@@ -54,10 +53,8 @@ async function getEventWithTicketTypes(eventId: string): Promise<{ event: Event;
         updated_at: data.updated_at?.toDate ? data.updated_at.toDate() : (data.updated_at ? new Date(data.updated_at) : undefined),
       };
     })
-    // Ordenar en memoria por sort_order
     .sort((a, b) => a.sort_order - b.sort_order);
 
-    console.log(`✅ Found ${ticketTypes.length} ticket types for event ${eventId}`);
     return { event, ticketTypes };
   } catch (error) {
     console.error("Error fetching event with ticket types:", error);
@@ -76,9 +73,5 @@ export default async function TicketTypesPage({ params }: PageProps) {
     notFound();
   }
 
-  return (
-    <RoleGuard allowedRoles={["admin", "gestor"]}>
-      <TicketTypesPageClient event={data.event} initialTicketTypes={data.ticketTypes} />
-    </RoleGuard>
-  );
+  return <TicketTypesPageClient event={data.event} initialTicketTypes={data.ticketTypes} />;
 }
