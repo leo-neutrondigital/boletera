@@ -20,12 +20,19 @@ const PROTECTED_ROUTES = {
   '/api/admin/update-user': ['admin'],
   '/api/admin/delete-user': ['admin'],
   
+  // APIs de tickets - requieren autenticación
+  '/api/tickets/user': ['admin', 'gestor', 'comprobador', 'usuario'],
+  '/api/tickets/order': ['admin', 'gestor', 'comprobador', 'usuario'],
+  
   // Rutas de comprobador - Solo lectura
   '/dashboard/validacion': ['admin', 'gestor', 'comprobador'],
   '/api/comprobador': ['admin', 'gestor', 'comprobador'],
   
   // Dashboard general - Todos los roles autenticados
   '/dashboard': ['admin', 'gestor', 'comprobador', 'usuario'],
+  
+  // Rutas de usuario autenticado
+  '/my-tickets': ['admin', 'gestor', 'comprobador', 'usuario'],
 } as const;
 
 // Rutas públicas que no requieren autenticación

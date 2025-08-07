@@ -43,23 +43,25 @@ export async function getPublicEventBySlug(slug: string): Promise<Event | null> 
   }
 }
 
-// ✅ Obtener tipos de boletos públicos para un evento
+// ✅ Obtener tipos de boletos públicos para un evento (SIMPLIFICADO)
 export async function getPublicTicketTypesForEvent(eventId: string): Promise<TicketType[]> {
   try {
+    console.log('🎫 Fetching ticket types for event:', eventId);
+    
+    // Consulta simplificada sin orderBy múltiples para evitar problemas de índices
     const q = query(
       collection(db, 'ticket_types'),
       where('event_id', '==', eventId),
-      where('is_active', '==', true),
-      where('is_courtesy', '!=', true), // Excluir cortesías
-      orderBy('is_courtesy'),
-      orderBy('sort_order'),
-      orderBy('price')
+      where('is_active', '==', true)
     );
     
     const snapshot = await getDocs(q);
+    console.log('📊 Found ticket types:', snapshot.docs.length);
     
-    return snapshot.docs.map(doc => {
+    const ticketTypes = snapshot.docs.map(doc => {
       const data = doc.data();
+      console.log('🎯 Processing ticket type:', { id: doc.id, name: data.name, is_courtesy: data.is_courtesy });
+      
       return {
         id: doc.id,
         ...data,
@@ -70,8 +72,23 @@ export async function getPublicTicketTypesForEvent(eventId: string): Promise<Tic
         available_days: data.available_days?.map((d: any) => d.toDate()) || [],
       } as TicketType;
     });
+    
+    // Filtrar cortesías y ordenar en JavaScript
+    const publicTicketTypes = ticketTypes
+      .filter(tt => !tt.is_courtesy) // Excluir cortesías
+      .sort((a, b) => {
+        // Ordenar por sort_order, luego por precio
+        if (a.sort_order !== b.sort_order) {
+          return (a.sort_order || 999) - (b.sort_order || 999);
+        }
+        return a.price - b.price;
+      });
+    
+    console.log('✅ Public ticket types after filtering:', publicTicketTypes.length);
+    
+    return publicTicketTypes;
   } catch (error) {
-    console.error('Error fetching public ticket types:', error);
+    console.error('❌ Error fetching public ticket types:', error);
     throw error;
   }
 }

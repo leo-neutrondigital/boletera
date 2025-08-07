@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useCart } from '@/contexts/CartContext';
-import { useAuthContext } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { formatCurrency } from '@/lib/utils/currency';
 
 interface CartDrawerProps {
@@ -17,7 +17,7 @@ interface CartDrawerProps {
 
 export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
   const router = useRouter();
-  const { user } = useAuthContext();
+  const { user } = useAuth();
   const { 
     items, 
     totalAmount, 

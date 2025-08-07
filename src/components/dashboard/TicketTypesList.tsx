@@ -9,7 +9,7 @@ import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { Can } from "@/components/auth/Can";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { formatPrice } from "@/lib/utils/currency";
+import { formatCurrency } from "@/lib/utils/currency"; // ✅ CORREGIDO
 import type { Event, TicketType } from "@/types";
 
 interface TicketTypesListProps {
@@ -217,7 +217,7 @@ export function TicketTypesList({
                 <div className={`text-2xl font-bold mb-2 ${
                   isCourtesy ? 'text-amber-600' : 'text-green-600'
                 }`}>
-                  {isCourtesy ? "GRATIS" : formatPrice(ticketType.price, ticketType.currency)}
+                  {isCourtesy ? "GRATIS" : formatCurrency(ticketType.price, ticketType.currency)}
                 </div>
 
                 {/* Información detallada */}

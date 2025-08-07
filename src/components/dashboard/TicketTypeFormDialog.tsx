@@ -23,11 +23,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import { useState, useEffect } from "react";
 import { auth } from "@/lib/firebase/client";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, DollarSign, Users, Clock, Gift } from "lucide-react";
+import { Calendar, DollarSign, Users, Clock, Gift, Eye, FileText, Star } from "lucide-react";
 import { format } from "date-fns";
 import { getEventDays } from "@/lib/utils/event-dates";
 import { formatPriceForInput, CURRENCIES } from "@/lib/utils/currency";
@@ -40,7 +41,6 @@ const ticketTypeSchema = z.object({
   currency: z.enum(["MXN", "USD"]),
   access_type: z.enum(["all_days", "specific_days", "any_single_day"]),
   available_days: z.array(z.string()).optional(),
-  // ✅ ARREGLADO: Campos opcionales que pueden ser vacíos
   limit_per_user: z.union([
     z.string().transform(val => val === "" ? null : Number(val)),
     z.number(),
@@ -54,10 +54,13 @@ const ticketTypeSchema = z.object({
   sale_start: z.string().optional(),
   sale_end: z.string().optional(),
   is_active: z.boolean(),
-  // 🆕 NUEVO: Campo para cortesías
   is_courtesy: z.boolean().optional(),
+  
+  // 🆕 Nuevos campos para página pública
+  public_description: z.string().optional(),
+  features: z.array(z.string()).optional(),
+  terms: z.string().optional(),
 }).refine((data) => {
-  // Si es specific_days, debe tener available_days
   if (data.access_type === "specific_days" && (!data.available_days || data.available_days.length === 0)) {
     return false;
   }
@@ -71,7 +74,7 @@ type TicketTypeFormData = z.infer<typeof ticketTypeSchema>;
 
 interface TicketTypeFormDialogProps {
   event: Event;
-  ticketTypeToEdit?: TicketType & { is_courtesy?: boolean }; // Agregar is_courtesy
+  ticketTypeToEdit?: TicketType;
   onSuccess: (ticketType?: TicketType) => void;
   trigger?: React.ReactElement;
 }
@@ -83,6 +86,9 @@ export function TicketTypeFormDialog({
   trigger,
 }: TicketTypeFormDialogProps) {
   const [open, setOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'basic' | 'public' | 'advanced'>('basic');
+  const [features, setFeatures] = useState<string[]>(ticketTypeToEdit?.features || []);
+  const [newFeature, setNewFeature] = useState('');
   const { toast } = useToast();
   const eventDays = getEventDays(event);
 
@@ -103,26 +109,48 @@ export function TicketTypeFormDialog({
       currency: ticketTypeToEdit?.currency ?? "MXN",
       access_type: ticketTypeToEdit?.access_type ?? "all_days",
       available_days: ticketTypeToEdit?.available_days?.map(d => format(d, "yyyy-MM-dd")) ?? [],
-      // ✅ ARREGLADO: Valores por defecto correctos para campos opcionales
       limit_per_user: ticketTypeToEdit?.limit_per_user ?? null,
       total_stock: ticketTypeToEdit?.total_stock ?? null,
       sale_start: ticketTypeToEdit?.sale_start ? format(ticketTypeToEdit.sale_start, "yyyy-MM-dd'T'HH:mm") : "",
       sale_end: ticketTypeToEdit?.sale_end ? format(ticketTypeToEdit.sale_end, "yyyy-MM-dd'T'HH:mm") : "",
       is_active: ticketTypeToEdit?.is_active ?? true,
-      is_courtesy: ticketTypeToEdit?.is_courtesy ?? false, // 🆕 Campo cortesía
+      is_courtesy: ticketTypeToEdit?.is_courtesy ?? false,
+      
+      // 🆕 Nuevos campos
+      public_description: ticketTypeToEdit?.public_description ?? "",
+      features: ticketTypeToEdit?.features ?? [],
+      terms: ticketTypeToEdit?.terms ?? "",
     },
   });
 
   const watchAccessType = watch("access_type");
   const watchAvailableDays = watch("available_days");
-  const watchIsCourtesy = watch("is_courtesy"); // 🆕 Observar campo cortesía
+  const watchIsCourtesy = watch("is_courtesy");
+  const watchPrice = watch("price");
+  const watchCurrency = watch("currency");
 
-  // 🆕 Auto-configurar precio a 0 si es cortesía
+  // Auto-configurar precio a 0 si es cortesía
   useEffect(() => {
     if (watchIsCourtesy) {
       setValue("price", 0);
     }
   }, [watchIsCourtesy, setValue]);
+
+  // Manejar características
+  const addFeature = () => {
+    if (newFeature.trim() && !features.includes(newFeature.trim())) {
+      const updatedFeatures = [...features, newFeature.trim()];
+      setFeatures(updatedFeatures);
+      setValue("features", updatedFeatures);
+      setNewFeature('');
+    }
+  };
+
+  const removeFeature = (index: number) => {
+    const updatedFeatures = features.filter((_, i) => i !== index);
+    setFeatures(updatedFeatures);
+    setValue("features", updatedFeatures);
+  };
 
   const onSubmit = async (data: TicketTypeFormData) => {
     try {
@@ -135,20 +163,18 @@ export function TicketTypeFormDialog({
         event_id: event.id,
         ...data,
         available_days: data.access_type === "specific_days" ? data.available_days : null,
-        // ✅ ARREGLADO: Enviar null explícitamente para campos vacíos
         limit_per_user: data.limit_per_user || null,
         total_stock: data.total_stock || null,
         sale_start: data.sale_start || null,
         sale_end: data.sale_end || null,
-        is_courtesy: data.is_courtesy || false, // 🆕 Campo cortesía
+        is_courtesy: data.is_courtesy || false,
+        features: features,
       };
 
       const url = ticketTypeToEdit 
         ? `/api/admin/ticket-types/${ticketTypeToEdit.id}` 
         : "/api/admin/ticket-types";
       const method = ticketTypeToEdit ? "PUT" : "POST";
-
-      console.log(`📤 ${method} ${url}:`, payload);
 
       const res = await fetch(url, {
         method,
@@ -184,9 +210,15 @@ export function TicketTypeFormDialog({
         is_active: data.is_active,
         sale_start: data.sale_start ? new Date(data.sale_start) : undefined,
         sale_end: data.sale_end ? new Date(data.sale_end) : undefined,
+        is_courtesy: data.is_courtesy || false,
         sort_order: ticketTypeToEdit?.sort_order || 1,
         created_at: ticketTypeToEdit?.created_at || new Date(),
         updated_at: new Date(),
+        
+        // 🆕 Nuevos campos
+        public_description: data.public_description || "",
+        features: features,
+        terms: data.terms || "",
       };
 
       const isCourtesy = data.is_courtesy ? " (Cortesía)" : "";
@@ -197,6 +229,9 @@ export function TicketTypeFormDialog({
 
       setOpen(false);
       reset();
+      setActiveTab('basic');
+      setFeatures([]);
+      setNewFeature('');
       onSuccess(ticketTypeData);
     } catch (error: unknown) {
       console.error("Error al guardar tipo de boleto:", error);
@@ -218,78 +253,150 @@ export function TicketTypeFormDialog({
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <DollarSign className="w-5 h-5" />
             {ticketTypeToEdit ? "Editar tipo de boleto" : "Crear tipo de boleto"}
+            {watchPrice > 0 && (
+              <Badge className="ml-2">
+                {formatPriceForInput(watchPrice)} {watchCurrency}
+              </Badge>
+            )}
+            {watchIsCourtesy && (
+              <Badge variant="secondary" className="bg-amber-100 text-amber-800">
+                <Gift className="h-3 w-3 mr-1" />
+                Cortesía
+              </Badge>
+            )}
           </DialogTitle>
         </DialogHeader>
+
+        {/* Tabs de navegación */}
+        <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
+          <button
+            type="button"
+            onClick={() => setActiveTab('basic')}
+            className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+              activeTab === 'basic' 
+                ? 'bg-white text-gray-900 shadow-sm' 
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            Información básica
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('public')}
+            className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+              activeTab === 'public' 
+                ? 'bg-white text-gray-900 shadow-sm' 
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            Página pública
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('advanced')}
+            className={`flex-1 px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+              activeTab === 'advanced' 
+                ? 'bg-white text-gray-900 shadow-sm' 
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            Configuración avanzada
+          </button>
+        </div>
         
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          {/* Información básica */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-medium text-muted-foreground">Información básica</h3>
-            
-            <div>
-              <Label>Nombre del tipo</Label>
-              <Input {...register("name")} placeholder="Ej: General, VIP, Estudiante" />
-              {errors.name && (
-                <p className="text-sm text-red-500">{errors.name.message}</p>
-              )}
-            </div>
-
-            <div>
-              <Label>Descripción</Label>
-              <Textarea 
-                {...register("description")} 
-                placeholder="Descripción que verán los usuarios..."
-                rows={2}
-              />
-            </div>
-
-            {/* 🆕 Campo cortesía */}
-            <div className="flex items-center space-x-2 p-3 bg-amber-50 rounded-lg border border-amber-200">
-              <Gift className="w-4 h-4 text-amber-600" />
-              <Controller
-                name="is_courtesy"
-                control={control}
-                render={({ field }) => (
-                  <Switch
-                    id="is_courtesy"
-                    checked={field.value}
-                    onCheckedChange={field.onChange}
-                  />
-                )}
-              />
-              <Label htmlFor="is_courtesy" className="text-amber-800">
-                Es cortesía (precio $0, no visible para usuarios)
-              </Label>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
+          
+          {/* Tab: Información Básica */}
+          {activeTab === 'basic' && (
+            <div className="space-y-4">
               <div>
-                <Label>Precio</Label>
-                <Input 
-                  type="number" 
-                  step="0.01" 
-                  min="0"
-                  {...register("price")} 
-                  placeholder="0.00"
-                  disabled={watchIsCourtesy} // 🆕 Deshabilitado si es cortesía
-                  className={watchIsCourtesy ? "bg-gray-100" : ""}
-                />
-                {errors.price && (
-                  <p className="text-sm text-red-500">{errors.price.message}</p>
-                )}
-                {watchIsCourtesy && (
-                  <p className="text-xs text-amber-600 mt-1">Precio fijo $0 para cortesías</p>
+                <Label>Nombre del tipo *</Label>
+                <Input {...register("name")} placeholder="Ej: General, VIP, Estudiante" />
+                {errors.name && (
+                  <p className="text-sm text-red-500">{errors.name.message}</p>
                 )}
               </div>
+
               <div>
-                <Label>Moneda</Label>
+                <Label>Descripción interna</Label>
+                <Textarea 
+                  {...register("description")} 
+                  placeholder="Descripción para uso interno del equipo..."
+                  rows={2}
+                />
+                <p className="text-xs text-gray-500 mt-1">Solo visible para administradores</p>
+              </div>
+
+              <div className="flex items-center space-x-2 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                <Gift className="w-4 h-4 text-amber-600" />
                 <Controller
-                  name="currency"
+                  name="is_courtesy"
+                  control={control}
+                  render={({ field }) => (
+                    <Switch
+                      id="is_courtesy"
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  )}
+                />
+                <Label htmlFor="is_courtesy" className="text-amber-800">
+                  Es cortesía (precio $0, no visible en página pública)
+                </Label>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Precio *</Label>
+                  <Input 
+                    type="number" 
+                    step="0.01" 
+                    min="0"
+                    {...register("price")} 
+                    placeholder="0.00"
+                    disabled={watchIsCourtesy}
+                    className={watchIsCourtesy ? "bg-gray-100" : ""}
+                  />
+                  {errors.price && (
+                    <p className="text-sm text-red-500">{errors.price.message}</p>
+                  )}
+                  {watchIsCourtesy && (
+                    <p className="text-xs text-amber-600 mt-1">Precio fijo $0 para cortesías</p>
+                  )}
+                </div>
+                <div>
+                  <Label>Moneda</Label>
+                  <Controller
+                    name="currency"
+                    control={control}
+                    render={({ field }) => (
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="MXN">MXN - {CURRENCIES.MXN.name}</SelectItem>
+                          <SelectItem value="USD">USD - {CURRENCIES.USD.name}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </div>
+              </div>
+
+              {/* Control de acceso */}
+              <div className="space-y-3">
+                <Label className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4" />
+                  Tipo de acceso
+                </Label>
+                <Controller
+                  name="access_type"
                   control={control}
                   render={({ field }) => (
                     <Select value={field.value} onValueChange={field.onChange}>
@@ -297,158 +404,235 @@ export function TicketTypeFormDialog({
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="MXN">MXN - {CURRENCIES.MXN.name}</SelectItem>
-                        <SelectItem value="USD">USD - {CURRENCIES.USD.name}</SelectItem>
+                        <SelectItem value="all_days">Todos los días del evento</SelectItem>
+                        <SelectItem value="specific_days">Días específicos</SelectItem>
+                        <SelectItem value="any_single_day">Un día a elegir por el usuario</SelectItem>
                       </SelectContent>
                     </Select>
                   )}
                 />
-              </div>
-            </div>
-          </div>
 
-          {/* Control de acceso */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Calendar className="w-4 h-4" />
-              Control de acceso
-            </h3>
-            
-            <Controller
-              name="access_type"
-              control={control}
-              render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all_days">Todos los días del evento</SelectItem>
-                    <SelectItem value="specific_days">Días específicos</SelectItem>
-                    <SelectItem value="any_single_day">Un día a elegir por el usuario</SelectItem>
-                  </SelectContent>
-                </Select>
-              )}
-            />
-
-            {watchAccessType === "specific_days" && (
-              <div>
-                <Label>Días disponibles</Label>
-                <div className="grid grid-cols-2 gap-2 mt-2">
-                  {eventDays.map((day, index) => (
-                    <div key={index} className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id={`day-${index}`}
-                        value={format(day, "yyyy-MM-dd")}
-                        checked={watchAvailableDays?.includes(format(day, "yyyy-MM-dd")) || false}
-                        onChange={(e) => {
-                          const dayStr = e.target.value;
-                          const current = watchAvailableDays || [];
-                          if (e.target.checked) {
-                            setValue("available_days", [...current, dayStr]);
-                          } else {
-                            setValue("available_days", current.filter(d => d !== dayStr));
-                          }
-                        }}
-                        className="rounded border-gray-300"
-                      />
-                      <Label htmlFor={`day-${index}`} className="text-sm">
-                        {format(day, "dd MMM yyyy")}
-                      </Label>
+                {watchAccessType === "specific_days" && (
+                  <div>
+                    <Label>Días disponibles</Label>
+                    <div className="grid grid-cols-2 gap-2 mt-2">
+                      {eventDays.map((day, index) => (
+                        <div key={index} className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id={`day-${index}`}
+                            value={format(day, "yyyy-MM-dd")}
+                            checked={watchAvailableDays?.includes(format(day, "yyyy-MM-dd")) || false}
+                            onChange={(e) => {
+                              const dayStr = e.target.value;
+                              const current = watchAvailableDays || [];
+                              if (e.target.checked) {
+                                setValue("available_days", [...current, dayStr]);
+                              } else {
+                                setValue("available_days", current.filter(d => d !== dayStr));
+                              }
+                            }}
+                            className="rounded border-gray-300"
+                          />
+                          <Label htmlFor={`day-${index}`} className="text-sm">
+                            {format(day, "dd MMM yyyy")}
+                          </Label>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-                {errors.available_days && (
-                  <p className="text-sm text-red-500">{errors.available_days.message}</p>
+                    {errors.available_days && (
+                      <p className="text-sm text-red-500">{errors.available_days.message}</p>
+                    )}
+                  </div>
                 )}
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
-          {/* Límites y stock */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Users className="w-4 h-4" />
-              Límites y stock
-            </h3>
-            
-            <div className="grid grid-cols-2 gap-4">
+          {/* Tab: Página Pública */}
+          {activeTab === 'public' && (
+            <div className="space-y-4">
               <div>
-                <Label>Límite por usuario</Label>
-                <Input 
-                  type="number" 
-                  min="1"
-                  {...register("limit_per_user")} 
-                  placeholder="Sin límite"
+                <Label className="flex items-center gap-2">
+                  <Eye className="w-4 h-4" />
+                  Descripción pública
+                </Label>
+                <Textarea 
+                  {...register("public_description")} 
+                  placeholder="Descripción detallada que verán los compradores. Incluye beneficios, accesos especiales, etc."
+                  rows={4}
                 />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Dejar vacío = sin límite
-                </p>
+                <p className="text-xs text-gray-500 mt-1">Esta descripción aparecerá en la página del evento</p>
               </div>
+
               <div>
-                <Label>Stock total</Label>
-                <Input 
-                  type="number" 
-                  min="1"
-                  {...register("total_stock")} 
-                  placeholder="Ilimitado"
+                <Label className="flex items-center gap-2">
+                  <Star className="w-4 h-4" />
+                  Características incluidas
+                </Label>
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <Input
+                      value={newFeature}
+                      onChange={(e) => setNewFeature(e.target.value)}
+                      placeholder="Ej: Acceso VIP, Bebida incluida, Parking gratuito"
+                      onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addFeature())}
+                    />
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={addFeature}
+                      disabled={!newFeature.trim()}
+                    >
+                      Agregar
+                    </Button>
+                  </div>
+                  
+                  {features.length > 0 && (
+                    <div className="space-y-1">
+                      {features.map((feature, index) => (
+                        <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
+                          <span className="text-sm">{feature}</span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeFeature(index)}
+                            className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                          >
+                            ×
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-xs text-gray-500">Las características aparecerán como lista de beneficios</p>
+                </div>
+              </div>
+
+              <div>
+                <Label className="flex items-center gap-2">
+                  <FileText className="w-4 h-4" />
+                  Términos específicos
+                </Label>
+                <Textarea 
+                  {...register("terms")} 
+                  placeholder="Condiciones específicas para este tipo de boleto (ej: No reembolsable, Válido solo con ID, etc.)"
+                  rows={3}
                 />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Dejar vacío = ilimitado
-                </p>
+                <p className="text-xs text-gray-500 mt-1">Términos que aparecerán junto al boleto</p>
               </div>
             </div>
-          </div>
+          )}
 
-          {/* Programación de ventas */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Clock className="w-4 h-4" />
-              Programación de ventas
-            </h3>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Inicio de ventas</Label>
-                <Input 
-                  type="datetime-local"
-                  {...register("sale_start")} 
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Vacío = disponible inmediatamente
-                </p>
+          {/* Tab: Configuración Avanzada */}
+          {activeTab === 'advanced' && (
+            <div className="space-y-4">
+              {/* Límites y stock */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <Users className="w-4 h-4" />
+                  Límites y stock
+                </h3>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Límite por usuario</Label>
+                    <Input 
+                      type="number" 
+                      min="1"
+                      {...register("limit_per_user")} 
+                      placeholder="Sin límite"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Máximo que puede comprar cada usuario
+                    </p>
+                  </div>
+                  <div>
+                    <Label>Stock total</Label>
+                    <Input 
+                      type="number" 
+                      min="1"
+                      {...register("total_stock")} 
+                      placeholder="Ilimitado"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Total de boletos disponibles
+                    </p>
+                  </div>
+                </div>
               </div>
-              <div>
-                <Label>Fin de ventas</Label>
-                <Input 
-                  type="datetime-local"
-                  {...register("sale_end")} 
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Vacío = disponible hasta el evento
-                </p>
-              </div>
-            </div>
-          </div>
 
-          {/* Estado */}
-          <div className="flex items-center space-x-2">
-            <Controller
-              name="is_active"
-              control={control}
-              render={({ field }) => (
-                <Switch
-                  id="is_active"
-                  checked={field.value}
-                  onCheckedChange={field.onChange}
+              {/* Programación de ventas */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <Clock className="w-4 h-4" />
+                  Programación de ventas
+                </h3>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Inicio de ventas</Label>
+                    <Input 
+                      type="datetime-local"
+                      {...register("sale_start")} 
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Cuándo estará disponible para compra
+                    </p>
+                  </div>
+                  <div>
+                    <Label>Fin de ventas</Label>
+                    <Input 
+                      type="datetime-local"
+                      {...register("sale_end")} 
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Cuándo dejará de estar disponible
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Estado */}
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <Eye className="w-5 h-5 text-green-500" />
+                  <div>
+                    <Label className="text-base font-medium">Activar tipo de boleto</Label>
+                    <p className="text-sm text-gray-600">El boleto estará disponible para venta</p>
+                  </div>
+                </div>
+                <Controller
+                  name="is_active"
+                  control={control}
+                  render={({ field }) => (
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  )}
                 />
+              </div>
+
+              {!watch("is_active") && (
+                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                  <p className="text-sm text-yellow-800">
+                    <strong>Tipo desactivado:</strong> No aparecerá en la página pública hasta que lo actives.
+                  </p>
+                </div>
               )}
-            />
-            <Label htmlFor="is_active">Activar inmediatamente</Label>
-          </div>
+            </div>
+          )}
 
-          <DialogFooter>
+          <DialogFooter className="flex gap-2">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => setOpen(false)}
+            >
+              Cancelar
+            </Button>
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? "Guardando..." : ticketTypeToEdit ? "Guardar cambios" : "Crear tipo"}
             </Button>

@@ -1,82 +1,134 @@
-// src/lib/utils/currency.ts
+/**
+ * Utilidades para formateo de monedas y precios
+ */
 
-export const CURRENCIES = {
-  MXN: { symbol: "$", name: "Peso Mexicano" },
-  USD: { symbol: "$", name: "Dólar Americano" },
+const CURRENCY_SYMBOLS = {
+  MXN: '$',
+  USD: '$',
+  EUR: '€',
+  GBP: '£',
 } as const;
 
+const CURRENCY_NAMES = {
+  MXN: 'Peso Mexicano',
+  USD: 'Dólar Estadounidense', 
+  EUR: 'Euro',
+  GBP: 'Libra Esterlina',
+} as const;
+
+// Export para compatibilidad con el formulario
+export const CURRENCIES = {
+  MXN: { name: 'Peso Mexicano', symbol: '$' },
+  USD: { name: 'Dólar Estadounidense', symbol: '$' },
+  EUR: { name: 'Euro', symbol: '€' },
+  GBP: { name: 'Libra Esterlina', symbol: '£' },
+} as const;
+
+export type Currency = keyof typeof CURRENCY_SYMBOLS;
+
 /**
- * Formatea un precio con su moneda
+ * Formatea un precio con símbolo de moneda
+ * @param amount - Cantidad numérica
+ * @param currency - Código de moneda (MXN, USD, etc.)
+ * @param showDecimals - Si mostrar decimales (default: true)
+ * @returns String formateado como "$1,234.56"
  */
-export function formatPrice(amount: number, currency: "MXN" | "USD"): string {
-  const formatter = new Intl.NumberFormat("es-MX", {
-    style: "currency",
-    currency: currency,
-    minimumFractionDigits: 2,
-  });
+export function formatCurrency(
+  amount: number | string, 
+  currency: Currency = 'MXN',
+  showDecimals: boolean = true
+): string {
+  // Convertir a número si es string
+  const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
   
-  return formatter.format(amount);
+  // Validar que sea un número válido
+  if (isNaN(numAmount) || numAmount == null) {
+    return `${CURRENCY_SYMBOLS[currency]}0${showDecimals ? '.00' : ''}`;
+  }
+
+  const symbol = CURRENCY_SYMBOLS[currency] || '$';
+  const options: Intl.NumberFormatOptions = {
+    minimumFractionDigits: showDecimals ? 2 : 0,
+    maximumFractionDigits: showDecimals ? 2 : 0,
+  };
+
+  const formatted = numAmount.toLocaleString('es-MX', options);
+  return `${symbol}${formatted}`;
 }
 
 /**
- * Alias para formatPrice (para compatibilidad)
+ * Formatea precio para inputs de formulario (sin símbolo)
+ * @param price - Precio como número o string
+ * @returns String con 2 decimales como "1234.56"
  */
-export function formatCurrency(amount: number, currency: "MXN" | "USD"): string {
-  return formatPrice(amount, currency);
+export function formatPriceForInput(price: number | string): string {
+  // Convertir a número si es string
+  const numPrice = typeof price === 'string' ? parseFloat(price) : price;
+  
+  // Validar que sea un número válido
+  if (isNaN(numPrice) || numPrice == null) {
+    return '0.00';
+  }
+  
+  return numPrice.toFixed(2);
 }
 
 /**
  * Parsea un string de precio a número
+ * @param priceString - String como "1234.56" o "$1,234.56"
+ * @returns Número parseado o 0 si es inválido
  */
-export function parsePrice(priceStr: string): number {
-  return parseFloat(priceStr.replace(/[^0-9.-]+/g, "")) || 0;
+export function parsePriceFromString(priceString: string): number {
+  if (!priceString || typeof priceString !== 'string') {
+    return 0;
+  }
+
+  // Remover símbolos de moneda y espacios
+  const cleanString = priceString
+    .replace(/[$€£,\s]/g, '') // Remover símbolos comunes y espacios
+    .trim();
+
+  const parsed = parseFloat(cleanString);
+  return isNaN(parsed) ? 0 : parsed;
 }
 
 /**
- * Valida que un precio sea válido
+ * Obtiene el símbolo de una moneda
  */
-export function isValidPrice(price: number): boolean {
-  return !isNaN(price) && price >= 0 && isFinite(price);
+export function getCurrencySymbol(currency: Currency): string {
+  return CURRENCY_SYMBOLS[currency] || '$';
 }
 
 /**
- * Formatea precio para mostrar en inputs
+ * Obtiene el nombre completo de una moneda
  */
-export function formatPriceForInput(price: number): string {
-  return price.toFixed(2);
+export function getCurrencyName(currency: Currency): string {
+  return CURRENCY_NAMES[currency] || 'Moneda Desconocida';
 }
 
 /**
- * Convierte entre monedas (placeholder para futura implementación)
+ * Valida si un string es un precio válido
  */
-export function convertCurrency(
-  amount: number, 
-  fromCurrency: "MXN" | "USD", 
-  toCurrency: "MXN" | "USD",
-  exchangeRate?: number
-): number {
-  if (fromCurrency === toCurrency) return amount;
+export function isValidPrice(priceString: string): boolean {
+  const parsed = parsePriceFromString(priceString);
+  return parsed >= 0 && !isNaN(parsed);
+}
+
+/**
+ * Formatea para mostrar rangos de precios
+ * @param minPrice - Precio mínimo
+ * @param maxPrice - Precio máximo 
+ * @param currency - Moneda
+ * @returns String como "Desde $500" o "$500 - $1,200"
+ */
+export function formatPriceRange(
+  minPrice: number,
+  maxPrice?: number,
+  currency: Currency = 'MXN'
+): string {
+  if (!maxPrice || minPrice === maxPrice) {
+    return formatCurrency(minPrice, currency);
+  }
   
-  // Por ahora usar tasa fija (en producción, usar API de cambio)
-  const defaultRate = fromCurrency === "USD" ? 18 : 1/18;
-  const rate = exchangeRate || defaultRate;
-  
-  return amount * rate;
-}
-
-/**
- * Obtiene el símbolo de la moneda
- */
-export function getCurrencySymbol(currency: "MXN" | "USD"): string {
-  return CURRENCIES[currency].symbol;
-}
-
-/**
- * Formatea cantidad sin símbolo de moneda
- */
-export function formatAmount(amount: number): string {
-  return new Intl.NumberFormat("es-MX", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount);
+  return `${formatCurrency(minPrice, currency)} - ${formatCurrency(maxPrice, currency)}`;
 }

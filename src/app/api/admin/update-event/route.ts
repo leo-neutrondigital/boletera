@@ -1,17 +1,28 @@
 import { adminDb } from "@/lib/firebase/admin"
 import { NextResponse } from "next/server"
 import { getAuthFromRequest } from "@/lib/auth/server-auth"
+import { isSlugAvailable } from "@/lib/api/events"
 
 // Tipo para los datos de actualización de evento
 interface EventUpdateData {
   name?: string;
+  slug?: string;
   start_date?: string | Date;
   end_date?: string | Date;
   location?: string;
   description?: string;
   internal_notes?: string;
   published?: boolean;
-  [key: string]: unknown; // Para otros campos que puedan venir
+  
+  // 🆕 Nuevos campos
+  public_description?: string;
+  allow_preregistration?: boolean;
+  preregistration_message?: string;
+  featured_image_url?: string;
+  terms_and_conditions?: string;
+  contact_email?: string;
+  
+  [key: string]: unknown;
 }
 
 export async function PUT(req: Request) {
@@ -42,6 +53,30 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 });
     }
 
+    // Validaciones adicionales
+    if (updateData.contact_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(updateData.contact_email)) {
+      return NextResponse.json({ 
+        error: "Email de contacto inválido" 
+      }, { status: 400 });
+    }
+
+    if (updateData.featured_image_url && updateData.featured_image_url !== "" && 
+        !/^https?:\/\/.+\.(jpg|jpeg|png|gif|webp)$/i.test(updateData.featured_image_url)) {
+      return NextResponse.json({ 
+        error: "URL de imagen inválida. Debe ser una URL válida terminada en jpg, png, gif o webp" 
+      }, { status: 400 });
+    }
+
+    // Validar slug si se está actualizando
+    if (updateData.slug) {
+      const slugAvailable = await isSlugAvailable(updateData.slug, id);
+      if (!slugAvailable) {
+        return NextResponse.json({ 
+          error: `El slug "${updateData.slug}" ya está en uso por otro evento` 
+        }, { status: 400 });
+      }
+    }
+
     // Procesar fechas si están presentes
     const processedData: EventUpdateData = { ...updateData };
     
@@ -69,6 +104,18 @@ export async function PUT(req: Request) {
       }
     }
 
+    // Si se cambia published a true, validar que tenga public_description
+    if (processedData.published === true) {
+      const currentData = eventDoc.data();
+      const finalPublicDescription = processedData.public_description || currentData?.public_description;
+      
+      if (!finalPublicDescription) {
+        return NextResponse.json({ 
+          error: "Para publicar el evento se requiere una descripción pública" 
+        }, { status: 400 });
+      }
+    }
+
     const updatePayload = {
       ...processedData,
       updated_at: new Date(),
@@ -78,7 +125,12 @@ export async function PUT(req: Request) {
     await adminDb.collection("events").doc(id).update(updatePayload);
     console.log("✅ Event updated successfully");
 
-    return NextResponse.json({ success: true, message: "Event updated successfully" });
+    return NextResponse.json({ 
+      success: true, 
+      message: "Event updated successfully",
+      slug: updateData.slug // Retornar el slug para redirección si es necesario
+    });
+    
   } catch (error) {
     console.error("❌ Error updating event:", error)
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })

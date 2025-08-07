@@ -58,12 +58,6 @@ export default function Sidebar() {
   const NavLinks = () => (
     <>
       {links.map((link) => {
-        // Verificar si el enlace es público o si el usuario tiene los roles necesarios
-        const isPublic = link.public;
-        const hasAccess = isPublic || (link.roles && userData?.roles.some(role => link.roles!.includes(role)));
-        
-        if (!hasAccess) return null;
-
         const LinkContent = (
           <Link
             href={link.href}
@@ -79,7 +73,12 @@ export default function Sidebar() {
           </Link>
         );
 
-        // Si tiene roles específicos, usar Can para protección adicional
+        // Si es público, mostrar directamente
+        if (link.public) {
+          return <div key={link.href}>{LinkContent}</div>;
+        }
+
+        // Si tiene roles específicos, usar Can para protección
         if (link.roles) {
           return (
             <Can key={link.href} roles={link.roles}>
@@ -88,8 +87,7 @@ export default function Sidebar() {
           );
         }
 
-        // Si es público, mostrar directamente
-        return <div key={link.href}>{LinkContent}</div>;
+        return null;
       })}
     </>
   );

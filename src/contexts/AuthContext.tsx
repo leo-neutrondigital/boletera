@@ -74,7 +74,6 @@ interface AuthState {
   // Utilidades
   isAuthenticated: boolean;
   hasRole: (role: UserRole) => boolean;
-  hasPermission: (resource: string, action: string) => boolean;
   
   // Acciones
   refreshUserData: () => Promise<void>;
@@ -254,14 +253,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => unsubscribe();
   }, [user?.uid]);
 
-  // Utilidades
+  // Utilidades internas (no expuestas)
   const hasRole = (role: UserRole): boolean => {
     return userData?.roles.includes(role) || false;
-  };
-
-  const hasPermissionUtil = (resource: string, action: string): boolean => {
-    if (!userData?.roles) return false;
-    return hasPermission(userData.roles, resource as any, action);
   };
 
   const value: AuthState = {
@@ -280,7 +274,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Utilidades
     isAuthenticated: !!user && !!userData,
     hasRole,
-    hasPermission: hasPermissionUtil,
     
     // Acciones
     refreshUserData,

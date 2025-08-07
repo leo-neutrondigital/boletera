@@ -2,6 +2,7 @@
 "use client";
 
 import { useAuth } from "@/contexts/AuthContext";
+import { hasPermission } from "@/lib/auth/permissions";
 import type { UserRole } from "@/lib/auth/permissions";
 import type { UserPermissions } from "@/contexts/AuthContext";
 
@@ -43,7 +44,7 @@ export function Can({
   fallback = null,
   invert = false,
 }: CanProps) {
-  const { userData, permissions, hasPermission: hasPermissionFn, hasRole, loading } = useAuth();
+  const { userData, permissions, hasRole, loading } = useAuth();
 
   // No mostrar nada mientras carga
   if (loading) {
@@ -59,7 +60,7 @@ export function Can({
 
   // Verificación por acción específica
   if (action && resource) {
-    hasAccess = hasPermissionFn(resource, action);
+    hasAccess = hasPermission(userData.roles, resource as any, action);
   }
   // Verificación por roles específicos
   else if (roles) {
@@ -105,12 +106,12 @@ export function useCan(
   roles?: UserRole[],
   permission?: keyof UserPermissions
 ) {
-  const { userData, permissions, hasPermission: hasPermissionFn, hasRole } = useAuth();
+  const { userData, permissions, hasRole } = useAuth();
 
   if (!userData || !permissions) return false;
 
   if (action && resource) {
-    return hasPermissionFn(resource, action);
+    return hasPermission(userData.roles, resource as any, action);
   }
   if (roles) {
     return roles.some(r => hasRole(r));

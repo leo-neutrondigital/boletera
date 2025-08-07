@@ -2,11 +2,25 @@ import { notFound } from 'next/navigation';
 import { Metadata } from 'next';
 import { getPublicEventBySlug } from '@/lib/api/events';
 import { EventLandingClient } from './event-landing-client';
+import { EventStatusPage } from './components/EventStatusPage';
 
 interface EventPageProps {
   params: {
     slug: string;
   };
+}
+
+// Calcular estado del evento
+function getEventStatus(event: any) {
+  const now = new Date();
+  const isExpired = event.end_date < now;
+  const isStarted = event.start_date <= now;
+  const isNotPublished = !event.published;
+  
+  if (isNotPublished) return 'not_published';
+  if (isExpired) return 'expired';
+  if (isStarted) return 'in_progress';
+  return 'upcoming';
 }
 
 // Generar metadata dinámicamente
@@ -46,21 +60,26 @@ export default async function EventPage({ params }: EventPageProps) {
     notFound();
   }
 
-  // Verificar que el evento esté disponible para compra
-  const now = new Date();
-  const isEventExpired = event.end_date < now;
-  const isEventNotPublished = !event.published;
+  const eventStatus = getEventStatus(event);
+  
+  console.log('📅 Event status check:', {
+    name: event.name,
+    status: eventStatus,
+    start: event.start_date,
+    end: event.end_date,
+    now: new Date(),
+    published: event.published
+  });
 
-  if (isEventExpired || isEventNotPublished) {
-    notFound();
+  // Solo permitir compras para eventos próximos
+  if (eventStatus === 'upcoming') {
+    return <EventLandingClient event={event} />;
   }
 
-  return <EventLandingClient event={event} />;
+  // Para otros estados, mostrar página informativa
+  return <EventStatusPage event={event} status={eventStatus} />;
 }
 
-// Opcional: Pre-generar páginas estáticas para eventos populares
 export async function generateStaticParams() {
-  // En producción, podrías pre-generar los eventos más populares
-  // Por ahora, dejamos que se generen dinámicamente
   return [];
 }

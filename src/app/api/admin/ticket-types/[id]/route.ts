@@ -31,7 +31,7 @@ export async function PUT(
     delete updateData.event_id; // No permitir cambiar event_id
     delete updateData.sold_count; // No permitir cambiar sold_count manualmente
 
-    // 🆕 Si es cortesía, forzar precio a 0
+    // Si es cortesía, forzar precio a 0
     if (updateData.is_courtesy) {
       updateData.price = 0;
     }
@@ -39,15 +39,21 @@ export async function PUT(
     // Procesar fechas
     if (updateData.sale_start) {
       updateData.sale_start = new Date(updateData.sale_start);
+    } else if (updateData.sale_start === "") {
+      updateData.sale_start = null;
     }
+    
     if (updateData.sale_end) {
       updateData.sale_end = new Date(updateData.sale_end);
+    } else if (updateData.sale_end === "") {
+      updateData.sale_end = null;
     }
+    
     if (updateData.available_days) {
       updateData.available_days = updateData.available_days.map((d: string) => new Date(d));
     }
 
-    // ✅ ARREGLADO: Manejar campos opcionales correctamente
+    // Manejar campos opcionales correctamente
     if (updateData.limit_per_user === "" || updateData.limit_per_user === null) {
       updateData.limit_per_user = null;
     } else if (updateData.limit_per_user !== undefined) {
@@ -59,6 +65,20 @@ export async function PUT(
     } else if (updateData.total_stock !== undefined) {
       updateData.total_stock = Number(updateData.total_stock);
     }
+
+    // Validar features si se proporciona
+    if (updateData.features) {
+      if (!Array.isArray(updateData.features)) {
+        return NextResponse.json({ error: "Features must be an array" }, { status: 400 });
+      }
+      updateData.features = updateData.features.filter(f => f && f.trim());
+    }
+
+    // Limpiar strings
+    if (updateData.name) updateData.name = updateData.name.trim();
+    if (updateData.description) updateData.description = updateData.description.trim();
+    if (updateData.public_description) updateData.public_description = updateData.public_description.trim();
+    if (updateData.terms) updateData.terms = updateData.terms.trim();
 
     // Validaciones
     if (updateData.price !== undefined && (isNaN(updateData.price) || updateData.price < 0)) {
@@ -123,7 +143,7 @@ export async function DELETE(
       }, { status: 400 });
     }
 
-    // TODO: Verificar si hay tickets pendientes en la colección tickets
+    // Verificar si hay tickets pendientes en la colección tickets
     const ticketsSnapshot = await adminDb
       .collection("tickets")
       .where("ticket_type_id", "==", id)

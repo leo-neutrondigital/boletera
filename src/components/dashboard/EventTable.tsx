@@ -1,6 +1,6 @@
 "use client"
 
-import { Edit, Trash2, Calendar, MapPin, Users, Settings } from "lucide-react"
+import { Edit, Trash2, Calendar, MapPin, Users, Settings, Globe, Bell, ExternalLink } from "lucide-react"
 import { format } from "date-fns"
 import { EventFormDialog } from "./EventFormDialog"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
@@ -61,23 +61,11 @@ export default function EventTable({
 
   return (
     <div className="w-full space-y-4">
-      {/* Vista de tarjetas para mejor visualización */}
+      {/* Vista de tarjetas mejorada */}
       <div className="grid gap-4">
         {events.map((event) => {
           const dateInfo = getEventDateInfo(event);
           
-          // Preparar datos para editar
-          const eventToEdit = {
-            id: event.id,
-            name: event.name,
-            start_date: format(new Date(event.start_date), "yyyy-MM-dd"),
-            end_date: format(new Date(event.end_date), "yyyy-MM-dd"),
-            location: event.location,
-            description: event.description || "",
-            internal_notes: event.internal_notes || "",
-            published: event.published,
-          }
-
           return (
             <div 
               key={event.id} 
@@ -86,25 +74,56 @@ export default function EventTable({
               <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0">
                   {/* Header con nombre y badges */}
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-lg font-semibold truncate">{event.name}</h3>
-                    <div className="flex gap-2 flex-shrink-0">
-                      <Badge 
-                        variant={event.published ? "default" : "secondary"}
-                        className={
-                          event.published 
-                            ? "bg-green-100 text-green-800 hover:bg-green-200" 
-                            : "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
-                        }
-                      >
-                        {event.published ? "Publicado" : "Borrador"}
-                      </Badge>
-                      {dateInfo.isMultiDay && (
-                        <Badge variant="outline" className="bg-blue-50 text-blue-700">
-                          {formatEventDuration(dateInfo.duration)}
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <h3 className="text-lg font-semibold truncate">{event.name}</h3>
+                      <div className="flex gap-2 flex-shrink-0">
+                        <Badge 
+                          variant={event.published ? "default" : "secondary"}
+                          className={
+                            event.published 
+                              ? "bg-green-100 text-green-800 hover:bg-green-200" 
+                              : "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
+                          }
+                        >
+                          {event.published ? "Publicado" : "Borrador"}
                         </Badge>
-                      )}
+                        {dateInfo.isMultiDay && (
+                          <Badge variant="outline" className="bg-blue-50 text-blue-700">
+                            {formatEventDuration(dateInfo.duration)}
+                          </Badge>
+                        )}
+                        {event.allow_preregistration && (
+                          <Badge variant="outline" className="bg-purple-50 text-purple-700">
+                            <Bell className="h-3 w-3 mr-1" />
+                            Prerregistro
+                          </Badge>
+                        )}
+                      </div>
                     </div>
+
+                    {/* URL pública si está publicado */}
+                    {event.published && event.slug && (
+                      <div className="ml-4 flex-shrink-0">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-8 px-2 text-xs text-blue-600 hover:text-blue-800"
+                          asChild
+                        >
+                          <a 
+                            href={`/events/${event.slug}`} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1"
+                          >
+                            <Globe className="h-3 w-3" />
+                            Ver público
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        </Button>
+                      </div>
+                    )}
                   </div>
 
                   {/* Información del evento */}
@@ -118,22 +137,57 @@ export default function EventTable({
                         </span>
                       )}
                     </div>
+                    
                     <div className="flex items-center gap-2">
                       <MapPin className="w-4 h-4 flex-shrink-0" />
                       <span>{event.location}</span>
                     </div>
-                    {event.description && (
-                      <div className="flex items-start gap-2">
-                        <Users className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                        <span className="line-clamp-2">{event.description}</span>
+
+                    {/* Slug/URL */}
+                    {event.slug && (
+                      <div className="flex items-center gap-2">
+                        <Globe className="w-4 h-4 flex-shrink-0" />
+                        <code className="text-xs bg-gray-100 px-2 py-1 rounded">
+                          /events/{event.slug}
+                        </code>
                       </div>
                     )}
+
+                    {/* Descripción pública o interna */}
+                    {event.public_description && (
+                      <div className="flex items-start gap-2">
+                        <Users className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                        <span className="line-clamp-2">{event.public_description}</span>
+                      </div>
+                    )}
+
+                    {/* Información adicional en una fila compacta */}
+                    <div className="flex gap-4 text-xs pt-2 border-t">
+                      {event.contact_email && (
+                        <span className="flex items-center gap-1">
+                          <span className="w-2 h-2 bg-blue-400 rounded-full"></span>
+                          Contacto: {event.contact_email}
+                        </span>
+                      )}
+                      {event.featured_image_url && (
+                        <span className="flex items-center gap-1">
+                          <span className="w-2 h-2 bg-green-400 rounded-full"></span>
+                          Con imagen
+                        </span>
+                      )}
+                      {event.terms_and_conditions && (
+                        <span className="flex items-center gap-1">
+                          <span className="w-2 h-2 bg-orange-400 rounded-full"></span>
+                          Con términos
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
 
                 {/* Acciones */}
                 <div className="flex gap-2 ml-4 flex-shrink-0">
-                  {/* 🔐 Botón para gestionar tipos de boletos - Admin y gestor */}
+                  {/* 🔐 Botón para gestionar tipos de boletos */}
                   <Can do="read" on="ticketTypes">
                     <Link href={`/dashboard/eventos/${event.id}/boletos`}>
                       <Button variant="outline" size="sm" className="h-8 px-3 text-xs">
@@ -143,10 +197,10 @@ export default function EventTable({
                     </Link>
                   </Can>
 
-                  {/* 🔐 Botón Editar - Admin y gestor */}
+                  {/* 🔐 Botón Editar */}
                   <Can do="update" on="events">
                     <EventFormDialog 
-                      eventToEdit={eventToEdit}
+                      eventToEdit={event}
                       onSuccess={handleEventSuccess}
                       trigger={
                         <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
@@ -165,7 +219,7 @@ export default function EventTable({
                         </Button>
                       }
                       title="¿Eliminar evento?"
-                      description={`¿Estás seguro de que quieres eliminar "${event.name}"? Esta acción no se puede deshacer.`}
+                      description={`¿Estás seguro de que quieres eliminar "${event.name}"? Esta acción eliminará también todos los boletos asociados y no se puede deshacer.`}
                       onConfirm={() => handleDelete(event.id)}
                       confirmText="Eliminar"
                       cancelText="Cancelar"

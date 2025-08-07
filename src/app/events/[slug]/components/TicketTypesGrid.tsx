@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useCart, useTicketTypeInCart } from '@/contexts/CartContext';
-import { useAuthContext } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext'; // ✅ CORREGIDO
 import { 
   isTicketTypeAvailableForSale, 
   getAvailableStock, 
@@ -51,7 +51,7 @@ interface TicketTypeCardProps {
 }
 
 function TicketTypeCard({ ticketType, event }: TicketTypeCardProps) {
-  const { user } = useAuthContext();
+  const { user } = useAuth(); // ✅ CORREGIDO
   const { addItem } = useCart();
   const { isInCart, quantity: cartQuantity } = useTicketTypeInCart(ticketType.id);
   const [localQuantity, setLocalQuantity] = useState(1);

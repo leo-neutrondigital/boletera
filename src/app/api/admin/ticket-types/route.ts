@@ -29,10 +29,15 @@ export async function POST(req: Request) {
       sale_start,
       sale_end,
       is_active = true,
-      is_courtesy = false // 🆕 Campo cortesía
+      is_courtesy = false,
+      
+      // 🆕 Nuevos campos para página pública
+      public_description,
+      features,
+      terms
     } = body;
 
-    // Validaciones
+    // Validaciones básicas
     if (!event_id || !name || price === undefined || !currency || !access_type) {
       return NextResponse.json({ 
         error: "Missing required fields: event_id, name, price, currency, access_type" 
@@ -47,7 +52,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid access_type" }, { status: 400 });
     }
 
-    // 🆕 Si es cortesía, forzar precio a 0
+    // Validar features si se proporciona
+    if (features && !Array.isArray(features)) {
+      return NextResponse.json({ error: "Features must be an array" }, { status: 400 });
+    }
+
+    // Si es cortesía, forzar precio a 0
     const finalPrice = is_courtesy ? 0 : Number(price);
 
     // Verificar que el evento existe
@@ -60,7 +70,7 @@ export async function POST(req: Request) {
     const ticketTypesSnapshot = await adminDb
       .collection("ticket_types")
       .where("event_id", "==", event_id)
-      .get(); // Sin orderBy para evitar error de índice
+      .get();
     
     const nextSortOrder = ticketTypesSnapshot.empty ? 1 : 
       Math.max(...ticketTypesSnapshot.docs.map(doc => doc.data().sort_order || 0)) + 1;
@@ -73,16 +83,22 @@ export async function POST(req: Request) {
       currency,
       access_type,
       available_days: available_days ? available_days.map((d: string) => new Date(d)) : null,
-      // ✅ ARREGLADO: Manejar valores null correctamente
       limit_per_user: limit_per_user || null,
       total_stock: total_stock || null,
       sold_count: 0,
       is_active: Boolean(is_active),
       sale_start: sale_start ? new Date(sale_start) : null,
       sale_end: sale_end ? new Date(sale_end) : null,
-      is_courtesy: Boolean(is_courtesy), // 🆕 Campo cortesía
+      is_courtesy: Boolean(is_courtesy),
       sort_order: nextSortOrder,
+      
+      // 🆕 Nuevos campos
+      public_description: public_description?.trim() || "",
+      features: Array.isArray(features) ? features.filter(f => f.trim()) : [],
+      terms: terms?.trim() || "",
+      
       created_at: new Date(),
+      updated_at: new Date(),
     };
 
     console.log("💾 Creating ticket type:", newTicketType);
