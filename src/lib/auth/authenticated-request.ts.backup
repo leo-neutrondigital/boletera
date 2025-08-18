@@ -1,0 +1,49 @@
+// Utility for making authenticated requests to our API
+export async function authenticatedPost(url: string, data?: any): Promise<Response> {
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: data ? JSON.stringify(data) : undefined,
+    });
+
+    return response;
+  } catch (error) {
+    console.error('Error in authenticated request:', error);
+    throw error;
+  }
+}
+
+export async function authenticatedGet(url: string): Promise<Response> {
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    return response;
+  } catch (error) {
+    console.error('Error in authenticated request:', error);
+    throw error;
+  }
+}
+
+export async function authenticatedDelete(url: string): Promise<Response> {
+  try {
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    return response;
+  } catch (error) {
+    console.error('Error in authenticated request:', error);
+    throw error;
+  }
+}

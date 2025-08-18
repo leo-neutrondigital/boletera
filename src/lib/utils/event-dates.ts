@@ -79,6 +79,36 @@ export function formatEventDuration(duration: number): string {
 }
 
 /**
+ * Formatea las fechas del evento para mostrar en emails y PDFs
+ * Función compatible con el template de email
+ */
+export function formatEventDates(startDate: Date, endDate: Date): string {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  
+  const isMultiDay = !isSameDay(start, end);
+  
+  if (isMultiDay) {
+    // Multi-día: "15-17 de Diciembre, 2024"
+    const startDay = format(start, "d", { locale: es });
+    const endFormat = isSameMonth(start, end) 
+      ? "d 'de' MMMM, yyyy" 
+      : "d 'de' MMMM, yyyy";
+    const endFormatted = format(end, endFormat, { locale: es });
+    
+    if (isSameMonth(start, end)) {
+      return `${startDay}-${endFormatted}`;
+    } else {
+      const startFormatted = format(start, "d 'de' MMMM", { locale: es });
+      return `${startFormatted} - ${endFormatted}`;
+    }
+  } else {
+    // Un solo día: "15 de Diciembre, 2024"
+    return format(start, "d 'de' MMMM, yyyy", { locale: es });
+  }
+}
+
+/**
  * Verifica si dos fechas están en el mismo mes
  */
 function isSameMonth(date1: Date, date2: Date): boolean {

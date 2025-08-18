@@ -15,7 +15,9 @@ import {
   X,
   FileText,
   QrCode,
-  Download
+  Download,
+  RefreshCw,
+  Send
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -24,8 +26,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Can } from '@/components/auth/Can';
+import { authenticatedPost } from '@/lib/utils/api';
 import type { Ticket } from '@/types';
 import { formatCurrency } from '@/lib/utils/currency';
+import { useTicketAutoGeneration } from '@/hooks/use-ticket-auto-generation';
 
 interface TicketCardProps {
   ticket: Ticket;
@@ -42,7 +47,7 @@ export function TicketCard({
   canEdit = true, 
   autoEdit = false 
 }: TicketCardProps) {
-  const [isEditing, setIsEditing] = useState(autoEdit); // 🆕 Auto-edit si es primera vez
+  const [isEditing, setIsEditing] = useState(autoEdit);
   const [formData, setFormData] = useState({
     attendee_name: ticket.attendee_name || '',
     attendee_email: ticket.attendee_email || '',
@@ -50,6 +55,9 @@ export function TicketCard({
     special_requirements: ticket.special_requirements || '',
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [isResending, setIsResending] = useState(false);
+  const { triggerAutoGeneration } = useTicketAutoGeneration();
 
   const isConfigured = ticket.status === 'configured';
   const isUsed = ticket.status === 'used';
@@ -73,8 +81,29 @@ export function TicketCard({
   const handleSave = async () => {
     try {
       setIsSaving(true);
+      
+      // 1. Guardar datos del ticket
       await onUpdate(ticket.id, formData);
       setIsEditing(false);
+      
+      // 2. Si todos los datos están completos, trigger auto-generación
+      const isFullyConfigured = formData.attendee_name.trim() && formData.attendee_email.trim();
+      
+      if (isFullyConfigured) {
+        console.log('✅ Ticket fully configured, triggering auto-generation');
+        // Auto-generación en background (no bloquea UI)
+        triggerAutoGeneration(ticket.id).then((result) => {
+          if (result) {
+            // Actualizar ticket con datos del PDF generado
+            onUpdate(ticket.id, {
+              pdf_url: result.pdf_url,
+              pdf_path: result.pdf_path,
+              status: 'generated'
+            });
+          }
+        });
+      }
+      
     } catch (error) {
       console.error('Error updating ticket:', error);
     } finally {
@@ -343,7 +372,8 @@ export function TicketCard({
         {/* Acciones del boleto */}
         {isConfigured && (
           <div className="border-t pt-4">
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+              {/* Botón principal: Descargar/Generar PDF */}
               <Button
                 variant="outline"
                 size="sm"
@@ -355,14 +385,13 @@ export function TicketCard({
                     
                     if (!pdfUrl) {
                       // 2. Generar PDF si no existe
-                      const { authenticatedPost } = await import('@/lib/utils/api');
                       const response = await authenticatedPost(`/api/tickets/${ticket.id}/generate-pdf`);
                       
                       if (response.ok) {
                         const result = await response.json();
                         pdfUrl = result.pdf_url;
                         
-                        // Actualizar el ticket en memoria para mostrar el nuevo estado
+                        // Actualizar el ticket en memoria
                         if (onUpdate) {
                           await onUpdate(ticket.id, { 
                             pdf_url: result.pdf_url,
@@ -392,6 +421,7 @@ export function TicketCard({
                 {ticket.pdf_url ? 'Descargar PDF' : 'Generar PDF'}
               </Button>
               
+              {/* Botón Ver QR */}
               <Button
                 variant="outline"
                 size="sm"
@@ -416,6 +446,93 @@ export function TicketCard({
                 <QrCode className="w-4 h-4" />
                 Ver QR
               </Button>
+              
+              {/* Botones Admin/Gestor */}
+              <Can resource="ticketTypes" action="update">
+                {/* Botón Regenerar PDF */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-2 text-orange-600 border-orange-300 hover:bg-orange-50"
+                  onClick={async () => {
+                    if (!confirm('¿Estás seguro de regenerar el PDF? Se enviará un nuevo email al asistente.')) {
+                      return;
+                    }
+                    
+                    try {
+                      setIsRegenerating(true);
+                      const response = await authenticatedPost(`/api/tickets/${ticket.id}/regenerate`);
+                      
+                      if (response.ok) {
+                        const result = await response.json();
+                        alert(`PDF regenerado y email enviado a ${result.email_sent_to || 'el asistente'}`);
+                        
+                        // Actualizar ticket
+                        if (onUpdate) {
+                          await onUpdate(ticket.id, {
+                            pdf_url: result.pdf_url,
+                            pdf_path: result.pdf_path
+                          });
+                        }
+                      } else {
+                        const error = await response.json();
+                        throw new Error(error.details || error.error || 'Error regenerando PDF');
+                      }
+                    } catch (error) {
+                      console.error('Error regenerating PDF:', error);
+                      alert(`Error al regenerar PDF: ${error instanceof Error ? error.message : 'Inténtalo de nuevo.'}`);
+                    } finally {
+                      setIsRegenerating(false);
+                    }
+                  }}
+                  disabled={isLoading || isSaving || isRegenerating || !ticket.pdf_url}
+                >
+                  {isRegenerating ? (
+                    <div className="w-4 h-4 border border-orange-600 border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-4 h-4" />
+                  )}
+                  Regenerar PDF
+                </Button>
+                
+                {/* Botón Reenviar Email */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-2 text-blue-600 border-blue-300 hover:bg-blue-50"
+                  onClick={async () => {
+                    if (!confirm('¿Reenviar el boleto por email al asistente?')) {
+                      return;
+                    }
+                    
+                    try {
+                      setIsResending(true);
+                      const response = await authenticatedPost(`/api/tickets/${ticket.id}/resend-email`);
+                      
+                      if (response.ok) {
+                        const result = await response.json();
+                        alert(`Email reenviado a ${result.sent_to}`);
+                      } else {
+                        const error = await response.json();
+                        throw new Error(error.details || error.error || 'Error reenviando email');
+                      }
+                    } catch (error) {
+                      console.error('Error resending email:', error);
+                      alert(`Error al reenviar email: ${error instanceof Error ? error.message : 'Inténtalo de nuevo.'}`);
+                    } finally {
+                      setIsResending(false);
+                    }
+                  }}
+                  disabled={isLoading || isSaving || isResending || !ticket.pdf_url}
+                >
+                  {isResending ? (
+                    <div className="w-4 h-4 border border-blue-600 border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                  Reenviar Email
+                </Button>
+              </Can>
             </div>
           </div>
         )}
