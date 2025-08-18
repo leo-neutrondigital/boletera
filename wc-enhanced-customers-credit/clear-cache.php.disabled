@@ -1,0 +1,19 @@
+<?php
+/**
+ * Limpieza de caché para WECC
+ * Ejecutar una sola vez para limpiar problemas de OPcache
+ */
+
+// Limpiar OPcache si está habilitado
+if (function_exists('opcache_reset')) {
+    opcache_reset();
+    echo "OPcache limpiado\n";
+}
+
+// Limpiar caché de archivos de WordPress
+if (function_exists('wp_cache_flush')) {
+    wp_cache_flush();
+    echo "WP Cache limpiado\n";
+}
+
+echo "Cache limpio - ahora desactiva y reactiva el plugin\n";

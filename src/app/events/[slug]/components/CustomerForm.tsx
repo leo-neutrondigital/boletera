@@ -7,7 +7,6 @@ import { z } from 'zod';
 import { Eye, EyeOff, User, Mail, Phone, Building, Lock } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 // Schema de validación
@@ -47,7 +46,8 @@ export function CustomerForm({
   isLoading = false
 }: CustomerFormProps) {
   const [showPassword, setShowPassword] = useState(false);
-  const [wantsAccount, setWantsAccount] = useState(initialData.createAccount || false);
+  // Para compras siempre crear cuenta (si no está loggeado)
+  const wantsAccount = !isLoggedIn && !isPreregistration;
 
   const {
     register,
@@ -63,13 +63,11 @@ export function CustomerForm({
       email: initialData.email || '',
       phone: initialData.phone || '',
       company: initialData.company || '',
-      createAccount: initialData.createAccount || false,
+      createAccount: !isLoggedIn && !isPreregistration, // Siempre true para compras
       password: initialData.password || '',
     },
     mode: 'onChange'
   });
-
-  const watchCreateAccount = watch('createAccount');
 
   // Notificar cambios de validación al padre
   React.useEffect(() => {
@@ -82,14 +80,6 @@ export function CustomerForm({
       }
     }
   }, [isValid, onValidationChange, getValues]);
-
-  const handleCreateAccountChange = (checked: boolean) => {
-    setWantsAccount(checked);
-    setValue('createAccount', checked);
-    if (!checked) {
-      setValue('password', '');
-    }
-  };
 
   return (
     <div className="space-y-6">
@@ -182,55 +172,47 @@ export function CustomerForm({
 
         {/* Crear cuenta (solo para compras y no loggeados) */}
         {!isPreregistration && !isLoggedIn && (
-          <div className="space-y-4 p-4 bg-gray-50 rounded-lg border">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Lock className="w-5 h-5 text-gray-600" />
-                <div>
-                  <Label className="text-base font-medium">Crear cuenta</Label>
-                  <p className="text-sm text-gray-600">
-                    Para acceder a tus boletos y historial de compras
-                  </p>
-                </div>
-              </div>
-              <Switch
-                checked={wantsAccount}
-                onCheckedChange={handleCreateAccountChange}
-              />
-            </div>
-
-            {/* Campo de contraseña */}
-            {wantsAccount && (
+          <div className="space-y-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="flex items-center gap-3">
+              <Lock className="w-5 h-5 text-blue-600" />
               <div>
-                <Label htmlFor="password">Contraseña *</Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? 'text' : 'password'}
-                    {...register('password')}
-                    placeholder="Mínimo 6 caracteres"
-                    className={errors.password ? 'border-red-500 pr-10' : 'pr-10'}
-                  />
-                  <button
-                    type="button"
-                    className="absolute right-0 top-0 h-full px-3 text-gray-500 hover:text-gray-700"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </button>
-                </div>
-                {errors.password && (
-                  <p className="text-sm text-red-500 mt-1">{errors.password.message}</p>
-                )}
-                <p className="text-xs text-gray-500 mt-1">
-                  Te permitirá acceder a tu cuenta para ver tus boletos
+                <Label className="text-base font-medium text-blue-900">Crear cuenta</Label>
+                <p className="text-sm text-blue-700">
+                  Se creará tu cuenta automáticamente para acceder a tus boletos
                 </p>
               </div>
-            )}
+            </div>
+
+            {/* Campo de contraseña obligatorio */}
+            <div>
+              <Label htmlFor="password">Contraseña *</Label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  {...register('password')}
+                  placeholder="Mínimo 6 caracteres"
+                  className={errors.password ? 'border-red-500 pr-10' : 'pr-10'}
+                />
+                <button
+                  type="button"
+                  className="absolute right-0 top-0 h-full px-3 text-gray-500 hover:text-gray-700"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+              {errors.password && (
+                <p className="text-sm text-red-500 mt-1">{errors.password.message}</p>
+              )}
+              <p className="text-xs text-blue-600 mt-1">
+                🔐 Usarás esta contraseña para acceder a tu cuenta y ver tus boletos
+              </p>
+            </div>
           </div>
         )}
 
@@ -244,13 +226,9 @@ export function CustomerForm({
             <p>
               🎫 Procederemos al pago con los datos de tu cuenta. Podrás configurar los asistentes después.
             </p>
-          ) : wantsAccount ? (
-            <p>
-              🔐 Se creará tu cuenta automáticamente después del pago exitoso.
-            </p>
           ) : (
             <p>
-              🎫 Procederemos al pago como invitado. Te enviaremos los boletos por email.
+              🔐 Se creará tu cuenta automáticamente después del pago exitoso. Te enviaremos los boletos por email.
             </p>
           )}
         </div>
@@ -262,7 +240,7 @@ export function CustomerForm({
             <div>Is Valid: {isValid ? 'Yes' : 'No'}</div>
             <div>Is Preregistration: {isPreregistration ? 'Yes' : 'No'}</div>
             <div>Is Logged In: {isLoggedIn ? 'Yes' : 'No'}</div>
-            <div>Wants Account: {wantsAccount ? 'Yes' : 'No'}</div>
+            <div>Will Create Account: {wantsAccount ? 'Yes' : 'No'}</div>
             <div>Errors: {Object.keys(errors).join(', ') || 'None'}</div>
           </div>
         )}

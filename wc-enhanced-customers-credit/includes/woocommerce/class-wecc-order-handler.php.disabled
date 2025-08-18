@@ -1,0 +1,422 @@
+<?php
+if (!defined('ABSPATH')) exit;
+
+/**
+ * WECC Order Handler
+ * 
+ * Maneja eventos de órdenes de WooCommerce para crear cargos automáticamente
+ */
+class WECC_Order_Handler {
+    
+    public function __construct() {
+        // Crear cargo cuando se completa una orden (excepto si se pagó con crédito)
+        add_action('woocommerce_order_status_completed', [$this, 'maybe_create_credit_charge'], 10, 2);
+        add_action('woocommerce_order_status_processing', [$this, 'maybe_create_credit_charge'], 10, 2);
+        add_action('woocommerce_payment_complete', [$this, 'maybe_create_credit_charge_on_payment'], 10, 1);
+        
+        // Manejar reembolsos
+        add_action('woocommerce_order_refunded', [$this, 'handle_order_refund'], 10, 2);
+        
+        // Agregar metabox en orden para mostrar info de crédito
+        add_action('add_meta_boxes', [$this, 'add_credit_info_metabox']);
+        
+        // Acciones manuales desde admin de órdenes
+        add_action('woocommerce_order_actions', [$this, 'add_order_actions']);
+        add_action('woocommerce_order_action_wecc_create_charge', [$this, 'process_manual_charge_creation']);
+        add_action('woocommerce_order_action_wecc_create_adjustment', [$this, 'process_manual_adjustment']);
+    }
+    
+    /**
+     * Crear cargo de crédito cuando se completa una orden
+     */
+    public function maybe_create_credit_charge(int $order_id, ?WC_Order $order = null): void {
+        if (!$order) {
+            $order = wc_get_order($order_id);
+        }
+        
+        if (!$order) {
+            return;
+        }
+        
+        // No crear cargo si ya se pagó con crédito
+        if ($order->get_payment_method() === 'wecc_credit') {
+            return;
+        }
+        
+        // No crear cargo si ya existe uno
+        if ($order->get_meta('_wecc_charge_created')) {
+            return;
+        }
+        
+        // Solo para usuarios logueados que tengan perfil de crédito
+        $user_id = $order->get_user_id();
+        if (!$user_id) {
+            return;
+        }
+        
+        // Verificar que el usuario tenga cuenta de crédito configurada
+        $account = wecc_get_or_create_account($user_id);
+        if (!$account || $account->credit_limit <= 0) {
+            return;
+        }
+        
+        try {
+            $this->create_credit_charge_for_order($order, $account);
+            
+        } catch (Exception $e) {
+            wecc_log('Error creating credit charge for order ' . $order_id . ': ' . $e->getMessage(), 'error');
+            
+            $order->add_order_note(sprintf(
+                __('Error al crear cargo de crédito: %s', 'wc-enhanced-customers-credit'),
+                $e->getMessage()
+            ));
+        }
+    }
+    
+    /**
+     * Alternativa para payment_complete hook
+     */
+    public function maybe_create_credit_charge_on_payment(int $order_id): void {
+        $order = wc_get_order($order_id);
+        if ($order && $order->get_status() === 'processing') {
+            $this->maybe_create_credit_charge($order_id, $order);
+        }
+    }
+    
+    /**
+     * Crea el cargo de crédito para una orden
+     */
+    private function create_credit_charge_for_order(WC_Order $order, object $account): void {
+        global $wpdb;
+        
+        $order_total = $order->get_total();
+        $order_id = $order->get_id();
+        $user_id = $order->get_user_id();
+        
+        // Calcular fecha de vencimiento (30 días por defecto, configurable por tipo de cliente)
+        $due_date = $this->calculate_due_date($order, $account);
+        
+        // Descripción del cargo
+        $description = sprintf(
+            __('Compra - Orden #%d (%s)', 'wc-enhanced-customers-credit'),
+            $order_id,
+            $order->get_payment_method_title() ?: $order->get_payment_method()
+        );
+        
+        // Crear entrada en el ledger
+        $result = $wpdb->insert(
+            $wpdb->prefix . 'wecc_ledger',
+            [
+                'account_id' => $account->id,
+                'user_id' => $user_id,
+                'type' => 'charge',
+                'amount' => $order_total,
+                'description' => $description,
+                'order_id' => $order_id,
+                'transaction_date' => current_time('mysql'),
+                'due_date' => $due_date,
+                'metadata' => wp_json_encode([
+                    'payment_method' => $order->get_payment_method(),
+                    'order_status' => $order->get_status(),
+                    'created_via' => 'order_completion'
+                ]),
+                'created_at' => current_time('mysql')
+            ],
+            ['%d', '%d', '%s', '%f', '%s', '%d', '%s', '%s', '%s', '%s']
+        );
+        
+        if ($result === false) {
+            throw new Exception('Error insertando cargo en ledger: ' . $wpdb->last_error);
+        }
+        
+        $charge_id = $wpdb->insert_id;
+        
+        // Actualizar balance de la cuenta
+        $this->update_account_balance($account->id);
+        
+        // Marcar orden como procesada para crédito
+        $order->update_meta_data('_wecc_charge_created', current_time('mysql'));
+        $order->update_meta_data('_wecc_charge_id', $charge_id);
+        $order->update_meta_data('_wecc_charge_amount', $order_total);
+        $order->update_meta_data('_wecc_due_date', $due_date);
+        $order->save();
+        
+        // Nota en la orden
+        $order->add_order_note(sprintf(
+            __('Cargo de crédito creado: %s (vence: %s)', 'wc-enhanced-customers-credit'),
+            wc_price($order_total),
+            date_i18n(get_option('date_format'), strtotime($due_date))
+        ));
+        
+        // Disparar evento
+        do_action('wecc_credit_charge_created', $charge_id, $order_id, $user_id, $order_total);
+        
+        wecc_log("Cargo de crédito creado para orden {$order_id}: {$order_total}", 'info');
+    }
+    
+    /**
+     * Calcula la fecha de vencimiento según el tipo de cliente
+     */
+    private function calculate_due_date(WC_Order $order, object $account): string {
+        $user_id = $order->get_user_id();
+        
+        // Obtener términos de pago del perfil del cliente
+        $customer_service = wecc_service('customer_service');
+        $profile = $customer_service->get_profile_by_user($user_id);
+        
+        // Determinar días según tipo de cliente
+        $payment_terms_days = (int) $account->payment_terms_days;
+        
+        if ($profile && isset($profile['type'])) {
+            switch ($profile['type']) {
+                case 'vip':
+                    $payment_terms_days = 45; // VIP tiene más tiempo
+                    break;
+                case 'mayorista':
+                    $payment_terms_days = 60; // Mayoristas aún más
+                    break;
+                case 'distribuidor':
+                    $payment_terms_days = 90; // Distribuidores el máximo
+                    break;
+                default:
+                    $payment_terms_days = 30; // Regular
+                    break;
+            }
+        }
+        
+        // Permitir filtro para personalizar
+        $payment_terms_days = apply_filters('wecc_payment_terms_days', $payment_terms_days, $order, $account, $profile);
+        
+        return date('Y-m-d H:i:s', strtotime("+{$payment_terms_days} days"));
+    }
+    
+    /**
+     * Actualiza el balance de la cuenta
+     */
+    private function update_account_balance(int $account_id): void {
+        global $wpdb;
+        
+        // Calcular nuevo balance
+        $total_charges = (float) $wpdb->get_var($wpdb->prepare(
+            "SELECT COALESCE(SUM(amount), 0) FROM {$wpdb->prefix}wecc_ledger 
+             WHERE account_id = %d AND type IN ('charge', 'adjustment') AND amount > 0",
+            $account_id
+        ));
+        
+        $total_payments = (float) $wpdb->get_var($wpdb->prepare(
+            "SELECT COALESCE(SUM(ABS(amount)), 0) FROM {$wpdb->prefix}wecc_ledger 
+             WHERE account_id = %d AND type IN ('payment', 'refund') AND amount < 0",
+            $account_id
+        ));
+        
+        $balance_used = max(0, $total_charges - $total_payments);
+        
+        // Obtener límite actual
+        $account = $wpdb->get_row($wpdb->prepare(
+            "SELECT credit_limit FROM {$wpdb->prefix}wecc_credit_accounts WHERE id = %d",
+            $account_id
+        ));
+        
+        $available_credit = max(0, (float) $account->credit_limit - $balance_used);
+        
+        // Actualizar tabla de cuentas
+        $wpdb->update(
+            $wpdb->prefix . 'wecc_credit_accounts',
+            [
+                'balance_used' => $balance_used,
+                'current_balance' => $balance_used,
+                'available_credit' => $available_credit,
+                'last_activity_at' => current_time('mysql'),
+                'updated_at' => current_time('mysql')
+            ],
+            ['id' => $account_id],
+            ['%f', '%f', '%f', '%s', '%s'],
+            ['%d']
+        );
+    }
+    
+    /**
+     * Maneja reembolsos de órdenes
+     */
+    public function handle_order_refund(int $order_id, int $refund_id): void {
+        $order = wc_get_order($order_id);
+        $refund = wc_get_order($refund_id);
+        
+        if (!$order || !$refund) {
+            return;
+        }
+        
+        $user_id = $order->get_user_id();
+        if (!$user_id) {
+            return;
+        }
+        
+        $account = wecc_get_or_create_account($user_id);
+        if (!$account) {
+            return;
+        }
+        
+        try {
+            $refund_amount = abs($refund->get_total());
+            
+            // Crear entrada de reembolso
+            global $wpdb;
+            $result = $wpdb->insert(
+                $wpdb->prefix . 'wecc_ledger',
+                [
+                    'account_id' => $account->id,
+                    'user_id' => $user_id,
+                    'type' => 'refund',
+                    'amount' => -$refund_amount, // Negativo para reembolso
+                    'description' => sprintf(
+                        __('Reembolso - Orden #%d. Razón: %s', 'wc-enhanced-customers-credit'),
+                        $order_id,
+                        $refund->get_reason() ?: __('Sin especificar', 'wc-enhanced-customers-credit')
+                    ),
+                    'order_id' => $order_id,
+                    'reference_type' => 'refund',
+                    'reference_id' => $refund_id,
+                    'transaction_date' => current_time('mysql'),
+                    'created_at' => current_time('mysql')
+                ],
+                ['%d', '%d', '%s', '%f', '%s', '%d', '%s', '%d', '%s', '%s']
+            );
+            
+            if ($result !== false) {
+                $this->update_account_balance($account->id);
+                
+                $order->add_order_note(sprintf(
+                    __('Reembolso aplicado al crédito: %s', 'wc-enhanced-customers-credit'),
+                    wc_price($refund_amount)
+                ));
+                
+                wecc_log("Reembolso aplicado para orden {$order_id}: {$refund_amount}", 'info');
+            }
+            
+        } catch (Exception $e) {
+            wecc_log('Error processing refund for order ' . $order_id . ': ' . $e->getMessage(), 'error');
+        }
+    }
+    
+    /**
+     * Agrega metabox de información de crédito en órdenes
+     */
+    public function add_credit_info_metabox(): void {
+        add_meta_box(
+            'wecc_credit_info',
+            __('Información de Crédito', 'wc-enhanced-customers-credit'),
+            [$this, 'render_credit_info_metabox'],
+            'shop_order',
+            'side',
+            'default'
+        );
+    }
+    
+    /**
+     * Renderiza el metabox de información de crédito
+     */
+    public function render_credit_info_metabox(WP_Post $post): void {
+        $order = wc_get_order($post->ID);
+        if (!$order) {
+            return;
+        }
+        
+        $user_id = $order->get_user_id();
+        if (!$user_id) {
+            echo '<p>' . __('Esta orden no tiene usuario asociado.', 'wc-enhanced-customers-credit') . '</p>';
+            return;
+        }
+        
+        $balance = wecc_get_user_balance($user_id);
+        $charge_created = $order->get_meta('_wecc_charge_created');
+        $charge_amount = $order->get_meta('_wecc_charge_amount');
+        
+        echo '<div class="wecc-order-credit-info">';
+        
+        // Estado del cliente
+        echo '<h4>' . __('Estado de Crédito del Cliente', 'wc-enhanced-customers-credit') . '</h4>';
+        echo '<p><strong>' . __('Límite:', 'wc-enhanced-customers-credit') . '</strong> ' . wc_price($balance['credit_limit']) . '</p>';
+        echo '<p><strong>' . __('Usado:', 'wc-enhanced-customers-credit') . '</strong> ' . wc_price($balance['balance_used']) . '</p>';
+        echo '<p><strong>' . __('Disponible:', 'wc-enhanced-customers-credit') . '</strong> ' . wc_price($balance['available_credit']) . '</p>';
+        
+        echo '<hr>';
+        
+        // Estado de esta orden
+        echo '<h4>' . __('Esta Orden', 'wc-enhanced-customers-credit') . '</h4>';
+        
+        if ($order->get_payment_method() === 'wecc_credit') {
+            echo '<p><span class="dashicons dashicons-yes-alt" style="color: #00a32a;"></span> ';
+            echo __('Pagada con crédito', 'wc-enhanced-customers-credit') . '</p>';
+        } elseif ($charge_created) {
+            echo '<p><span class="dashicons dashicons-clipboard" style="color: #0073aa;"></span> ';
+            echo sprintf(__('Cargo creado: %s', 'wc-enhanced-customers-credit'), wc_price($charge_amount)) . '</p>';
+            echo '<p><small>' . sprintf(__('Creado: %s', 'wc-enhanced-customers-credit'), date_i18n(get_option('datetime_format'), strtotime($charge_created))) . '</small></p>';
+        } else {
+            echo '<p><span class="dashicons dashicons-warning" style="color: #dba617;"></span> ';
+            echo __('Sin cargo de crédito', 'wc-enhanced-customers-credit') . '</p>';
+        }
+        
+        echo '</div>';
+    }
+    
+    /**
+     * Agrega acciones personalizadas a órdenes
+     */
+    public function add_order_actions(array $actions): array {
+        global $post;
+        
+        if (!$post) {
+            return $actions;
+        }
+        
+        $order = wc_get_order($post->ID);
+        if (!$order || !$order->get_user_id()) {
+            return $actions;
+        }
+        
+        // Solo mostrar si no se pagó con crédito y no tiene cargo creado
+        if ($order->get_payment_method() !== 'wecc_credit' && !$order->get_meta('_wecc_charge_created')) {
+            $actions['wecc_create_charge'] = __('Crear cargo de crédito', 'wc-enhanced-customers-credit');
+        }
+        
+        // Siempre permitir crear ajuste
+        $actions['wecc_create_adjustment'] = __('Crear ajuste de crédito', 'wc-enhanced-customers-credit');
+        
+        return $actions;
+    }
+    
+    /**
+     * Procesa creación manual de cargo
+     */
+    public function process_manual_charge_creation(WC_Order $order): void {
+        $user_id = $order->get_user_id();
+        if (!$user_id) {
+            return;
+        }
+        
+        $account = wecc_get_or_create_account($user_id);
+        if (!$account) {
+            $order->add_order_note(__('Error: No se pudo crear/encontrar la cuenta de crédito.', 'wc-enhanced-customers-credit'));
+            return;
+        }
+        
+        try {
+            $this->create_credit_charge_for_order($order, $account);
+            $order->add_order_note(__('Cargo de crédito creado manualmente desde admin.', 'wc-enhanced-customers-credit'));
+            
+        } catch (Exception $e) {
+            $order->add_order_note(sprintf(
+                __('Error creando cargo manual: %s', 'wc-enhanced-customers-credit'),
+                $e->getMessage()
+            ));
+        }
+    }
+    
+    /**
+     * Procesa creación manual de ajuste
+     */
+    public function process_manual_adjustment(WC_Order $order): void {
+        // Esta función se puede expandir para permitir ajustes personalizados
+        $order->add_order_note(__('Funcionalidad de ajuste manual pendiente de implementar.', 'wc-enhanced-customers-credit'));
+    }
+}

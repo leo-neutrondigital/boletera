@@ -25,8 +25,11 @@ interface CustomerData {
   email: string;
   phone: string;
   company?: string;
-  // Solo para compras (crear cuenta)
+  // Para compras (crear cuenta)
+  createAccount?: boolean;
   password?: string;
+  // Para usuarios loggeados
+  userId?: string; // 🆕 AGREGADO para usuarios registrados
 }
 
 // Estado completo del flujo

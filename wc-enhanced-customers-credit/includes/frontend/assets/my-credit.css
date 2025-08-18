@@ -1,0 +1,471 @@
+/**
+ * WECC My Credit Frontend Styles - Versión Mejorada
+ */
+
+.wecc-my-credit {
+    margin: 20px 0;
+    max-width: 1200px;
+}
+
+/* =================================
+   RESUMEN DE CRÉDITO
+   ================================= */
+.wecc-credit-summary {
+    margin-bottom: 30px;
+}
+
+.wecc-summary-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 20px;
+    margin: 20px 0;
+}
+
+.wecc-summary-card {
+    background: #ffffff;
+    border: 1px solid #e9ecef;
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    transition: transform 0.2s ease;
+}
+
+.wecc-summary-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.wecc-summary-card h4 {
+    margin: 0 0 12px 0;
+    color: #495057;
+    font-size: 14px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.wecc-summary-card .amount {
+    font-size: 28px;
+    font-weight: bold;
+    margin: 12px 0;
+    line-height: 1.2;
+}
+
+.wecc-credit-positive { color: #28a745; }
+.wecc-credit-negative { color: #dc3545; }
+.wecc-credit-zero { color: #6c757d; }
+
+.wecc-positive-balance {
+    background: #d4edda;
+    border-color: #28a745;
+    color: #155724;
+}
+
+/* =================================
+   ADEUDOS PENDIENTES
+   ================================= */
+.wecc-pending-charges {
+    margin: 30px 0;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    overflow: hidden;
+}
+
+.wecc-pending-charges h3 {
+    background: #007cba;
+    color: white;
+    margin: 0;
+    padding: 20px 24px;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+/* Acciones de Pago Mejoradas */
+.wecc-payment-actions {
+    background: #fff3cd;
+    border-bottom: 1px solid #ffeaa7;
+    padding: 24px;
+}
+
+.wecc-payment-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+}
+
+.wecc-payment-summary .summary-text h4 {
+    margin: 0 0 8px 0;
+    color: #856404;
+    font-size: 18px;
+}
+
+.wecc-payment-summary .total-amount {
+    color: #dc3545;
+    font-weight: bold;
+    font-size: 24px;
+}
+
+.wecc-payment-summary p {
+    margin: 0;
+    color: #856404;
+    font-size: 14px;
+}
+
+/* Botones Modernos - Estilo Cápsula */
+.wecc-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px 28px;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    border-radius: 50px; /* Cápsula completa */
+    transition: all 0.3s ease;
+    cursor: pointer;
+    border: none;
+    text-align: center;
+    min-height: 44px;
+    white-space: nowrap;
+}
+
+.wecc-btn-large {
+    padding: 18px 36px;
+    font-size: 16px;
+    min-height: 52px;
+}
+
+.wecc-btn-primary {
+    background: #007cba;
+    color: white;
+    box-shadow: 0 4px 12px rgba(0, 124, 186, 0.25);
+}
+
+.wecc-btn-primary:hover {
+    background: #005a87;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 124, 186, 0.4);
+    color: white;
+    text-decoration: none;
+}
+
+.wecc-btn-primary:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(0, 124, 186, 0.3);
+}
+
+.wecc-btn-secondary {
+    background: #6c757d;
+    color: white;
+    box-shadow: 0 4px 12px rgba(108, 117, 125, 0.25);
+}
+
+.wecc-btn-secondary:hover {
+    background: #545b62;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(108, 117, 125, 0.4);
+    color: white;
+    text-decoration: none;
+}
+
+.wecc-btn-secondary:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(108, 117, 125, 0.3);
+}
+
+/* Remover iconos de texto - solo usar texto */
+.btn-icon {
+    display: none;
+}
+
+/* Lista de Cargos */
+.wecc-charges-list {
+    padding: 24px;
+}
+
+.wecc-charge-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 16px;
+    transition: all 0.2s ease;
+}
+
+.wecc-charge-item:hover {
+    background: #e9ecef;
+    border-color: #adb5bd;
+}
+
+.wecc-charge-item.overdue {
+    border-color: #dc3545;
+    background: #f8d7da;
+}
+
+.charge-info {
+    flex: 1;
+}
+
+.charge-title {
+    font-size: 16px;
+    margin-bottom: 8px;
+}
+
+.charge-title strong {
+    color: #212529;
+}
+
+.order-link a {
+    color: #007cba;
+    text-decoration: none;
+    font-weight: normal;
+}
+
+.charge-dates {
+    margin-top: 8px;
+}
+
+.created-date {
+    color: #6c757d;
+}
+
+.due-date {
+    font-weight: 600;
+}
+
+.due-date.pending {
+    color: #856404;
+}
+
+.due-date.overdue {
+    color: #dc3545;
+}
+
+.charge-amount {
+    margin: 0 20px;
+    text-align: center;
+}
+
+.charge-amount .amount {
+    font-size: 20px;
+    font-weight: bold;
+    color: #dc3545;
+    display: block;
+}
+
+.charge-actions {
+    flex-shrink: 0;
+}
+
+/* =================================
+   MOVIMIENTOS RECIENTES
+   ================================= */
+.wecc-recent-movements {
+    margin: 30px 0;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    overflow: hidden;
+}
+
+.wecc-recent-movements h3 {
+    background: #6c757d;
+    color: white;
+    margin: 0;
+    padding: 20px 24px;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.wecc-ledger-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0;
+    background: white;
+}
+
+.wecc-ledger-table th,
+.wecc-ledger-table td {
+    padding: 16px 12px;
+    border-bottom: 1px solid #dee2e6;
+    text-align: left;
+    vertical-align: top;
+}
+
+.wecc-ledger-table th {
+    background: #f8f9fa;
+    font-weight: 600;
+    color: #495057;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.wecc-ledger-table tbody tr:hover {
+    background: #f8f9fa;
+}
+
+.wecc-ledger-table .amount {
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.wecc-type-charge { 
+    background: #f8d7da; 
+    color: #721c24; 
+    padding: 4px 8px; 
+    border-radius: 4px; 
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.wecc-type-payment { 
+    background: #d1ecf1; 
+    color: #0c5460; 
+    padding: 4px 8px; 
+    border-radius: 4px; 
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.status {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.status.pending {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.status.paid {
+    background: #d4edda;
+    color: #155724;
+}
+
+.status.completed {
+    background: #d1ecf1;
+    color: #0c5460;
+}
+
+/* =================================
+   PAGINACIÓN
+   ================================= */
+.wecc-pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    padding: 20px;
+    background: #f8f9fa;
+    border-top: 1px solid #dee2e6;
+}
+
+.wecc-pagination-btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 12px;
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    color: #495057;
+    text-decoration: none;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.wecc-pagination-btn:hover {
+    background: #007cba;
+    color: white;
+    border-color: #007cba;
+    text-decoration: none;
+}
+
+.wecc-pagination-current {
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 12px;
+    background: #007cba;
+    color: white;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+/* =================================
+   RESPONSIVE
+   ================================= */
+@media (max-width: 768px) {
+    .wecc-summary-cards {
+        grid-template-columns: 1fr;
+    }
+    
+    .wecc-payment-summary {
+        flex-direction: column;
+        align-items: stretch;
+        text-align: center;
+    }
+    
+    .wecc-charge-item {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 16px;
+    }
+    
+    .charge-amount {
+        margin: 0;
+        text-align: center;
+        order: -1;
+    }
+    
+    .wecc-ledger-table {
+        font-size: 12px;
+    }
+    
+    .wecc-ledger-table th,
+    .wecc-ledger-table td {
+        padding: 8px 6px;
+    }
+    
+    .wecc-pagination {
+        flex-wrap: wrap;
+    }
+}
+
+@media (max-width: 480px) {
+    .wecc-my-credit {
+        margin: 10px 0;
+    }
+    
+    .wecc-pending-charges,
+    .wecc-recent-movements {
+        border-radius: 8px;
+        margin: 15px 0;
+    }
+    
+    .wecc-charges-list,
+    .wecc-recent-movements h3,
+    .wecc-pending-charges h3 {
+        padding: 16px;
+    }
+    
+    .wecc-btn {
+        padding: 10px 16px;
+        font-size: 13px;
+    }
+    
+    .wecc-btn-large {
+        padding: 12px 20px;
+        font-size: 14px;
+    }
+}

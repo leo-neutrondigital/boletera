@@ -57,7 +57,10 @@ export function CustomerDetails() {
       return;
     }
 
-    console.log('📝 CustomerDetails - Proceeding with data:', currentFormData);
+    console.log('📝 CustomerDetails - Proceeding with data:', {
+      ...currentFormData,
+      passwordLength: currentFormData.password?.length || 0
+    });
     
     // Convertir a formato del contexto
     const customerInfo = {
@@ -65,8 +68,17 @@ export function CustomerDetails() {
       email: currentFormData.email,
       phone: currentFormData.phone,
       company: currentFormData.company || '',
+      createAccount: currentFormData.createAccount || false,
       password: currentFormData.createAccount ? currentFormData.password : undefined,
+      userId: isLoggedIn ? user?.uid : undefined, // 🆕 AGREGADO para usuarios registrados
     };
+    
+    console.log('📝 CustomerDetails - Customer info for context:', {
+      ...customerInfo,
+      passwordLength: customerInfo.password?.length || 0,
+      isLoggedIn,
+      userUid: user?.uid || 'not-logged-in'
+    });
 
     // Guardar en contexto
     setCustomerData(customerInfo);

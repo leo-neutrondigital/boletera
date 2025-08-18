@@ -43,50 +43,73 @@ export async function getPublicEventBySlug(slug: string): Promise<Event | null> 
   }
 }
 
-// ✅ Obtener tipos de boletos públicos para un evento (SIMPLIFICADO)
-export async function getPublicTicketTypesForEvent(eventId: string): Promise<TicketType[]> {
+// ✅ Obtener tipos de boletos públicos para un evento (usando endpoint público)
+export async function getPublicTicketTypesForEvent(eventId: string, eventSlug?: string): Promise<TicketType[]> {
   try {
     console.log('🎫 Fetching ticket types for event:', eventId);
     
-    // Consulta simplificada sin orderBy múltiples para evitar problemas de índices
-    const q = query(
-      collection(db, 'ticket_types'),
-      where('event_id', '==', eventId),
-      where('is_active', '==', true)
-    );
-    
-    const snapshot = await getDocs(q);
-    console.log('📊 Found ticket types:', snapshot.docs.length);
-    
-    const ticketTypes = snapshot.docs.map(doc => {
-      const data = doc.data();
-      console.log('🎯 Processing ticket type:', { id: doc.id, name: data.name, is_courtesy: data.is_courtesy });
+    // Si no tenemos el slug, intentar usar el endpoint directamente (fallback)
+    if (!eventSlug) {
+      console.log('⚠️ No slug provided, using direct Firestore query (may fail in browser)');
       
-      return {
-        id: doc.id,
-        ...data,
-        created_at: data.created_at?.toDate() || new Date(),
-        updated_at: data.updated_at?.toDate(),
-        sale_start: data.sale_start?.toDate(),
-        sale_end: data.sale_end?.toDate(),
-        available_days: data.available_days?.map((d: any) => d.toDate()) || [],
-      } as TicketType;
-    });
-    
-    // Filtrar cortesías y ordenar en JavaScript
-    const publicTicketTypes = ticketTypes
-      .filter(tt => !tt.is_courtesy) // Excluir cortesías
-      .sort((a, b) => {
-        // Ordenar por sort_order, luego por precio
-        if (a.sort_order !== b.sort_order) {
-          return (a.sort_order || 999) - (b.sort_order || 999);
-        }
-        return a.price - b.price;
+      // Consulta simplificada sin orderBy múltiples para evitar problemas de índices
+      const q = query(
+        collection(db, 'ticket_types'),
+        where('event_id', '==', eventId),
+        where('is_active', '==', true)
+      );
+      
+      const snapshot = await getDocs(q);
+      console.log('📊 Found ticket types:', snapshot.docs.length);
+      
+      const ticketTypes = snapshot.docs.map(doc => {
+        const data = doc.data();
+        console.log('🎯 Processing ticket type:', { id: doc.id, name: data.name, is_courtesy: data.is_courtesy });
+        
+        return {
+          id: doc.id,
+          ...data,
+          created_at: data.created_at?.toDate() || new Date(),
+          updated_at: data.updated_at?.toDate(),
+          sale_start: data.sale_start?.toDate(),
+          sale_end: data.sale_end?.toDate(),
+          available_days: data.available_days?.map((d: any) => d.toDate()) || [],
+        } as TicketType;
       });
+      
+      // Filtrar cortesías y ordenar en JavaScript
+      const publicTicketTypes = ticketTypes
+        .filter(tt => !tt.is_courtesy) // Excluir cortesías
+        .sort((a, b) => {
+          // Ordenar por sort_order, luego por precio
+          if (a.sort_order !== b.sort_order) {
+            return (a.sort_order || 999) - (b.sort_order || 999);
+          }
+          return a.price - b.price;
+        });
+      
+      console.log('✅ Public ticket types after filtering:', publicTicketTypes.length);
+      
+      return publicTicketTypes;
+    }
     
-    console.log('✅ Public ticket types after filtering:', publicTicketTypes.length);
+    // Usar endpoint público (método preferido)
+    console.log('🌐 Using public API endpoint for slug:', eventSlug);
+    const response = await fetch(`/api/public/events/${eventSlug}/ticket-types`);
     
-    return publicTicketTypes;
+    if (!response.ok) {
+      throw new Error(`Failed to fetch ticket types: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    if (!data.success) {
+      throw new Error(data.error || 'Failed to fetch ticket types');
+    }
+    
+    console.log('✅ Fetched ticket types via API:', data.ticketTypes.length);
+    
+    return data.ticketTypes;
   } catch (error) {
     console.error('❌ Error fetching public ticket types:', error);
     throw error;

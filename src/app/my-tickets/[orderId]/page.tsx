@@ -178,11 +178,26 @@ export default function MyTicketsOrderPage() {
             return {
               ...ticket,
               ...updates,
-              status: result.ticket.status,
+              status: updates.status || ticket.status, // ✅ Usar status del update
               updated_at: new Date()
             };
           }
           return ticket;
+        });
+
+        // ✅ Recalcular summary basado en estados reales
+        const configuredCount = updatedTickets.filter(t => 
+          t.status === 'configured' || t.status === 'generated' || t.pdf_url
+        ).length;
+        const pendingCount = updatedTickets.filter(t => 
+          t.status === 'purchased' && !t.attendee_name
+        ).length;
+
+        console.log('📊 Progress update:', {
+          total: updatedTickets.length,
+          configured: configuredCount,
+          pending: pendingCount,
+          tickets: updatedTickets.map(t => ({ id: t.id, status: t.status, pdf_url: !!t.pdf_url }))
         });
 
         setData({
@@ -190,8 +205,8 @@ export default function MyTicketsOrderPage() {
           tickets: updatedTickets,
           summary: {
             ...data.summary,
-            configuredTickets: updatedTickets.filter(t => t.status === 'configured').length,
-            pendingTickets: updatedTickets.filter(t => t.status === 'purchased').length,
+            configuredTickets: configuredCount,
+            pendingTickets: pendingCount,
           }
         });
       }

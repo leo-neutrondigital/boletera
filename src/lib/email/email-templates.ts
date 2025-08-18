@@ -1,6 +1,7 @@
 import { formatEventDates } from '@/lib/utils/event-dates';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { formatCurrency } from '@/lib/utils/currency';
 
 export interface EmailTemplateData {
   // Datos del asistente

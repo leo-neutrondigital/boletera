@@ -1,0 +1,194 @@
+/* WECC Admin CSS */
+
+/* Layout general */
+.wecc-dashboard {
+    max-width: 1200px;
+}
+
+/* Cards de estadísticas */
+.wecc-stats-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin: 20px 0;
+}
+
+.wecc-stat-card {
+    background: white;
+    border: 1px solid #c3c4c7;
+    border-radius: 4px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.wecc-stat-icon {
+    font-size: 32px;
+    color: #2271b1;
+}
+
+.wecc-stat-content h4 {
+    margin: 0 0 5px 0;
+    color: #50575e;
+    font-size: 14px;
+}
+
+.wecc-stat-value {
+    font-size: 24px;
+    font-weight: 600;
+    color: #1d2327;
+}
+
+/* Autocomplete mejorado */
+.ui-autocomplete {
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 10000;
+}
+
+.wecc-autocomplete-results .ui-menu-item {
+    padding: 8px 12px;
+    border-bottom: 1px solid #f0f0f1;
+}
+
+.wecc-autocomplete-results .ui-menu-item:hover {
+    background: #f6f7f7;
+}
+
+/* Formulario de cliente */
+.wecc-customer-edit .form-table th {
+    width: 200px;
+    padding: 15px 10px;
+}
+
+.wecc-customer-edit .form-table td {
+    padding: 15px 10px;
+}
+
+/* Destacar modificaciones */
+.wecc-modified {
+    background: #fff2cc;
+    transition: background 0.3s ease;
+}
+
+/* Estados de validación */
+.wecc-error {
+    border-color: #d63638 !important;
+    box-shadow: 0 0 0 1px #d63638;
+}
+
+/* Sección de crédito */
+.wecc-customer-edit h3 {
+    color: #2271b1;
+    border-bottom: 2px solid #2271b1;
+    padding-bottom: 5px;
+}
+
+/* Actividad reciente */
+.wecc-recent-activity,
+.wecc-overdue-list {
+    background: white;
+    padding: 20px;
+    border: 1px solid #c3c4c7;
+    border-radius: 4px;
+    margin: 20px 0;
+}
+
+/* Tipos de movimientos */
+.wecc-type-charge {
+    background: #d63638;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.wecc-type-payment {
+    background: #00a32a;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.wecc-type-adjustment {
+    background: #dba617;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.wecc-type-refund {
+    background: #72aee6;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+/* Montos */
+.wecc-positive {
+    color: #d63638;
+    font-weight: 600;
+}
+
+.wecc-negative {
+    color: #00a32a;
+    font-weight: 600;
+}
+
+/* Cuentas vencidas */
+.wecc-overdue-item {
+    padding: 10px;
+    background: #fcf2f2;
+    border-left: 4px solid #d63638;
+    margin-bottom: 10px;
+}
+
+/* Búsqueda de clientes */
+.wecc-customers-list .search-box {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 20px 0;
+}
+
+.wecc-customers-list .search-box input[type="search"] {
+    width: 300px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .wecc-stats-cards {
+        grid-template-columns: 1fr;
+    }
+    
+    .wecc-stat-card {
+        padding: 15px;
+    }
+    
+    .wecc-customers-list .search-box {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .wecc-customers-list .search-box input[type="search"] {
+        width: 100%;
+    }
+}
+
+/* Debug notices */
+.notice h3 {
+    margin-top: 0;
+}
+
+.notice p {
+    margin: 5px 0;
+}

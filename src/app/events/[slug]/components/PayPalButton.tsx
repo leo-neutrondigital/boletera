@@ -81,7 +81,13 @@ export function PayPalButton({ onSuccess, onError, disabled = false }: PayPalBut
         currency
       };
 
-      console.log('📤 Sending order data:', orderData);
+      console.log('📤 Sending order data:', {
+        ...orderData,
+        customer: {
+          ...customerData,
+          passwordLength: customerData.password?.length || 0
+        }
+      });
 
       const response = await fetch('/api/payments/create-order', {
         method: 'POST',
@@ -152,6 +158,29 @@ export function PayPalButton({ onSuccess, onError, disabled = false }: PayPalBut
       }
 
       console.log('✅ Payment captured successfully:', captureResult);
+
+      // 🆕 AUTOLOGIN si se creó cuenta
+      if (captureResult.userAccount?.created && captureResult.userAccount.customToken) {
+        console.log('🔄 Performing autologin for new account...');
+        try {
+          const { signInWithCustomToken } = await import('firebase/auth');
+          const { auth } = await import('@/lib/firebase/client');
+          
+          const userCredential = await signInWithCustomToken(auth, captureResult.userAccount.customToken);
+          console.log('✅ Autologin successful:', userCredential.user.uid);
+          
+          // Mostrar mensaje de éxito con cuenta creada
+          console.log('👤 New account created and logged in automatically');
+        } catch (loginError) {
+          console.error('❌ Autologin failed:', loginError);
+          // No fallar todo el proceso si falla el autologin
+        }
+      } else if (captureResult.userAccount?.failed) {
+        // 🚨 CASO: Pago exitoso pero creación de cuenta falló
+        console.log('⚠️ Payment successful but account creation failed');
+        console.log('📧 User will receive recovery instructions via email');
+        // El usuario verá un mensaje especial en la UI
+      }
 
       // Llamar callback de éxito con datos completos
       onSuccess({

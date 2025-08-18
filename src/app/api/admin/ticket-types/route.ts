@@ -1,8 +1,55 @@
 // src/app/api/admin/ticket-types/route.ts
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { getAuthFromRequest } from "@/lib/auth/server-auth";
 import type { TicketType } from "@/types";
+
+// GET: Obtener tipos de boletos (con filtro opcional por evento)
+export async function GET(req: NextRequest) {
+  try {
+    console.log("🎫 GET /api/admin/ticket-types triggered");
+    
+    const user = await getAuthFromRequest(req);
+    if (!user || (!user.roles.includes("admin") && !user.roles.includes("gestor") && !user.roles.includes("comprobador"))) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const eventId = searchParams.get('eventId');
+    
+    let query = adminDb.collection("ticket_types");
+    
+    // Filtrar por evento si se proporciona
+    if (eventId) {
+      console.log("🔍 Filtering by event:", eventId);
+      query = query.where("event_id", "==", eventId);
+    }
+    
+    // Ordenar por sort_order
+    query = query.orderBy("sort_order", "asc");
+    
+    const snapshot = await query.get();
+    
+    const ticketTypes = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      // Convertir timestamps a strings para serialización
+      created_at: doc.data().created_at?.toDate?.() || doc.data().created_at,
+      updated_at: doc.data().updated_at?.toDate?.() || doc.data().updated_at,
+      sale_start: doc.data().sale_start?.toDate?.() || doc.data().sale_start,
+      sale_end: doc.data().sale_end?.toDate?.() || doc.data().sale_end,
+      available_days: doc.data().available_days?.map((d: any) => d.toDate?.() || d) || null
+    }));
+    
+    console.log(`✅ Found ${ticketTypes.length} ticket types${eventId ? ` for event ${eventId}` : ''}`);
+    
+    return NextResponse.json(ticketTypes);
+    
+  } catch (error) {
+    console.error("❌ Error fetching ticket types:", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  }
+}
 
 export async function POST(req: Request) {
   try {

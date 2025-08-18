@@ -143,6 +143,25 @@ export function PaymentStep() {
               </Badge>
             </div>
 
+            {/* Cuenta creada o fallo */}
+            {paymentResult.userAccount?.created && (
+              <div className="flex items-center gap-2">
+                <span className="text-gray-600">Cuenta:</span>
+                <Badge className="bg-blue-100 text-blue-800">
+                  👤 Cuenta creada y sesión iniciada
+                </Badge>
+              </div>
+            )}
+            
+            {paymentResult.userAccount?.failed && (
+              <div className="flex items-center gap-2">
+                <span className="text-gray-600">Cuenta:</span>
+                <Badge className="bg-yellow-100 text-yellow-800">
+                  ⚠️ Error al crear cuenta
+                </Badge>
+              </div>
+            )}
+
             <div className="border-t pt-4">
               <h4 className="font-medium mb-3">Próximos pasos:</h4>
               <div className="space-y-2 text-sm">
@@ -152,7 +171,12 @@ export function PaymentStep() {
                   </div>
                   <div>
                     <p className="font-medium text-blue-900">Email de confirmación enviado</p>
-                    <p className="text-blue-700">Revisa tu bandeja de entrada</p>
+                    <p className="text-blue-700">
+                      {paymentResult.userAccount?.failed 
+                        ? 'Incluye instrucciones para acceder a tus boletos'
+                        : 'Revisa tu bandeja de entrada'
+                      }
+                    </p>
                   </div>
                 </div>
                 
@@ -165,6 +189,19 @@ export function PaymentStep() {
                     <p className="text-yellow-700">Asigna nombres a cada boleto para generar los PDFs</p>
                   </div>
                 </div>
+                
+                {/* Mensaje especial si falló la creación de cuenta */}
+                {paymentResult.userAccount?.failed && (
+                  <div className="flex items-start gap-3 p-3 bg-orange-50 rounded border border-orange-200">
+                    <div className="w-6 h-6 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-orange-600 text-xs font-semibold">⚠️</span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-orange-900">Problema con la cuenta</p>
+                      <p className="text-orange-700">Tu pago fue exitoso, pero hubo un error al crear tu cuenta. Te enviaremos instrucciones por email para acceder a tus boletos.</p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </CardContent>
@@ -296,7 +333,7 @@ export function PaymentStep() {
               )}
               {customerData.password && (
                 <div className="text-xs text-green-600 bg-green-50 p-2 rounded">
-                  ✅ Se creará tu cuenta automáticamente
+                  ✅ Se creará tu cuenta automáticamente y se iniciará sesión
                 </div>
               )}
             </CardContent>

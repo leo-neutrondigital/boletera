@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetTrigger, SheetContent } from "@/components/ui/sheet";
-import { Menu, Home, Users, Calendar, LogOut } from "lucide-react";
+import { Menu, Home, Users, Calendar, LogOut, QrCode, Headphones, Gift } from "lucide-react";
 import { auth } from "@/lib/firebase/client";
 import { useRouter } from "next/navigation";
 import { Can } from "@/components/auth/Can";
@@ -32,6 +32,24 @@ const links: NavLink[] = [
     label: "Eventos", 
     icon: Calendar,
     roles: ["admin", "gestor", "comprobador"] // Eventos visibles para estos roles
+  },
+  { 
+    href: "/dashboard/cortesias", 
+    label: "Cortesías", 
+    icon: Gift,
+    roles: ["admin", "gestor"] // Solo admin y gestor pueden gestionar cortesías
+  },
+  { 
+    href: "/scanner", 
+    label: "Scanner QR", 
+    icon: QrCode,
+    roles: ["admin", "gestor", "comprobador"] // Scanner para validadores
+  },
+  { 
+    href: "/dashboard/soporte", 
+    label: "Soporte", 
+    icon: Headphones,
+    roles: ["admin"] // Solo admin puede acceder al panel de soporte
   },
   { 
     href: "/dashboard/usuarios", 
@@ -64,7 +82,9 @@ export default function Sidebar() {
             className={cn(
               "flex items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-100 transition-colors",
               {
-                "bg-gray-200 font-semibold text-primary": pathname === link.href,
+                "bg-gray-200 font-semibold text-primary": 
+                  pathname === link.href || 
+                  (link.href === '/scanner' && pathname.startsWith('/scanner')),
               }
             )}
           >

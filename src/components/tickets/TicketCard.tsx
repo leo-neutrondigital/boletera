@@ -79,35 +79,63 @@ export function TicketCard({
   };
 
   const handleSave = async () => {
+    let isFullyConfigured = false; // ✅ Declarar fuera del try
+    
     try {
       setIsSaving(true);
       
-      // 1. Guardar datos del ticket
-      await onUpdate(ticket.id, formData);
-      setIsEditing(false);
-      
-      // 2. Si todos los datos están completos, trigger auto-generación
-      const isFullyConfigured = formData.attendee_name.trim() && formData.attendee_email.trim();
+      // 1. Verificar si está completamente configurado
+      isFullyConfigured = formData.attendee_name.trim() && formData.attendee_email.trim();
       
       if (isFullyConfigured) {
-        console.log('✅ Ticket fully configured, triggering auto-generation');
-        // Auto-generación en background (no bloquea UI)
-        triggerAutoGeneration(ticket.id).then((result) => {
+        // ✨ UX OPTIMISTA: Actualizar UI inmediatamente
+        console.log('✨ Optimistic update - showing immediate success');
+        
+        // Actualizar frontend inmediatamente (UX optimista)
+        await onUpdate(ticket.id, {
+          ...formData,
+          status: 'generated', // Mostrar como generado inmediatamente
+          pdf_url: 'generating...', // Placeholder temporal
+        });
+        
+        setIsEditing(false);
+        setIsSaving(false);
+        
+        // 🔄 Proceso en background (no bloquea UI)
+        console.log('🚀 Starting background PDF generation...');
+        triggerAutoGeneration(ticket.id, formData).then((result) => {
           if (result) {
-            // Actualizar ticket con datos del PDF generado
+            // Actualizar con datos reales cuando termine
             onUpdate(ticket.id, {
+              ...formData,
               pdf_url: result.pdf_url,
               pdf_path: result.pdf_path,
               status: 'generated'
             });
+            console.log('✅ Background generation completed');
+          } else {
+            // Si falla, revertir a configurado
+            onUpdate(ticket.id, {
+              ...formData,
+              status: 'configured',
+              pdf_url: undefined
+            });
+            console.warn('⚠️ Background generation failed, reverted to configured');
           }
         });
+        
+      } else {
+        // Solo guardar datos parciales
+        await onUpdate(ticket.id, formData);
+        setIsEditing(false);
       }
       
     } catch (error) {
       console.error('Error updating ticket:', error);
     } finally {
-      setIsSaving(false);
+      if (!isFullyConfigured) {
+        setIsSaving(false);
+      }
     }
   };
 
@@ -370,7 +398,7 @@ export function TicketCard({
         </div>
 
         {/* Acciones del boleto */}
-        {isConfigured && (
+        {(isConfigured || ticket.pdf_url) && ( // ✅ Mostrar si está configurado O tiene PDF
           <div className="border-t pt-4">
             <div className="flex flex-wrap gap-2">
               {/* Botón principal: Descargar/Generar PDF */}
@@ -382,6 +410,12 @@ export function TicketCard({
                   try {
                     // 1. Verificar si ya existe PDF
                     let pdfUrl = ticket.pdf_url;
+                    
+                    // Si está generando, mostrar mensaje
+                    if (pdfUrl === 'generating...') {
+                      alert('🛠️ PDF generando... Esto tomará unos segundos. Recibirás el boleto por email.');
+                      return;
+                    }
                     
                     if (!pdfUrl) {
                       // 2. Generar PDF si no existe
@@ -406,7 +440,7 @@ export function TicketCard({
                     }
                     
                     // 3. Abrir PDF en nueva ventana
-                    if (pdfUrl) {
+                    if (pdfUrl && pdfUrl !== 'generating...') {
                       window.open(pdfUrl, '_blank');
                     }
                     
@@ -418,7 +452,8 @@ export function TicketCard({
                 disabled={isLoading || isSaving}
               >
                 <Download className="w-4 h-4" />
-                {ticket.pdf_url ? 'Descargar PDF' : 'Generar PDF'}
+                {ticket.pdf_url === 'generating...' ? 'Generando...' : 
+                 ticket.pdf_url ? 'Descargar PDF' : 'Generar PDF'}
               </Button>
               
               {/* Botón Ver QR */}

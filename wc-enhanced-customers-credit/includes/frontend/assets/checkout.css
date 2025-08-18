@@ -1,0 +1,171 @@
+/* WECC Checkout Integration CSS */
+
+/* Credit Summary antes de métodos de pago */
+.wecc-checkout-credit-summary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 20px;
+    border-radius: 8px;
+    margin: 20px 0;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.wecc-checkout-credit-summary h3 {
+    margin: 0 0 15px 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: white;
+}
+
+.wecc-credit-overview {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.wecc-credit-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255,255,255,0.1);
+    padding: 10px 15px;
+    border-radius: 6px;
+    backdrop-filter: blur(10px);
+}
+
+.wecc-credit-item .label {
+    font-size: 14px;
+    opacity: 0.9;
+}
+
+.wecc-credit-item .value {
+    font-weight: 600;
+    font-size: 16px;
+}
+
+.wecc-credit-item .value.positive {
+    color: #2ecc71;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+
+.wecc-credit-item .value.used {
+    color: #f39c12;
+}
+
+.wecc-credit-item .value.zero {
+    color: #e74c3c;
+}
+
+/* Purchase Info */
+.wecc-purchase-info {
+    text-align: center;
+    padding: 12px;
+    border-radius: 6px;
+    font-weight: 500;
+}
+
+.wecc-can-pay {
+    background: rgba(46, 204, 113, 0.2);
+    color: #27ae60;
+    border: 1px solid rgba(46, 204, 113, 0.3);
+}
+
+.wecc-can-pay .dashicons {
+    color: #27ae60;
+    margin-right: 5px;
+    vertical-align: middle;
+}
+
+.wecc-cannot-pay {
+    background: rgba(231, 76, 60, 0.2);
+    color: #e74c3c;
+    border: 1px solid rgba(231, 76, 60, 0.3);
+}
+
+.wecc-cannot-pay .dashicons {
+    color: #e74c3c;
+    margin-right: 5px;
+    vertical-align: middle;
+}
+
+/* Gateway Description Enhancement */
+.wecc-gateway-credit-info {
+    background: #f8f9fa;
+    border-left: 4px solid #667eea;
+    padding: 10px 15px;
+    margin: 10px 0;
+    border-radius: 0 4px 4px 0;
+}
+
+.wecc-available-amount {
+    font-weight: 600;
+    color: #27ae60;
+}
+
+.wecc-insufficient-notice {
+    color: #e74c3c;
+    font-weight: 500;
+    font-size: 14px;
+}
+
+/* Payment Method Credit Info */
+.payment_method_wecc_credit + .payment_box .wecc-credit-info {
+    border: 2px solid #667eea;
+    background: linear-gradient(135deg, #f8f9ff 0%, #f0f2ff 100%);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .wecc-checkout-credit-summary {
+        padding: 15px;
+        margin: 15px 0;
+    }
+    
+    .wecc-credit-overview {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+    
+    .wecc-credit-item {
+        padding: 8px 12px;
+    }
+    
+    .wecc-credit-item .label,
+    .wecc-credit-item .value {
+        font-size: 14px;
+    }
+}
+
+/* Animation de loading */
+@keyframes wecc-loading {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+.wecc-updating {
+    animation: wecc-loading 1.5s infinite;
+}
+
+/* Estados del gateway */
+.payment_method_wecc_credit:checked + label::after {
+    content: " ✓";
+    color: #27ae60;
+    font-weight: bold;
+}
+
+/* Highlight cuando está disponible */
+.wecc-credit-available .payment_method_wecc_credit + label {
+    border-left: 4px solid #27ae60;
+    padding-left: 16px;
+    background: rgba(46, 204, 113, 0.05);
+}
+
+/* Warning cuando no está disponible */
+.wecc-credit-insufficient .payment_method_wecc_credit + label {
+    border-left: 4px solid #e74c3c;
+    padding-left: 16px;
+    background: rgba(231, 76, 60, 0.05);
+    opacity: 0.7;
+}

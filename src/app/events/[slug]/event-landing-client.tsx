@@ -29,7 +29,7 @@ function EventLandingContent({ event }: EventLandingClientProps) {
         console.log('🚀 SINGLE Initializing flow with event:', event.id);
         
         // Cargar tipos de boletos
-        const ticketTypes = await getPublicTicketTypesForEvent(event.id);
+        const ticketTypes = await getPublicTicketTypesForEvent(event.id, event.slug);
         console.log('✅ Loaded ticket types:', ticketTypes.length);
         
         // Inicializar el flujo UNA SOLA VEZ

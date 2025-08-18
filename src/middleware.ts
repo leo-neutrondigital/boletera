@@ -41,8 +41,7 @@ const PUBLIC_ROUTES = [
   '/login',
   '/register',
   '/forgot-password',
-  '/eventos', // Vista pública de eventos
-  '/eventos/[id]', // Vista pública de evento específico
+  '/events', // Vista pública de eventos
   '/api/public', // APIs públicas
 ];
 
@@ -52,13 +51,7 @@ export function middleware(request: NextRequest) {
   console.log(`🛡️ Middleware: ${request.method} ${pathname}`);
 
   // Permitir rutas públicas
-  if (PUBLIC_ROUTES.some(route => {
-    if (route.includes('[id]')) {
-      const pattern = route.replace('[id]', '[^/]+');
-      return new RegExp(`^${pattern}$`).test(pathname);
-    }
-    return pathname.startsWith(route);
-  })) {
+  if (PUBLIC_ROUTES.some(route => pathname.startsWith(route))) {
     console.log(`✅ Public route allowed: ${pathname}`);
     return NextResponse.next();
   }

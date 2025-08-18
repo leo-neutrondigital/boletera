@@ -32,6 +32,7 @@ export default function RegisterPage() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const isPreregisterIntent = intent === 'preregister';
   const isPurchaseIntent = intent === 'purchase';
@@ -44,6 +45,7 @@ export default function RegisterPage() {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setSuccessMessage(null);
 
     try {
       // Crear cuenta en Firebase Auth
@@ -70,13 +72,71 @@ export default function RegisterPage() {
         created_at: serverTimestamp(),
       });
 
-      // Redirigir según la intención
-      if (redirectUrl) {
-        router.push(redirectUrl);
-      } else if (isPreregisterIntent && eventSlug) {
-        router.push(`/events/${eventSlug}`);
-      } else {
-        router.push('/dashboard');
+      // 🆕 AUTO-VINCULAR BOLETOS EXISTENTES POR EMAIL
+      try {
+        console.log('🔍 Checking for orphan tickets for email:', user.email);
+        
+        // Buscar boletos sin usuario asignado (user_id = null) con este email
+        const { collection, query, where, getDocs, updateDoc, doc } = await import('firebase/firestore');
+        
+        const ticketsQuery = query(
+          collection(db, 'tickets'),
+          where('customer_email', '==', user.email),
+          where('user_id', '==', null) // Solo boletos huérfanos
+        );
+        
+        const ticketsSnapshot = await getDocs(ticketsQuery);
+        
+        if (!ticketsSnapshot.empty) {
+          console.log(`🎫 Found ${ticketsSnapshot.size} orphan tickets to link`);
+          
+          // Actualizar cada boleto para vincularlo al usuario
+          const updatePromises = ticketsSnapshot.docs.map(ticketDoc => {
+            const updateData: any = {
+              user_id: user.uid,
+              linked_at: serverTimestamp(),
+              linked_via: 'auto_recovery'
+            };
+            
+            // Si el boleto tiene datos de recuperación, marcar como recuperado
+            const ticketData = ticketDoc.data();
+            if (ticketData.orphan_recovery_data) {
+              updateData['orphan_recovery_data.recovery_status'] = 'recovered';
+              updateData['orphan_recovery_data.recovered_at'] = serverTimestamp();
+              updateData['orphan_recovery_data.linked_to_user'] = user.uid;
+            }
+            
+            return updateDoc(doc(db, 'tickets', ticketDoc.id), updateData);
+          });
+          
+          await Promise.all(updatePromises);
+          
+          console.log(`✅ Successfully linked ${ticketsSnapshot.size} tickets to user ${user.uid}`);
+          
+          // Mostrar notificación al usuario
+          setSuccessMessage(`¡Cuenta creada exitosamente! Se vincularon ${ticketsSnapshot.size} boleto${ticketsSnapshot.size > 1 ? 's' : ''} a tu cuenta.`);
+          
+          // Redirigir a mis boletos después de un breve delay
+          setTimeout(() => {
+            router.push('/my-tickets');
+          }, 2000);
+        } else {
+          console.log('📝 No orphan tickets found for this email');
+        }
+      } catch (linkError) {
+        console.error('❌ Error linking orphan tickets:', linkError);
+        // No fallar la creación de cuenta si falla la vinculación
+      }
+
+      // Redirigir según la intención (solo si no hay boletos vinculados)
+      if (!successMessage) {
+        if (redirectUrl) {
+          router.push(redirectUrl);
+        } else if (isPreregisterIntent && eventSlug) {
+          router.push(`/events/${eventSlug}`);
+        } else {
+          router.push('/dashboard');
+        }
       }
 
     } catch (err: any) {
@@ -153,6 +213,12 @@ export default function RegisterPage() {
               {error && (
                 <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm">
                   {error}
+                </div>
+              )}
+              
+              {successMessage && (
+                <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md text-sm">
+                  ✅ {successMessage}
                 </div>
               )}
 
