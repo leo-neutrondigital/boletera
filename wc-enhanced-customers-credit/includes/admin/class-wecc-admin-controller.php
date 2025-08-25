@@ -91,6 +91,12 @@ class WECC_Admin_Controller {
         $tab = $_GET['tab'] ?? 'dashboard';
         $action = $_GET['action'] ?? '';
         
+        // Manejar acciones especiales antes de renderizar
+        if ($action === 'download_template' && $tab === 'bulk') {
+            $this->handle_download_template();
+            return;
+        }
+        
         echo '<div class="wrap">';
         echo '<h1>' . __('Crédito WECC', 'wc-enhanced-customers-credit') . '</h1>';
         
@@ -105,6 +111,15 @@ class WECC_Admin_Controller {
         switch ($tab) {
             case 'customers':
                 $this->render_customers_tab($action);
+                break;
+            case 'credit':
+                $this->render_credit_tab($action);
+                break;
+            case 'payments':
+                $this->render_payments_tab($action);
+                break;
+            case 'bulk':
+                $this->render_bulk_tab($action);
                 break;
             case 'accounts':
                 $this->render_accounts_tab($action);
@@ -299,6 +314,9 @@ class WECC_Admin_Controller {
         $tabs = [
             'dashboard' => __('Dashboard', 'wc-enhanced-customers-credit'),
             'customers' => __('Clientes', 'wc-enhanced-customers-credit'),
+            'credit' => __('Configurar Crédito', 'wc-enhanced-customers-credit'),
+            'payments' => __('Pagos Externos', 'wc-enhanced-customers-credit'),
+            'bulk' => __('Carga Masiva', 'wc-enhanced-customers-credit'),
             'accounts' => __('Cuentas Crédito', 'wc-enhanced-customers-credit'),
             'ledger' => __('Movimientos', 'wc-enhanced-customers-credit'),
             'settings' => __('Ajustes', 'wc-enhanced-customers-credit')
@@ -810,6 +828,14 @@ class WECC_Admin_Controller {
                 error_log('WECC Form Handler: Ejecutando save_customer');
                 $this->handle_save_customer();
                 break;
+            case 'bulk_import':
+                error_log('WECC Form Handler: Ejecutando bulk_import');
+                $this->handle_bulk_import();
+                break;
+            case 'bulk_export':
+                error_log('WECC Form Handler: Ejecutando bulk_export');
+                $this->handle_bulk_export();
+                break;
             default:
                 error_log('WECC Form Handler: Acción no reconocida: ' . $action);
                 break;
@@ -1014,5 +1040,95 @@ class WECC_Admin_Controller {
         echo '<h3>' . __('Ajustes', 'wc-enhanced-customers-credit') . '</h3>';
         echo '<p>' . __('Funcionalidad en desarrollo...', 'wc-enhanced-customers-credit') . '</p>';
         echo '</div>';
+    }
+    
+    /**
+     * Tab de configurar crédito
+     */
+    private function render_credit_tab(string $action): void {
+        if (!class_exists('WECC_Credit_Controller')) {
+            echo '<div class="notice notice-error"><p>' . __('Controlador de crédito no disponible.', 'wc-enhanced-customers-credit') . '</p></div>';
+            return;
+        }
+        
+        $credit_controller = new WECC_Credit_Controller();
+        
+        if (isset($_GET['user_id'])) {
+            $credit_controller->render_enable_credit_form();
+        } else {
+            $credit_controller->render_credit_overview();
+        }
+    }
+    
+    /**
+     * Tab de pagos externos
+     */
+    private function render_payments_tab(string $action): void {
+        if (!class_exists('WECC_Payments_Controller')) {
+            echo '<div class="notice notice-error"><p>' . __('Controlador de pagos no disponible.', 'wc-enhanced-customers-credit') . '</p></div>';
+            return;
+        }
+        
+        $payments_controller = new WECC_Payments_Controller();
+        
+        switch ($action) {
+            case 'register':
+                $payments_controller->render_register_payment_form();
+                break;
+            default:
+                $payments_controller->render_payments_overview();
+                break;
+        }
+    }
+    
+    /**
+     * Tab de carga masiva
+     */
+    private function render_bulk_tab(string $action): void {
+        if (!class_exists('WECC_Bulk_Controller')) {
+            echo '<div class="notice notice-error"><p>' . __('Controlador de carga masiva no disponible.', 'wc-enhanced-customers-credit') . '</p></div>';
+            return;
+        }
+        
+        $bulk_controller = new WECC_Bulk_Controller();
+        $bulk_controller->render_bulk_page();
+    }
+    
+    /**
+     * Maneja descarga de template
+     */
+    private function handle_download_template(): void {
+        if (!class_exists('WECC_Bulk_Controller')) {
+            wp_die(__('Controlador de carga masiva no disponible.', 'wc-enhanced-customers-credit'));
+        }
+        
+        $bulk_controller = new WECC_Bulk_Controller();
+        $bulk_controller->download_template();
+    }
+    
+    /**
+     * Maneja importación masiva
+     */
+    private function handle_bulk_import(): void {
+        if (!class_exists('WECC_Bulk_Controller')) {
+            wp_redirect(add_query_arg('message', 'error_saving', wp_get_referer()));
+            exit;
+        }
+        
+        $bulk_controller = new WECC_Bulk_Controller();
+        $bulk_controller->handle_import();
+    }
+    
+    /**
+     * Maneja exportación masiva
+     */
+    private function handle_bulk_export(): void {
+        if (!class_exists('WECC_Bulk_Controller')) {
+            wp_redirect(add_query_arg('message', 'error_saving', wp_get_referer()));
+            exit;
+        }
+        
+        $bulk_controller = new WECC_Bulk_Controller();
+        $bulk_controller->handle_export();
     }
 }

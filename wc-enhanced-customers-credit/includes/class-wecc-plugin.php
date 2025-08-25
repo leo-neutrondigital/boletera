@@ -71,7 +71,8 @@ class WECC_Plugin {
             
             // Mantener el viejo temporalmente como backup
             // require_once WECC_PLUGIN_DIR . 'includes/admin/class-wecc-admin-controller.php';
-            require_once WECC_PLUGIN_DIR . 'includes/admin/class-wecc-dashboard-page.php';
+            // Dashboard page (DESHABILITADO - ahora está integrado en admin controller)
+            // require_once WECC_PLUGIN_DIR . 'includes/admin/class-wecc-dashboard-page.php';
             require_once WECC_PLUGIN_DIR . 'includes/admin/class-wecc-customers-page.php';
             require_once WECC_PLUGIN_DIR . 'includes/admin/class-wecc-accounts-page.php';
             require_once WECC_PLUGIN_DIR . 'includes/admin/class-wecc-import-page.php';
@@ -180,7 +181,7 @@ class WECC_Plugin {
      * Inicializa frontend
      */
     public function init_frontend(): void {
-        new WECC_My_Credit_Endpoint();
+        // El endpoint se inicializa en el archivo principal del plugin
         new WECC_Payment_Handler();
     }
     
@@ -267,10 +268,27 @@ class WECC_Plugin {
                 WECC_VERSION
             );
             
+            // Cargar estilos del dashboard
+            wp_enqueue_style(
+                'wecc-dashboard',
+                WECC_PLUGIN_URL . 'includes/admin/assets/dashboard.css',
+                ['wecc-admin'],
+                WECC_VERSION
+            );
+            
             wp_enqueue_script(
                 'wecc-admin',
                 WECC_PLUGIN_URL . 'includes/admin/assets/admin.js',
                 ['jquery', 'jquery-ui-autocomplete'],
+                WECC_VERSION,
+                true
+            );
+            
+            // Cargar JavaScript del dashboard
+            wp_enqueue_script(
+                'wecc-dashboard',
+                WECC_PLUGIN_URL . 'includes/admin/assets/dashboard.js',
+                ['jquery', 'wecc-admin'],
                 WECC_VERSION,
                 true
             );

@@ -1,19 +1,28 @@
-import { useState, useEffect, useMemo } from 'react'; // 🆕 Agregar useMemo
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { auth } from '@/lib/firebase/client';
+import { useCourtesyOrders, useEvents, useTicketTypes } from '@/contexts/DataCacheContext'; // 🆕 Hooks de cache
+import { auth } from '@/lib/firebase/client'; // 🆕 Para operaciones manuales
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Gift, ShieldAlert } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast'; // 🆕 Para toast notifications
+import { PageHeader } from '@/components/shared/PageHeader';
+import { PageContent } from '@/components/shared/PageContent';
+import { useToast } from '@/hooks/use-toast';
 
 // Importar componentes
 import { CourtesyStats } from './CourtesyStats';
 import { CourtesyFilters } from './CourtesyFilters';
-import { GroupedCourtesyCard } from './GroupedCourtesyCard'; // 🆕 Nuevo componente agrupado
+import { EventGroupCard } from '@/components/shared/EventGroupCard';
 import { CourtesyEmptyState } from './CourtesyEmptyState';
 import { CreateCourtesyDialog } from './CreateCourtesyDialog';
 import { CourtesyGuide } from './CourtesyGuide';
+import { CourtesyPageSkeleton } from '@/components/shared/CourtesySkeletons'; // 🆕 Skeletons mejorados
+import { 
+  groupCourtesyOrdersByUserAndEvent, 
+  adaptCourtesyGroupToEventGroup,
+  type GroupedCourtesyData
+} from '@/components/shared/courtesyAdapters'; // 🆕 Adaptadores
 
 // Importar tipos
 import { 
@@ -25,117 +34,81 @@ import {
 } from './types';
 
 export function CourtesyPageContent() {
-  const { user, userData } = useAuth();
-  const { toast } = useToast(); // 🆕 Toast notifications
-  const [loading, setLoading] = useState(false);
-  const [courtesyOrders, setCourtesyOrders] = useState<CourtesyOrder[]>([]); // 🆕 Cambio a órdenes
-  const [events, setEvents] = useState<Event[]>([]);
-  const [ticketTypes, setTicketTypes] = useState<TicketType[]>([]);
+  const { userData } = useAuth();
+  const { toast } = useToast();
+  
+  // 🆕 Usar hooks de cache en lugar de estado local
+  const { 
+    courtesyOrders, 
+    loading: loadingOrders, 
+    loadCourtesyOrders, 
+    invalidate: invalidateOrders 
+  } = useCourtesyOrders();
+  
+  const { 
+    events: allEvents, 
+    loading: loadingEvents, 
+    loadEvents 
+  } = useEvents();
+
+  // 🆕 Filtrar eventos para mostrar solo eventos actuales/futuros
+  const events = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Inicio del día de hoy
+    
+    return allEvents.filter(event => {
+      const eventEndDate = new Date(event.end_date);
+      eventEndDate.setHours(23, 59, 59, 999); // Final del día del evento
+      
+      // Mostrar eventos que terminen hoy o en el futuro
+      return eventEndDate >= today;
+    });
+  }, [allEvents]);
+  
+  // Estado para tipo de boletos selecionado (no cacheamos esto porque es dinámico)
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const { 
+    ticketTypes, 
+    loading: loadingTicketTypes, 
+    loadTicketTypes 
+  } = useTicketTypes(selectedEventId || undefined);
+  
+  // Estados para filtros y paginación
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCourtesyType, setSelectedCourtesyType] = useState('all');
   const [creating, setCreating] = useState(false);
-  
-  // Estados para filtros y paginación
   const [showAllEvents, setShowAllEvents] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 20;
 
-  // Cargar datos iniciales
+  // 🆕 Loading general (solo si ambos están cargando)
+  const loading = loadingOrders && loadingEvents;
+
+  // Cargar datos iniciales usando cache
   useEffect(() => {
-    loadData();
+    console.log('🚀 Initial load: loading courtesy orders and events...');
+    loadCourtesyOrders();
+    loadEvents();
   }, []);
 
-  const loadData = async () => {
-    await Promise.all([
-      loadCourtesyOrders(), // 🆕 Cambio de nombre
-      loadEvents()
-    ]);
+  // 🆕 Función para cargar tipos de boletos cuando se selecciona un evento
+  const handleEventChange = (eventId: string) => {
+    setSelectedEventId(eventId);
   };
 
-  // 🆕 Cargar órdenes de cortesías agrupadas
-  const loadCourtesyOrders = async () => {
-    try {
-      setLoading(true);
-      
-      const currentUser = auth.currentUser;
-      if (!currentUser) return;
-      
-      const token = await currentUser.getIdToken();
-      
-      const response = await fetch('/api/admin/courtesy-orders', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setCourtesyOrders(data.orders || []);
-      }
-    } catch (error) {
-      console.error('Error loading courtesy orders:', error);
-    } finally {
-      setLoading(false);
+  // 🆕 Effect para cargar tipos cuando cambia el evento seleccionado
+  useEffect(() => {
+    if (selectedEventId) {
+      loadTicketTypes(selectedEventId);
     }
-  };
+  }, [selectedEventId]); // 🆕 Quitar loadTicketTypes de dependencias
 
-  // Cargar eventos
-  const loadEvents = async () => {
-    try {
-      const currentUser = auth.currentUser;
-      if (!currentUser) return;
-      
-      const token = await currentUser.getIdToken();
-      
-      const response = await fetch('/api/admin/events', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setEvents(data.filter((event: Event) => event.published) || []);
-      }
-    } catch (error) {
-      console.error('Error loading events:', error);
-    }
-  };
-
-  // Cargar tipos de boletos cuando se selecciona un evento
-  const loadTicketTypes = async (eventId: string) => {
-    try {
-      // Limpiar tipos existentes
-      setTicketTypes([]);
-      
-      const currentUser = auth.currentUser;
-      if (!currentUser) return;
-      
-      const token = await currentUser.getIdToken();
-      
-      const response = await fetch(`/api/admin/ticket-types?eventId=${eventId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        const activeTypes = data.filter((type: TicketType) => type.is_active) || [];
-        setTicketTypes(activeTypes);
-      } else {
-        console.error('Failed to load ticket types:', response.status);
-      }
-    } catch (error) {
-      console.error('Error loading ticket types:', error);
-    }
-  };
-
-  // Crear cortesía
+  // 🆕 Crear cortesy (invalidar cache después)
   const createCourtesyTickets = async (formData: any) => {
     try {
       setCreating(true);
       
+      // Lógica de creación (usando la API directamente)
       const currentUser = auth.currentUser;
       if (!currentUser) return;
       
@@ -151,16 +124,22 @@ export function CourtesyPageContent() {
       });
 
       if (response.ok) {
-        // 🆕 Ya no mostramos alert aquí - el formulario maneja el toast
-        await loadCourtesyOrders(); // 🆕 Cambio de nombre
+        // 🆕 Recarga inmediata y síncrona para ver cambios
+        console.log('✅ Courtesy created, reloading data immediately...');
+        
+        // Invalidar cache primero
+        invalidateOrders();
+        
+        // Recarga inmediata
+        await loadCourtesyOrders(true);
+        
+        console.log('🔄 Data reloaded after courtesy creation');
       } else {
         const errorData = await response.json();
-        // 🆕 Lanzar error para que el formulario lo maneje
         throw new Error(errorData.error || 'Error al crear cortesías');
       }
     } catch (error) {
       console.error('Error creating courtesy tickets:', error);
-      // 🆕 Re-lanzar para que el formulario lo maneje
       throw error;
     } finally {
       setCreating(false);
@@ -208,37 +187,12 @@ export function CourtesyPageContent() {
     }, {} as Record<string, number>)
   };
 
-  // 🆕 Agrupar órdenes por usuario + evento (manteniendo órdenes separadas)
+  // 🆕 Agrupar órdenes por usuario + evento usando adapter
   const eventGroups = useMemo(() => {
-    const groups: Record<string, {
-      eventName: string;
-      eventDate: Date;
-      eventLocation: string;
-      customerName: string;
-      customerEmail: string;
-      orders: CourtesyOrder[];
-    }> = {};
-    
-    courtesyOrders.forEach(order => {
-      const groupKey = `${order.customer_email}_${order.event_id}`;
-      
-      if (groups[groupKey]) {
-        // Agregar orden al grupo existente
-        groups[groupKey].orders.push(order);
-      } else {
-        // Crear nuevo grupo
-        groups[groupKey] = {
-          eventName: order.event_name,
-          eventDate: order.event_start_date,
-          eventLocation: order.event_location,
-          customerName: order.customer_name,
-          customerEmail: order.customer_email,
-          orders: [order]
-        };
-      }
-    });
-    
-    return Object.values(groups);
+    console.log(`📦 Grouping ${courtesyOrders.length} courtesy orders...`);
+    const groups = groupCourtesyOrdersByUserAndEvent(courtesyOrders);
+    console.log(`📁 Created ${groups.length} event groups`);
+    return groups;
   }, [courtesyOrders]);
 
   // 🆕 Filtrar grupos con lógica de eventos futuros
@@ -292,7 +246,7 @@ export function CourtesyPageContent() {
     window.location.href = `/dashboard/cortesias/orden/${orderId}`;
   };
   
-  // 🆕 Eliminar orden individual
+  // 🆕 Eliminar orden individual (invalidar cache después)
   const handleDeleteOrder = async (orderId: string): Promise<void> => {
     try {
       const currentUser = auth.currentUser;
@@ -316,8 +270,8 @@ export function CourtesyPageContent() {
           description: `Se eliminaron ${data.deleted_tickets} boleto${data.deleted_tickets > 1 ? 's' : ''} de cortesía`,
         });
         
-        // Recargar órdenes
-        await loadCourtesyOrders();
+        // 🆕 Invalidar cache para que recargue
+        invalidateOrders();
       } else {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Error al eliminar orden');
@@ -337,46 +291,28 @@ export function CourtesyPageContent() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-3">
-              <div className="bg-green-600 p-2 rounded-lg">
-                <Gift className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-semibold text-gray-900">
-                  Gestión de Cortesías
-                </h1>
-                <p className="text-sm text-gray-500">
-                  Crear y gestionar boletos de cortesía gratuitos
-                </p>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-3">
-              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300">
-                <ShieldAlert className="w-3 h-3 mr-1" />
-                {userData?.roles?.includes('admin') ? 'Administrador' : 'Gestor'}
-              </Badge>
-              
-              <CreateCourtesyDialog
-                events={events}
-                ticketTypes={ticketTypes}
-                courtesyTypes={COURTESY_TYPES}
-                onEventChange={loadTicketTypes}
-                onCreateCourtesy={createCourtesyTickets}
-                isCreating={creating}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        icon={Gift}
+        title="Gestión de Cortesías"
+        description="Crear y gestionar boletos de cortesía gratuitos"
+        iconColor="green"
+        badgeColor="green"
+        actions={
+          <CreateCourtesyDialog
+            events={events}
+            ticketTypes={ticketTypes}
+            courtesyTypes={COURTESY_TYPES}
+            onEventChange={handleEventChange} // 🆕 Usar nueva función
+            onCreateCourtesy={createCourtesyTickets}
+            isCreating={creating}
+          />
+        }
+      />
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <PageContent className="flex-1" padding="lg">
         
         {/* Stats */}
         <CourtesyStats stats={stats} />
@@ -386,12 +322,12 @@ export function CourtesyPageContent() {
           onSearchChange={setSearchTerm}
           selectedType={selectedCourtesyType}
           onTypeChange={setSelectedCourtesyType}
-          onRefresh={loadCourtesyOrders} // 🆕 Cambio de nombre
+          onRefresh={() => loadCourtesyOrders(true)} // 🆕 Forzar recarga
           isLoading={loading}
           courtesyTypes={COURTESY_TYPES}
           showAllEvents={showAllEvents}
           onToggleAllEvents={setShowAllEvents}
-          totalResults={filteredGroups.length} // 🆕 Cambio a grupos
+          totalResults={filteredGroups.length}
           currentPage={currentPage}
           totalPages={totalPages}
           onPageChange={setCurrentPage}
@@ -399,25 +335,8 @@ export function CourtesyPageContent() {
 
         {/* Content */}
         {loading ? (
-          // Loading State
-          <div className="space-y-6">
-            {[1, 2, 3].map(i => (
-              <Card key={i}>
-                <CardHeader>
-                  <div className="flex items-center gap-3">
-                    <Skeleton className="h-8 w-8 rounded" />
-                    <div>
-                      <Skeleton className="h-5 w-32 mb-1" />
-                      <Skeleton className="h-4 w-48" />
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <Skeleton className="h-24 w-full" />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          // 🆕 Loading State con skeletons mejorados
+          <CourtesyPageSkeleton />
         ) : filteredGroups.length === 0 ? (
           // Empty State
           <CourtesyEmptyState
@@ -427,7 +346,7 @@ export function CourtesyPageContent() {
             onClearFilters={handleClearFilters}
           />
         ) : (
-          // 🆕 Vista agrupada de eventos
+          // 🆕 Vista agrupada usando componente reutilizable
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900">
@@ -435,28 +354,34 @@ export function CourtesyPageContent() {
               </h2>
             </div>
 
-            {paginatedGroups.map((group, index) => (
-              <GroupedCourtesyCard 
-                key={`${group.customerEmail}_${group.eventName}_${index}`}
-                eventName={group.eventName}
-                eventDate={group.eventDate}
-                eventLocation={group.eventLocation}
-                customerName={group.customerName}
-                customerEmail={group.customerEmail}
-                orders={group.orders}
-                onViewOrder={handleViewOrder}
-                onDeleteOrder={userData?.roles?.includes('admin') || userData?.roles?.includes('gestor') 
-                  ? handleDeleteOrder
-                  : undefined}
-              />
-            ))}
+            {paginatedGroups.map((group, index) => {
+              const adaptedGroup = adaptCourtesyGroupToEventGroup(group);
+              
+              return (
+                <EventGroupCard 
+                  key={`${group.customerEmail}_${group.eventName}_${index}`}
+                  event={adaptedGroup}
+                  mode="admin"
+                  onOrderAction={handleViewOrder}
+                  onDeleteOrder={userData?.roles?.includes('admin') || userData?.roles?.includes('gestor') 
+                    ? handleDeleteOrder
+                    : undefined}
+                  headerColor="green"
+                  userInfo={{
+                    name: group.customerName,
+                    email: group.customerEmail
+                  }}
+                  showEventAction={false}
+                />
+              );
+            })}
           </div>
         )}
 
         {/* Guide */}
         <CourtesyGuide courtesyTypes={COURTESY_TYPES} />
 
-      </div>
+      </PageContent>
     </div>
   );
 }

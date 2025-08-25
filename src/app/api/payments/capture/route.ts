@@ -59,6 +59,29 @@ function generateQRId(): string {
   return `qr_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
 }
 
+// 🆕 Función para detectar usuario existente por email (SIN crear cuenta)
+async function findExistingUserByEmail(email: string): Promise<string | null> {
+  try {
+    console.log('🔍 Buscando usuario existente por email:', email);
+    
+    const { getAuth } = await import('firebase-admin/auth');
+    const auth = getAuth();
+    
+    const firebaseUser = await auth.getUserByEmail(email);
+    console.log('✅ Usuario existente encontrado:', firebaseUser.uid);
+    
+    return firebaseUser.uid;
+  } catch (error: any) {
+    if (error.code === 'auth/user-not-found') {
+      console.log('🔍 Usuario no existe para email:', email);
+      return null;
+    }
+    
+    console.error('❌ Error buscando usuario existente:', error);
+    return null;
+  }
+}
+
 // Crear usuario en Firebase Auth Y Firestore
 async function createUserAccount(customerData: CaptureRequest['customerData']) {
   console.log('🔄 createUserAccount called with:', {
@@ -297,92 +320,122 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 👤 OBTENER USER ID (manteniendo lógica original)
-    let userId: string | null = customerData.userId || null; // Asegurar tipo correcto
+    // 🆕 DETECCIÓN AUTOMÁTICA DE EMAILS DUPLICADOS
+    let userId: string | null = customerData.userId || null;
     let customToken = null;
     let accountCreationFailed = false;
+    let emailExisted = false; // 🆕 Nueva bandera para indicar email duplicado
     
-    // Solo crear cuenta si NO está registrado y lo solicitó
-    if (!customerData.userId && customerData.createAccount && customerData.password) {
-      console.log('🔄 Creating new account for guest user...');
+    // 1. 🔍 Primero verificar si el email ya existe (SIEMPRE, sin importar si quiere crear cuenta)
+    if (!customerData.userId) { // Solo para usuarios no loggeados
+      const existingUserId = await findExistingUserByEmail(customerData.email);
       
-      // 🧪 CONTROL DE SIMULACIÓN CON VARIABLE DE ENTORNO
-      const simulateFailure = process.env.SIMULATE_ACCOUNT_CREATION_FAILURE === 'true';
-      
-      let userResult;
-      if (simulateFailure) {
-        // 🧪 SIMULAR FALLO PARA TESTING
-        userResult = { userId: null, firebaseUid: null, customToken: null };
-        console.log('🧪 TESTING: Simulating account creation failure (SIMULATE_ACCOUNT_CREATION_FAILURE=true)');
-      } else {
-        // ✅ CREAR CUENTA REAL
-        console.log('✅ Creating real account (SIMULATE_ACCOUNT_CREATION_FAILURE=false or undefined)');
-        userResult = await createUserAccount(customerData);
-      }
-      const { userId: newUserId, firebaseUid, customToken: token } = userResult;
-      
-      if (newUserId) {
-        userId = newUserId; // Asignar el nuevo userId
-        customToken = token;
-        console.log('✅ New account created:', newUserId);
-      } else {
-        userId = null; // Asegurar que sea null explícitamente
-        console.log('⚠️ Account creation failed, continuing as guest');
-        accountCreationFailed = true;
+      if (existingUserId) {
+        // 🆕 EMAIL DUPLICADO DETECTADO - Asociar automáticamente
+        console.log('🔄 Email duplicado detectado - Asociando a cuenta existente:', existingUserId);
+        userId = existingUserId;
+        emailExisted = true;
         
-        // ENVIAR EMAIL DE RECUPERACIÓN para guests fallidos
+        // Actualizar datos del usuario existente con la nueva información
         try {
-          console.log('📧 Sending account recovery email...');
-          const { EmailApiClient } = await import('@/lib/email/email-client');
-          const { generateAccountRecoveryEmailHTML, generateAccountRecoveryEmailText } = await import('@/lib/email/account-recovery.template');
-          
-          const emailClient = new EmailApiClient();
-          const totalAmount = tickets.reduce((sum, t) => sum + t.total_price, 0);
-          const ticketsCount = tickets.reduce((sum, t) => sum + t.quantity, 0);
-          
-          const recoveryEmailData = {
-            customer_name: customerData.name,
-            customer_email: customerData.email,
-            event: {
-              name: eventData.name,
-              start_date: eventStartDate,
-              end_date: eventEndDate,
-              location: eventData.location
-            },
-            order_id: orderID,
-            payment_amount: totalAmount,
-            currency: tickets[0]?.currency || 'MXN',
-            tickets_count: ticketsCount,
-            support_email: process.env.SUPPORT_EMAIL,
-            app_url: process.env.NEXT_PUBLIC_APP_URL!
-          };
-          
-          const htmlContent = generateAccountRecoveryEmailHTML(recoveryEmailData);
-          const textContent = generateAccountRecoveryEmailText(recoveryEmailData);
-          
-          await emailClient.sendEmail({
-            to: customerData.email,
-            subject: `Acceso a tus boletos - ${eventData.name}`,
-            html: htmlContent,
-            text: textContent
+          const userRef = adminDb.collection('users').doc(existingUserId);
+          await userRef.update({
+            name: customerData.name, // Actualizar nombre por si cambió
+            phone: customerData.phone, // Actualizar teléfono
+            company: customerData.company || null,
+            updated_at: FieldValue.serverTimestamp(),
+            last_purchase: FieldValue.serverTimestamp()
           });
-          
-          console.log('✅ Account recovery email sent successfully');
-        } catch (emailError) {
-          console.error('❌ Failed to send recovery email:', emailError);
+          console.log('✅ Datos de usuario existente actualizados');
+        } catch (updateError) {
+          console.error('❌ Error actualizando usuario existente:', updateError);
+          // No fallar la compra por esto
         }
+      } else if (customerData.createAccount && customerData.password) {
+        // 2. 🆆 EMAIL NUEVO - Crear cuenta si se solicitó
+        console.log('🔄 Email nuevo - Creando cuenta para usuario invitado...');
+        
+        const simulateFailure = process.env.SIMULATE_ACCOUNT_CREATION_FAILURE === 'true';
+        
+        let userResult;
+        if (simulateFailure) {
+          // 🧪 SIMULAR FALLO PARA TESTING
+          userResult = { userId: null, firebaseUid: null, customToken: null };
+          console.log('🧪 TESTING: Simulating account creation failure (SIMULATE_ACCOUNT_CREATION_FAILURE=true)');
+        } else {
+          // ✅ CREAR CUENTA REAL
+          console.log('✅ Creating real account (SIMULATE_ACCOUNT_CREATION_FAILURE=false or undefined)');
+          userResult = await createUserAccount(customerData);
+        }
+        
+        const { userId: newUserId, firebaseUid, customToken: token } = userResult;
+        
+        if (newUserId) {
+          userId = newUserId;
+          customToken = token;
+          console.log('✅ New account created:', newUserId);
+        } else {
+          userId = null;
+          console.log('⚠️ Account creation failed, continuing as guest');
+          accountCreationFailed = true;
+          
+          // ENVIAR EMAIL DE RECUPERACIÓN para guests fallidos
+          try {
+            console.log('📧 Sending account recovery email...');
+            const { EmailApiClient } = await import('@/lib/email/email-client');
+            const { generateAccountRecoveryEmailHTML, generateAccountRecoveryEmailText } = await import('@/lib/email/account-recovery.template');
+            
+            const emailClient = new EmailApiClient();
+            const totalAmount = tickets.reduce((sum, t) => sum + t.total_price, 0);
+            const ticketsCount = tickets.reduce((sum, t) => sum + t.quantity, 0);
+            
+            const recoveryEmailData = {
+              customer_name: customerData.name,
+              customer_email: customerData.email,
+              event: {
+                name: eventData.name,
+                start_date: eventStartDate,
+                end_date: eventEndDate,
+                location: eventData.location
+              },
+              order_id: orderID,
+              payment_amount: totalAmount,
+              currency: tickets[0]?.currency || 'MXN',
+              tickets_count: ticketsCount,
+              support_email: process.env.SUPPORT_EMAIL,
+              app_url: process.env.NEXT_PUBLIC_APP_URL!
+            };
+            
+            const htmlContent = generateAccountRecoveryEmailHTML(recoveryEmailData);
+            const textContent = generateAccountRecoveryEmailText(recoveryEmailData);
+            
+            await emailClient.sendEmail({
+              to: customerData.email,
+              subject: `Acceso a tus boletos - ${eventData.name}`,
+              html: htmlContent,
+              text: textContent
+            });
+            
+            console.log('✅ Account recovery email sent successfully');
+          } catch (emailError) {
+            console.error('❌ Failed to send recovery email:', emailError);
+          }
+        }
+      } else {
+        // 3. 👵 USUARIO INVITADO (no quiere crear cuenta)
+        console.log('👵 Compra de invitado (no se solicitó crear cuenta)');
       }
-    } else if (customerData.userId) {
-      console.log('👤 Using existing registered user:', customerData.userId);
     } else {
-      console.log('👮 Guest purchase (no account creation requested)');
+      // 4. 👤 USUARIO YA LOGGEADO
+      console.log('👤 Usando usuario ya loggeado:', customerData.userId);
     }
     
-    console.log('📍 Final user assignment:', {
+    console.log('📍 Estado final de usuario:', {
       userId: userId,
       userIdType: typeof userId,
       hasCustomToken: !!customToken,
       accountCreationFailed,
+      emailExisted, // 🆕 Nueva bandera
       isRegisteredUser: !!customerData.userId
     });
 
@@ -479,57 +532,85 @@ export async function POST(request: NextRequest) {
     await Promise.all(updatePromises);
     console.log('✅ Updated sold counts for ticket types');
 
-    // 📧 ENVIAR EMAIL DE CONFIRMACIÓN PROFESIONAL
+    // 📧 ENVIAR EMAIL DE CONFIRMACIÓN (DIFERENCIADO)
     try {
-      console.log('📧 Sending purchase confirmation email using professional template...'); 
-      console.log('📍 Email decision factors:', {
+      console.log('📧 Enviando email de confirmación...'); 
+      console.log('📍 Factores de decisión de email:', {
         accountCreationFailed,
+        emailExisted, // 🆕 Nueva bandera
         userId: userId || 'guest',
         isRegisteredUser: !!customerData.userId,
-        willSendRecoveryEmail: accountCreationFailed
+        willSendDuplicateEmail: emailExisted
       });
       
       const { EmailApiClient } = await import('@/lib/email/email-client');
-      const { generatePurchaseConfirmationEmailHTML, generatePurchaseConfirmationEmailText } = await import('@/lib/email/purchase-confirmation.template');
       const { formatEventDates } = await import('@/lib/utils/event-dates');
       const emailClient = new EmailApiClient();
       
       const totalAmount = tickets.reduce((sum, t) => sum + t.total_price, 0);
       const ticketsCount = tickets.reduce((sum, t) => sum + t.quantity, 0);
       
-      // Preparar datos para el template de confirmación
-      const confirmationData = {
-        customer_name: customerData.name,
-        customer_email: customerData.email,
-        event_name: eventData.name,
-        event_date: formatEventDates(eventStartDate, eventEndDate),
-        event_location: eventData.location,
-        order_id: orderID,
-        total_amount: formatCurrency(totalAmount, tickets[0]?.currency || 'MXN'),
-        tickets_count: ticketsCount,
-        account_created: !!customToken && !accountCreationFailed,
-        app_url: process.env.NEXT_PUBLIC_APP_URL!
-      };
+      let htmlContent, textContent, emailSubject;
       
-      // Generar contenido de confirmación
-      const htmlContent = generatePurchaseConfirmationEmailHTML(confirmationData);
-      const textContent = generatePurchaseConfirmationEmailText(confirmationData);
+      if (emailExisted) {
+        // 🆕 EMAIL PARA CASOS DE EMAIL DUPLICADO
+        console.log('📧 Enviando email para email duplicado');
+        
+        const { generatePurchaseDuplicateEmailHTML, generatePurchaseDuplicateEmailText } = await import('@/lib/email/purchase-duplicate-email.template');
+        
+        const duplicateEmailData = {
+          customer_name: customerData.name,
+          customer_email: customerData.email,
+          event_name: eventData.name,
+          event_date: formatEventDates(eventStartDate, eventEndDate),
+          event_location: eventData.location,
+          order_id: orderID,
+          total_amount: formatCurrency(totalAmount, tickets[0]?.currency || 'MXN'),
+          tickets_count: ticketsCount,
+          app_url: process.env.NEXT_PUBLIC_APP_URL!
+        };
+        
+        htmlContent = generatePurchaseDuplicateEmailHTML(duplicateEmailData);
+        textContent = generatePurchaseDuplicateEmailText(duplicateEmailData);
+        emailSubject = `¡Compra exitosa! Inicia sesión para ver tus boletos - ${eventData.name}`;
+        
+      } else {
+        // ✅ EMAIL NORMAL DE CONFIRMACIÓN
+        console.log('📧 Enviando email de confirmación normal');
+        
+        const { generatePurchaseConfirmationEmailHTML, generatePurchaseConfirmationEmailText } = await import('@/lib/email/purchase-confirmation.template');
+        
+        const confirmationData = {
+          customer_name: customerData.name,
+          customer_email: customerData.email,
+          event_name: eventData.name,
+          event_date: formatEventDates(eventStartDate, eventEndDate),
+          event_location: eventData.location,
+          order_id: orderID,
+          total_amount: formatCurrency(totalAmount, tickets[0]?.currency || 'MXN'),
+          tickets_count: ticketsCount,
+          account_created: !!customToken && !accountCreationFailed,
+          app_url: process.env.NEXT_PUBLIC_APP_URL!
+        };
+        
+        htmlContent = generatePurchaseConfirmationEmailHTML(confirmationData);
+        textContent = generatePurchaseConfirmationEmailText(confirmationData);
+        emailSubject = accountCreationFailed 
+          ? `Compra confirmada - ${eventData.name} (Revisar instrucciones)`
+          : `Compra confirmada - ${eventData.name}`;
+      }
       
-      // Subject SIN emoji (el emoji causa problemas con el servidor de email)
-      const confirmationSubject = accountCreationFailed 
-        ? `Compra confirmada - ${eventData.name} (Revisar instrucciones)`
-        : `Compra confirmada - ${eventData.name}`;
-      
+      // Enviar email
       await emailClient.sendEmail({
         to: customerData.email,
-        subject: confirmationSubject,
+        subject: emailSubject,
         html: htmlContent,
         text: textContent
       });
       
-      console.log('✅ Purchase confirmation email sent');
+      console.log('✅ Email de confirmación enviado exitosamente');
     } catch (emailError) {
-      console.error('❌ Failed to send confirmation email:', emailError);
+      console.error('❌ Error enviando email de confirmación:', emailError);
       // No fallar todo el proceso si falla el email
     }
 
@@ -546,7 +627,7 @@ export async function POST(request: NextRequest) {
       // 🆕 Datos de autenticación para autologin
       userAccount: customToken ? {
         created: true,
-        firebaseUid: userId, // 🔄 REVERTIDO
+        firebaseUid: userId,
         customToken, // Para hacer autologin en el frontend
         email: customerData.email
       } : accountCreationFailed ? {
@@ -558,6 +639,14 @@ export async function POST(request: NextRequest) {
           canRecover: true,
           instructions: 'Check your email for recovery instructions'
         }
+      } : emailExisted ? {
+        // 🆕 NUEVO: Caso de email duplicado
+        created: false,
+        emailExisted: true,
+        reason: 'Email already exists, tickets associated to existing account',
+        email: customerData.email,
+        loginRequired: true,
+        instructions: 'Login to access your tickets'
       } : {
         created: false,
         reason: customerData.userId ? 'Using existing account' : 'Account creation not requested'

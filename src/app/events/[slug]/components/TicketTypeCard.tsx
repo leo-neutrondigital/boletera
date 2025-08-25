@@ -50,8 +50,7 @@ export function TicketTypeCard({ ticketType }: TicketTypeCardProps) {
   
   const maxQuantity = Math.min(
     availableStock,
-    ticketType.limit_per_user || 10,
-    5 // Límite máximo por transacción
+    ticketType.limit_per_user || 10 // Respeta configuración individual o usa default 10
   );
 
   const isOutOfStock = availableStock <= 0;

@@ -21,7 +21,8 @@ class WECC_Customers_Controller {
     private function init_dependencies(): void {
         if (function_exists('wecc_service')) {
             try {
-                $this->customer_service = wecc_service('customer_service');
+                // Usar el servicio unificado para búsquedas y gestión de clientes
+                $this->customer_service = wecc_service('unified_customer_service');
                 $this->balance_service = wecc_service('balance_service');
             } catch (Exception $e) {
                 error_log('WECC Customers Controller: Error inicializando servicios - ' . $e->getMessage());
@@ -39,30 +40,219 @@ class WECC_Customers_Controller {
             return;
         }
         
-        // Obtener parámetros
+        // Obtener parámetros de búsqueda, filtros y ordenamiento
         $search = sanitize_text_field($_GET['s'] ?? '');
         $page = max(1, (int) ($_GET['paged'] ?? 1));
         $per_page = 20;
         
-        // Obtener clientes
-        $results = $this->customer_service->search_customers(['search' => $search], $page, $per_page);
+        // Parámetros de ordenamiento
+        $orderby = sanitize_text_field($_GET['orderby'] ?? '');
+        $order = strtoupper(sanitize_text_field($_GET['order'] ?? 'ASC'));
+        if (!in_array($order, ['ASC', 'DESC'])) {
+            $order = 'ASC';
+        }
         
-        // Enriquecer con datos de crédito
-        $enriched_customers = $this->enrich_customers_with_credit_data($results['profiles'] ?? []);
+        // Obtener filtros específicos para clientes
+        $filters = [
+            'credit_status' => sanitize_text_field($_GET['filter_credit_status'] ?? ''),
+            'payment_status' => sanitize_text_field($_GET['filter_payment_status'] ?? ''),
+            'limit_from' => (float) ($_GET['filter_limit_from'] ?? 0),
+            'limit_to' => (float) ($_GET['filter_limit_to'] ?? 0)
+        ];
+        
+        // Si hay filtros aplicados o se requiere ordenamiento, necesitamos obtener TODOS los clientes
+        $has_filters = !empty(array_filter($filters));
+        $needs_sorting = !empty($orderby);
+        
+        if ($has_filters || $needs_sorting) {
+            // Obtener todos los clientes cuando hay filtros o se requiere ordenamiento global
+            $results = $this->customer_service->search_customers(['search' => $search], 1, 999999);
+            
+            // Enriquecer con datos de crédito y aplicar filtros
+            $enriched_customers = $this->enrich_customers_with_credit_data($results['profiles'] ?? []);
+            $filtered_customers = $this->apply_customer_filters($enriched_customers, $filters);
+            
+            // Aplicar ordenamiento a los resultados filtrados
+            $sorted_customers = $this->sort_customers($filtered_customers, $orderby, $order);
+            
+            // Aplicar paginación manual a los resultados filtrados y ordenados
+            $total_filtered = count($sorted_customers);
+            $total_pages = ceil($total_filtered / $per_page);
+            $offset = ($page - 1) * $per_page;
+            $paginated_customers = array_slice($sorted_customers, $offset, $per_page);
+            
+            $pagination = [
+                'current_page' => $page,
+                'total_pages' => max(1, $total_pages),
+                'total_items' => $total_filtered,
+                'showing_filtered' => $has_filters // Solo mostrar como filtrado si hay filtros reales
+            ];
+        } else {
+            // Sin filtros, usar la paginación del servicio directamente
+            $results = $this->customer_service->search_customers(['search' => $search], $page, $per_page);
+            $enriched_customers = $this->enrich_customers_with_credit_data($results['profiles'] ?? []);
+            
+            // Aplicar ordenamiento
+            $paginated_customers = $this->sort_customers($enriched_customers, $orderby, $order);
+            
+            $pagination = [
+                'current_page' => $page,
+                'total_pages' => $results['pages'] ?? 1,
+                'total_items' => $results['total'] ?? 0,
+                'showing_filtered' => false
+            ];
+        }
         
         // Variables para la vista
         $view_data = [
-            'customers' => $enriched_customers,
+            'customers' => $paginated_customers,
             'search' => $search,
-            'pagination' => [
-                'current_page' => $page,
-                'total_pages' => $results['pages'] ?? 1,
-                'total_items' => $results['total'] ?? 0
-            ]
+            'filters' => $filters,
+            'pagination' => $pagination,
+            'stats' => $this->calculate_global_stats(),
+            'orderby' => $orderby,
+            'order' => $order
         ];
         
         // Cargar vista
         $this->load_view('customers-list', $view_data);
+    }
+    
+    /**
+     * Aplica filtros a la lista de clientes enriquecidos
+     */
+    private function apply_customer_filters(array $customers, array $filters): array {
+        $filtered = $customers;
+        
+        // DEBUG TEMPORAL - solo para credit_status
+        if (!empty($filters['credit_status'])) {
+            error_log("WECC DEBUG FILTRO: Buscando clientes con status '{$filters['credit_status']}'");
+            error_log("WECC DEBUG FILTRO: Total clientes antes = " . count($filtered));
+        }
+        
+        // Filtro por estado de crédito
+        if (!empty($filters['credit_status'])) {
+            $filtered = array_filter($filtered, function($customer) use ($filters) {
+                $status_class = $customer['status']['class'];
+                $matches = $status_class === $filters['credit_status'];
+                
+                // DEBUG TEMPORAL - solo para clientes que coinciden
+                if ($matches) {
+                    error_log("WECC DEBUG FILTRO: Cliente {$customer['user_id']} coincide - status class: {$status_class}");
+                }
+                
+                return $matches;
+            });
+            
+            error_log("WECC DEBUG FILTRO: Total clientes después = " . count($filtered));
+        }
+        
+        // Filtro por situación de pago
+        if (!empty($filters['payment_status'])) {
+            $filtered = array_filter($filtered, function($customer) use ($filters) {
+                $balance = $customer['balance'];
+                $has_overdue = $customer['has_overdue'];
+                
+                switch ($filters['payment_status']) {
+                    case 'with-debt':
+                        return $balance['balance_used'] > 0;
+                    case 'overdue':
+                        return $has_overdue;
+                    case 'no-debt':
+                        return $balance['balance_used'] <= 0;
+                    default:
+                        return true;
+                }
+            });
+        }
+        
+        // Filtro por rango de límite de crédito
+        if ($filters['limit_from'] > 0 || $filters['limit_to'] > 0) {
+            $filtered = array_filter($filtered, function($customer) use ($filters) {
+                $account = $customer['account'];
+                if (!$account) return false;
+                
+                $limit = $account->credit_limit;
+                
+                // Verificar límite mínimo
+                if ($filters['limit_from'] > 0 && $limit < $filters['limit_from']) {
+                    return false;
+                }
+                
+                // Verificar límite máximo
+                if ($filters['limit_to'] > 0 && $limit > $filters['limit_to']) {
+                    return false;
+                }
+                
+                return true;
+            });
+        }
+        
+        return array_values($filtered); // Reindexar array
+    }
+    
+    /**
+     * Ordena la lista de clientes según el criterio especificado
+     */
+    private function sort_customers(array $customers, string $orderby, string $order): array {
+        if (empty($orderby) || empty($customers)) {
+            return $customers;
+        }
+        
+        usort($customers, function($a, $b) use ($orderby, $order) {
+            $value_a = $this->get_sort_value($a, $orderby);
+            $value_b = $this->get_sort_value($b, $orderby);
+            
+            // Comparación
+            if ($value_a == $value_b) {
+                return 0;
+            }
+            
+            $result = $value_a < $value_b ? -1 : 1;
+            
+            // Invertir si es descendente
+            return $order === 'DESC' ? -$result : $result;
+        });
+        
+        return $customers;
+    }
+    
+    /**
+     * Obtiene el valor para ordenamiento según el criterio
+     */
+    private function get_sort_value(array $customer, string $orderby) {
+        switch ($orderby) {
+            case 'name':
+                return strtolower($customer['profile']['full_name'] ?: $customer['user']->display_name);
+                
+            case 'email':
+                return strtolower($customer['user']->user_email);
+                
+            case 'status':
+                // Orden: activo, inactivo, bloqueado, sin crédito
+                $status_order = [
+                    'active' => 1,
+                    'inactive' => 2, 
+                    'blocked' => 3,
+                    'no-credit' => 4
+                ];
+                return $status_order[$customer['status']['class']] ?? 5;
+                
+            case 'limit':
+                return (float) ($customer['account']->credit_limit ?? 0);
+                
+            case 'used':
+                return (float) ($customer['balance']['balance_used'] ?? 0);
+                
+            case 'available':
+                return (float) ($customer['balance']['available_credit'] ?? 0);
+                
+            case 'overdue':
+                return $customer['has_overdue'] ? $this->get_customer_overdue_amount($customer['user_id']) : 0;
+                
+            default:
+                return 0;
+        }
     }
     
     /**
@@ -82,6 +272,20 @@ class WECC_Customers_Controller {
             // Verificar si tiene cargos vencidos
             $has_overdue = $this->has_overdue_charges($user_id);
             
+            // El servicio unificado ya incluye todos los datos necesarios
+            // Combinar nombre completo para compatibilidad
+            $full_name = '';
+            if (!empty($profile['billing_first_name']) || !empty($profile['billing_last_name'])) {
+                $full_name = trim($profile['billing_first_name'] . ' ' . $profile['billing_last_name']);
+            }
+            if (empty($full_name)) {
+                $full_name = $profile['display_name'];
+            }
+            
+            // Agregar campos calculados para compatibilidad
+            $profile['full_name'] = $full_name;
+            $profile['phone'] = $profile['billing_phone'] ?? '';
+            
             $enriched[] = [
                 'user_id' => $user_id,
                 'user' => $user,
@@ -97,42 +301,52 @@ class WECC_Customers_Controller {
     }
     
     /**
-     * Verifica si tiene cargos vencidos
+     * Verifica si tiene cargos vencidos - VERSIÓN CORREGIDA
      */
     private function has_overdue_charges(int $user_id): bool {
-        global $wpdb;
-        
-        // Usar balance_used en lugar de remaining_amount que no existe
-        $count = (int) $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM {$wpdb->prefix}wecc_ledger l
-             LEFT JOIN {$wpdb->prefix}wecc_credit_accounts a ON l.account_id = a.id
-             WHERE a.user_id = %d 
-             AND l.type = 'charge' 
-             AND l.due_date < NOW() 
-             AND l.amount > 0",
-            $user_id
-        ));
-        
-        return $count > 0;
+        // Usar la función helper corregida
+        return wecc_user_has_overdue_charges($user_id);
     }
     
     /**
      * Determina el estado visual del cliente
      */
     private function get_customer_status($account, bool $has_overdue): array {
-        if (!$account || $account->credit_limit <= 0) {
+        // DEBUG TEMPORAL
+        $debug_info = [
+            'account_exists' => !empty($account),
+            'credit_limit' => $account ? $account->credit_limit : 0,
+            'account_status' => $account ? $account->status : 'null',
+            'has_overdue' => $has_overdue
+        ];
+        error_log('WECC DEBUG get_customer_status: ' . print_r($debug_info, true));
+        
+        // Si no tiene cuenta, es sin crédito
+        if (!$account) {
+            error_log('WECC DEBUG: Cliente clasificado como no-credit (sin cuenta)');
             return ['text' => 'Sin Crédito', 'class' => 'no-credit'];
         }
         
+        // Si tiene vencidos, siempre es bloqueado (prioridad más alta)
         if ($has_overdue) {
+            error_log('WECC DEBUG: Cliente clasificado como blocked (tiene vencidos)');
             return ['text' => 'Bloqueado', 'class' => 'blocked'];
         }
         
-        if ($account->status === 'active') {
-            return ['text' => 'Activo', 'class' => 'active'];
+        // Si no tiene límite configurado, es sin crédito
+        if ($account->credit_limit <= 0) {
+            error_log('WECC DEBUG: Cliente clasificado como no-credit (sin límite)');
+            return ['text' => 'Sin Crédito', 'class' => 'no-credit'];
         }
         
-        return ['text' => 'Inactivo', 'class' => 'inactive'];
+        // Si tiene límite, verificar si el crédito está activado (checkbox)
+        if ($account->status === 'active') {
+            error_log('WECC DEBUG: Cliente clasificado como active (crédito activado)');
+            return ['text' => 'Activo', 'class' => 'active'];
+        } else {
+            error_log('WECC DEBUG: Cliente clasificado como inactive (crédito desactivado)');
+            return ['text' => 'Inactivo', 'class' => 'inactive'];
+        }
     }
     
     /**
@@ -172,10 +386,23 @@ class WECC_Customers_Controller {
             return;
         }
         
-        // Obtener datos completos incluyendo balance detallado
-        $profile = $this->customer_service->get_profile_by_user($user_id);
+        // Obtener datos completos incluyendo balance detallado  
+        $profile = $this->customer_service->get_unified_profile($user_id);
         $account = wecc_get_or_create_account($user_id);
         $balance = wecc_get_user_balance($user_id);
+        
+        // Agregar campos calculados para compatibilidad con la vista
+        if (!empty($profile)) {
+            $full_name = '';
+            if (!empty($profile['billing_first_name']) || !empty($profile['billing_last_name'])) {
+                $full_name = trim($profile['billing_first_name'] . ' ' . $profile['billing_last_name']);
+            }
+            if (empty($full_name)) {
+                $full_name = $profile['display_name'];
+            }
+            $profile['full_name'] = $full_name;
+            $profile['phone'] = $profile['billing_phone'] ?? '';
+        }
         
         // Obtener balance detallado si hay balance_service disponible
         if ($this->balance_service && $account) {
@@ -234,7 +461,20 @@ class WECC_Customers_Controller {
             }
         }
         
-        $movements = $this->get_customer_movements($user_id);
+        // Obtener parámetros de paginación y filtros
+        $current_page = max(1, (int) ($_GET['movements_page'] ?? 1));
+        $per_page = 20; // Reducir de 50 a 20 para mejor navegación
+        
+        // Obtener filtros
+        $filters = [
+            'type' => sanitize_text_field($_GET['filter_type'] ?? ''),
+            'date_from' => sanitize_text_field($_GET['filter_date_from'] ?? ''),
+            'date_to' => sanitize_text_field($_GET['filter_date_to'] ?? ''),
+            'search' => sanitize_text_field($_GET['filter_search'] ?? '')
+        ];
+        
+        $movements_data = $this->get_customer_movements($user_id, $current_page, $per_page, $filters);
+        $movements = $movements_data['movements'];
         
         $view_data = [
             'customer' => $user,
@@ -242,6 +482,13 @@ class WECC_Customers_Controller {
             'account' => $account,
             'balance' => $balance,
             'movements' => $movements,
+            'movements_pagination' => [
+                'current_page' => $current_page,
+                'total_pages' => $movements_data['total_pages'],
+                'total_items' => $movements_data['total_items'],
+                'per_page' => $per_page
+            ],
+            'movements_filters' => $filters,
             'has_overdue' => $this->has_overdue_charges($user_id)
         ];
         
@@ -251,27 +498,71 @@ class WECC_Customers_Controller {
     /**
      * Obtiene movimientos de un cliente con cálculo dinámico de restante
      */
-    private function get_customer_movements(int $user_id): array {
+    private function get_customer_movements(int $user_id, int $page = 1, int $per_page = 20, array $filters = []): array {
         global $wpdb;
         
-        // ORDEN POR FECHA DESC para mostrar movimientos más recientes primero (como frontend)
-        $movements = $wpdb->get_results($wpdb->prepare(
-            "SELECT l.*, o.id as order_id, l.created_at
-             FROM {$wpdb->prefix}wecc_ledger l
-             LEFT JOIN {$wpdb->prefix}wecc_credit_accounts a ON l.account_id = a.id
-             LEFT JOIN {$wpdb->prefix}posts o ON l.order_id = o.ID
-             WHERE a.user_id = %d
-             ORDER BY l.created_at DESC, l.id DESC
-             LIMIT 50",
-            $user_id
-        ), ARRAY_A);
+        // Calcular offset para paginación
+        $offset = ($page - 1) * $per_page;
+        
+        // Construir WHERE clause con filtros
+        $where_conditions = ['a.user_id = %d'];
+        $query_params = [$user_id];
+        
+        // Filtro por tipo
+        if (!empty($filters['type'])) {
+            $where_conditions[] = 'l.type = %s';
+            $query_params[] = $filters['type'];
+        }
+        
+        // Filtro por rango de fechas
+        if (!empty($filters['date_from'])) {
+            $where_conditions[] = 'DATE(l.created_at) >= %s';
+            $query_params[] = $filters['date_from'];
+        }
+        
+        if (!empty($filters['date_to'])) {
+            $where_conditions[] = 'DATE(l.created_at) <= %s';
+            $query_params[] = $filters['date_to'];
+        }
+        
+        // Filtro de búsqueda en notas y pedidos
+        if (!empty($filters['search'])) {
+            $search_term = '%' . $wpdb->esc_like($filters['search']) . '%';
+            $where_conditions[] = '(l.notes LIKE %s OR l.description LIKE %s OR o.ID LIKE %s)';
+            $query_params[] = $search_term;
+            $query_params[] = $search_term;
+            $query_params[] = $search_term;
+        }
+        
+        $where_clause = implode(' AND ', $where_conditions);
+        
+        // Obtener total de registros para paginación
+        $count_query = "SELECT COUNT(*)
+                        FROM {$wpdb->prefix}wecc_ledger l
+                        LEFT JOIN {$wpdb->prefix}wecc_credit_accounts a ON l.account_id = a.id
+                        LEFT JOIN {$wpdb->prefix}posts o ON l.order_id = o.ID
+                        WHERE {$where_clause}";
+        
+        $total_items = (int) $wpdb->get_var($wpdb->prepare($count_query, $query_params));
+        $total_pages = ceil($total_items / $per_page);
+        
+        // Consulta principal con filtros
+        $main_query = "SELECT l.*, o.id as order_id, l.created_at
+                      FROM {$wpdb->prefix}wecc_ledger l
+                      LEFT JOIN {$wpdb->prefix}wecc_credit_accounts a ON l.account_id = a.id
+                      LEFT JOIN {$wpdb->prefix}posts o ON l.order_id = o.ID
+                      WHERE {$where_clause}
+                      ORDER BY l.created_at DESC, l.id DESC
+                      LIMIT %d OFFSET %d";
+        
+        $query_params[] = $per_page;
+        $query_params[] = $offset;
+        
+        $movements = $wpdb->get_results($wpdb->prepare($main_query, $query_params), ARRAY_A);
         
         // Enriquecer con información adicional
         foreach ($movements as &$movement) {
-            $movement['days_remaining'] = $this->calculate_days_remaining($movement);
-            $movement['is_overdue'] = $this->is_movement_overdue($movement);
-            
-            // Cálculo dinámico del restante para cargos
+            // PRIMERO: Calcular el monto restante para cargos
             if ($movement['type'] === 'charge') {
                 $movement['remaining_amount'] = $this->calculate_charge_remaining_amount($movement);
                 $movement['original_amount'] = (float) $movement['amount'];
@@ -280,9 +571,19 @@ class WECC_Customers_Controller {
                 $movement['remaining_amount'] = 0;
                 $movement['original_amount'] = (float) $movement['amount'];
             }
+            
+            // DESPUÉS: Calcular días y vencimiento (que ahora usa remaining_amount)
+            $movement['days_remaining'] = $this->calculate_days_remaining($movement);
+            $movement['is_overdue'] = $this->is_movement_overdue($movement);
         }
         
-        return $movements;
+        return [
+            'movements' => $movements,
+            'total_items' => $total_items,
+            'total_pages' => $total_pages,
+            'current_page' => $page,
+            'per_page' => $per_page
+        ];
     }
     
     /**
@@ -340,15 +641,16 @@ class WECC_Customers_Controller {
     }
     
     /**
-     * Verifica si un movimiento está vencido
+     * Verifica si un movimiento está vencido - CORREGIDO PARA CONSIDERAR PAGOS
      */
     private function is_movement_overdue(array $movement): bool {
         if (!$movement['due_date'] || $movement['type'] !== 'charge') {
             return false;
         }
         
-        // Usar amount en lugar de remaining_amount
-        return strtotime($movement['due_date']) < time() && $movement['amount'] > 0;
+        // Un cargo solo está vencido si tiene monto restante Y está pasada la fecha
+        $remaining = $this->calculate_charge_remaining_amount($movement);
+        return strtotime($movement['due_date']) < time() && $remaining > 0.01;
     }
     
     /**
@@ -660,6 +962,94 @@ class WECC_Customers_Controller {
             wp_redirect($redirect_url);
             exit;
         }
+    }
+    
+    /**
+     * Calcula estadísticas globales optimizadas (independientes de filtros)
+     */
+    private function calculate_global_stats(): array {
+        global $wpdb;
+        
+        // 1. Total de crédito usado (suma de todos los balances positivos)
+        $total_credit_used = (float) $wpdb->get_var(
+            "SELECT COALESCE(SUM(balance_used), 0) 
+             FROM {$wpdb->prefix}wecc_credit_accounts 
+             WHERE credit_limit > 0 AND balance_used > 0"
+        );
+        
+        // 2. Total de monto vencido (usando índices optimizados)
+        $total_overdue_amount = (float) $wpdb->get_var(
+            "SELECT COALESCE(SUM(GREATEST(l.amount - COALESCE(payments.paid_amount, 0), 0)), 0) as total_overdue
+             FROM {$wpdb->prefix}wecc_ledger l
+             LEFT JOIN {$wpdb->prefix}wecc_credit_accounts a ON l.account_id = a.id
+             LEFT JOIN (
+                 SELECT 
+                     settles_ledger_id,
+                     SUM(ABS(amount)) as paid_amount
+                 FROM {$wpdb->prefix}wecc_ledger 
+                 WHERE type = 'payment' AND settles_ledger_id IS NOT NULL
+                 GROUP BY settles_ledger_id
+             ) payments ON l.id = payments.settles_ledger_id
+             WHERE l.type = 'charge' 
+             AND l.due_date < NOW()
+             AND (l.amount - COALESCE(payments.paid_amount, 0)) > 0.01"
+        );
+        
+        // 3. Número de clientes con vencidos (usando función helper optimizada)
+        $clients_with_overdue = 0;
+        $users_with_credit = $wpdb->get_col(
+            "SELECT user_id 
+             FROM {$wpdb->prefix}wecc_credit_accounts 
+             WHERE credit_limit > 0"
+        );
+        
+        foreach ($users_with_credit as $user_id) {
+            if (wecc_user_has_overdue_charges($user_id)) {
+                $clients_with_overdue++;
+            }
+        }
+        
+        // 4. Total de clientes con crédito habilitado
+        $clients_with_credit = (int) $wpdb->get_var(
+            "SELECT COUNT(*) 
+             FROM {$wpdb->prefix}wecc_credit_accounts 
+             WHERE credit_limit > 0"
+        );
+        
+        return [
+            'total_credit_used' => $total_credit_used,
+            'total_overdue_amount' => $total_overdue_amount,
+            'clients_with_overdue' => $clients_with_overdue,
+            'clients_with_credit' => $clients_with_credit
+        ];
+    }
+    
+    /**
+     * Obtiene el monto vencido de un cliente específico
+     */
+    private function get_customer_overdue_amount(int $user_id): float {
+        global $wpdb;
+        
+        $overdue_amount = (float) $wpdb->get_var($wpdb->prepare(
+            "SELECT SUM(GREATEST(l.amount - COALESCE(payments.paid_amount, 0), 0)) as total_overdue
+             FROM {$wpdb->prefix}wecc_ledger l
+             LEFT JOIN {$wpdb->prefix}wecc_credit_accounts a ON l.account_id = a.id
+             LEFT JOIN (
+                 SELECT 
+                     settles_ledger_id,
+                     SUM(ABS(amount)) as paid_amount
+                 FROM {$wpdb->prefix}wecc_ledger 
+                 WHERE type = 'payment' AND settles_ledger_id IS NOT NULL
+                 GROUP BY settles_ledger_id
+             ) payments ON l.id = payments.settles_ledger_id
+             WHERE a.user_id = %d 
+             AND l.type = 'charge' 
+             AND l.due_date < NOW()
+             AND (l.amount - COALESCE(payments.paid_amount, 0)) > 0.01",
+            $user_id
+        ));
+        
+        return $overdue_amount ?: 0;
     }
     
     /**

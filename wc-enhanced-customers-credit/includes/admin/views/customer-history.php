@@ -19,38 +19,62 @@ if (class_exists('WECC_Unified_Customer_Service')) {
 
 // Combinar con profile para compatibilidad
 $profile = array_merge($profile ?: [], $wecc_data);
+
+// Obtener datos de WooCommerce necesarios
+$billing_phone = get_user_meta($customer->ID, 'billing_phone', true);
+$billing_company = get_user_meta($customer->ID, 'billing_company', true);
 ?>
 
 <div class="wecc-customer-history">
+    <h3 style="margin: 20px 0 20px 0; color: #2271b1; border-bottom: 2px solid #2271b1; padding-bottom: 10px;">
+        <?php printf(__('Historial de %s', 'wc-enhanced-customers-credit'), esc_html($profile['full_name'] ?: $customer->display_name)); ?>
+    </h3>
+    <!-- Botones de acción - ARRIBA Y HORIZONTALES -->
+    <div style="display: flex; gap: 10px; margin-bottom: 20px; align-items: center; flex-wrap: wrap;">
+        <a href="<?php echo admin_url('admin.php?page=wecc-dashboard&tab=customers'); ?>" class="button">
+            <span class="dashicons dashicons-arrow-left-alt" style="line-height: 1.2; margin-right: 5px;"></span>
+            <?php _e('Volver a Clientes', 'wc-enhanced-customers-credit'); ?>
+        </a>
+        <a href="<?php echo admin_url("admin.php?page=wecc-dashboard&tab=credit&user_id={$customer->ID}"); ?>" class="button">
+            <span class="dashicons dashicons-money-alt" style="line-height: 1.2; margin-right: 5px;"></span>
+            <?php _e('Configurar Crédito', 'wc-enhanced-customers-credit'); ?>
+        </a>
+        <a href="<?php echo admin_url("admin.php?page=wecc-dashboard&tab=customers&action=edit&user_id={$customer->ID}"); ?>" class="button">
+            <span class="dashicons dashicons-edit" style="line-height: 1.2; margin-right: 5px;"></span>
+            <?php _e('Editar Datos', 'wc-enhanced-customers-credit'); ?>
+        </a>
+    </div>
+    
     <!-- Header con datos del cliente -->
     <div class="wecc-customer-header" style="background: white; padding: 20px; border: 1px solid #c3c4c7; border-radius: 4px; margin-bottom: 20px;">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-            <div class="wecc-customer-info">
-                <h2 style="margin: 0 0 10px 0;">
-                    <?php echo esc_html($profile['full_name'] ?: $customer->display_name); ?>
-                    <small style="font-weight: normal; color: #666;">(ID: <?php echo $customer->ID; ?>)</small>
-                </h2>
+        <div class="wecc-customer-info">
+            <h2 style="margin: 0 0 15px 0;">
+                <?php echo esc_html($profile['full_name'] ?: $customer->display_name); ?>
+                <small style="font-weight: normal; color: #666;">(ID: <?php echo $customer->ID; ?>)</small>
+            </h2>
                 
-                <!-- Grid de información horizontal -->
-                <div style="display: flex; gap: 20px; margin-bottom: 15px; flex-wrap: wrap;">
+                <!-- Grid de información horizontal - Diseño mejorado -->
+                <div style="display: flex; gap: 15px; margin-bottom: 15px; flex-wrap: wrap;">
                     <!-- Contacto -->
-                    <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; border-left: 4px solid #2271b1; flex: 1; min-width: 300px;">
-                        <h4 style="margin: 0 0 10px 0; color: #2271b1; font-size: 14px; display: flex; align-items: center;">
-                            <span class="dashicons dashicons-phone" style="margin-right: 8px; font-size: 16px;"></span>
-                            CONTACTO
-                        </h4>
-                        <div style="font-size: 13px; line-height: 1.5;">
-                            <strong>Email:</strong> <a href="mailto:<?php echo esc_attr($customer->user_email); ?>"><?php echo esc_html($customer->user_email); ?></a><br>
-                            <?php 
-                            // Usar directamente campos de WooCommerce
-                            $billing_phone = get_user_meta($customer->ID, 'billing_phone', true);
-                            $billing_company = get_user_meta($customer->ID, 'billing_company', true);
-                            ?>
+                    <div style="background: white; border: 1px solid #ddd; border-radius: 8px; border-left: 4px solid #2271b1; flex: 1; min-width: 280px; overflow: hidden;">
+                        <div style="background: #f8f9fa; padding: 12px 15px; border-bottom: 1px solid #eee;">
+                            <h4 style="margin: 0; color: #2271b1; font-size: 13px; font-weight: 600; display: flex; align-items: center;">
+                                <span class="dashicons dashicons-phone" style="margin-right: 6px; font-size: 14px;"></span>
+                                CONTACTO
+                            </h4>
+                        </div>
+                        <div style="padding: 15px; font-size: 13px; line-height: 1.6;">
+                            <div style="margin-bottom: 8px;">
+                                <strong style="color: #555; display: inline-block; min-width: 70px;">Email:</strong>
+                                <a href="mailto:<?php echo esc_attr($customer->user_email); ?>" style="color: #2271b1; text-decoration: none;">
+                                    <?php echo esc_html($customer->user_email); ?>
+                                </a>
+                            </div>
                             <?php if ($billing_phone): ?>
-                                <strong>Teléfono:</strong> <?php echo esc_html($billing_phone); ?><br>
-                            <?php endif; ?>
-                            <?php if ($billing_company): ?>
-                                <strong>Empresa:</strong> <?php echo esc_html($billing_company); ?><br>
+                                <div style="margin-bottom: 8px;">
+                                    <strong style="color: #555; display: inline-block; min-width: 70px;">Teléfono:</strong>
+                                    <span style="color: #333;"><?php echo esc_html($billing_phone); ?></span>
+                                </div>
                             <?php endif; ?>
                             <?php 
                             // Dirección completa de WooCommerce
@@ -66,76 +90,85 @@ $profile = array_merge($profile ?: [], $wecc_data);
                             if ($billing_postcode) $address_parts[] = $billing_postcode;
                             
                             if (!empty($address_parts)): ?>
-                                <strong>Dirección:</strong> <?php echo esc_html(implode(', ', $address_parts)); ?>
+                                <div style="margin-bottom: 8px;">
+                                    <strong style="color: #555; display: inline-block; min-width: 70px;">Dirección:</strong>
+                                    <span style="color: #333;"><?php echo esc_html(implode(', ', $address_parts)); ?></span>
+                                </div>
                             <?php endif; ?>
                         </div>
                     </div>
                     
                     <!-- Datos Fiscales -->
-                    <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; border-left: 4px solid #00a32a; flex: 1; min-width: 300px;">
-                        <h4 style="margin: 0 0 10px 0; color: #00a32a; font-size: 14px; display: flex; align-items: center;">
-                            <span class="dashicons dashicons-building" style="margin-right: 8px; font-size: 16px;"></span>
-                            FISCAL
-                        </h4>
-                        <div style="font-size: 13px; line-height: 1.5;">
+                    <div style="background: white; border: 1px solid #ddd; border-radius: 8px; border-left: 4px solid #00a32a; flex: 1; min-width: 280px; overflow: hidden;">
+                        <div style="background: #f8f9fa; padding: 12px 15px; border-bottom: 1px solid #eee;">
+                            <h4 style="margin: 0; color: #00a32a; font-size: 13px; font-weight: 600; display: flex; align-items: center;">
+                                <span class="dashicons dashicons-building" style="margin-right: 6px; font-size: 14px;"></span>
+                                FISCAL
+                            </h4>
+                        </div>
+                        <div style="padding: 15px; font-size: 13px; line-height: 1.6;">
                             <?php if ($profile['rfc']): ?>
-                                <strong>RFC:</strong> <?php echo esc_html($profile['rfc']); ?><br>
+                                <div style="margin-bottom: 8px;">
+                                    <strong style="color: #555; display: inline-block; min-width: 80px;">RFC:</strong>
+                                    <span style="color: #333; font-family: monospace; background: #f5f5f5; padding: 2px 6px; border-radius: 3px;"><?php echo esc_html($profile['rfc']); ?></span>
+                                </div>
                             <?php endif; ?>
                             <?php if ($billing_company): ?>
-                                <strong>Razón Social:</strong> <?php echo esc_html($billing_company); ?><br>
+                                <div style="margin-bottom: 8px;">
+                                    <strong style="color: #555; display: inline-block; min-width: 80px;">Razón Social:</strong>
+                                    <span style="color: #333;"><?php echo esc_html($billing_company); ?></span>
+                                </div>
                             <?php endif; ?>
                             <?php if ($profile['customer_type']): ?>
-                                <strong>Tipo:</strong> 
-                                <span style="background: #2271b1; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;">
-                                    <?php echo esc_html($profile['customer_type']); ?>
-                                </span>
+                                <div style="margin-bottom: 8px;">
+                                    <strong style="color: #555; display: inline-block; min-width: 80px;">Tipo:</strong>
+                                    <span style="background: #2271b1; color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; text-transform: lowercase;">
+                                        <?php echo esc_html($profile['customer_type']); ?>
+                                    </span>
+                                </div>
                             <?php endif; ?>
                         </div>
                     </div>
                     
                     <!-- Gestión -->
-                    <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; border-left: 4px solid #dba617; flex: 1; min-width: 300px;">
-                        <h4 style="margin: 0 0 10px 0; color: #dba617; font-size: 14px; display: flex; align-items: center;">
-                            <span class="dashicons dashicons-admin-users" style="margin-right: 8px; font-size: 16px;"></span>
-                            GESTIÓN
-                        </h4>
-                        <div style="font-size: 13px; line-height: 1.5;">
+                    <div style="background: white; border: 1px solid #ddd; border-radius: 8px; border-left: 4px solid #dba617; flex: 1; min-width: 280px; overflow: hidden;">
+                        <div style="background: #f8f9fa; padding: 12px 15px; border-bottom: 1px solid #eee;">
+                            <h4 style="margin: 0; color: #dba617; font-size: 13px; font-weight: 600; display: flex; align-items: center;">
+                                <span class="dashicons dashicons-admin-users" style="margin-right: 6px; font-size: 14px;"></span>
+                                GESTIÓN
+                            </h4>
+                        </div>
+                        <div style="padding: 15px; font-size: 13px; line-height: 1.6;">
                             <?php if ($profile['sales_rep']): ?>
                                 <?php $sales_rep = get_user_by('id', $profile['sales_rep']); ?>
-                                <strong>Vendedor:</strong> <?php echo $sales_rep ? esc_html($sales_rep->display_name) : 'N/A'; ?><br>
+                                <div style="margin-bottom: 8px;">
+                                    <strong style="color: #555; display: inline-block; min-width: 80px;">Vendedor:</strong>
+                                    <span style="color: #333;"><?php echo $sales_rep ? esc_html($sales_rep->display_name) : 'N/A'; ?></span>
+                                </div>
                             <?php endif; ?>
                             <?php if ($profile['customer_since']): ?>
-                                <strong>Cliente desde:</strong> <?php echo date_i18n('d/m/Y', strtotime($profile['customer_since'])); ?><br>
+                                <div style="margin-bottom: 8px;">
+                                    <strong style="color: #555; display: inline-block; min-width: 80px;">Cliente desde:</strong>
+                                    <span style="color: #333;"><?php echo date_i18n('d/m/Y', strtotime($profile['customer_since'])); ?></span>
+                                </div>
                             <?php endif; ?>
                             <?php if ($profile['customer_number']): ?>
-                                <strong>Número:</strong> <?php echo esc_html($profile['customer_number']); ?><br>
+                                <div style="margin-bottom: 8px;">
+                                    <strong style="color: #555; display: inline-block; min-width: 80px;">Número:</strong>
+                                    <span style="color: #333; font-family: monospace; background: #f5f5f5; padding: 2px 6px; border-radius: 3px; font-weight: 600;"><?php echo esc_html($profile['customer_number']); ?></span>
+                                </div>
                             <?php endif; ?>
                             <?php if ($profile['credit_notes']): ?>
-                                <strong>Notas:</strong> <em><?php echo esc_html(substr($profile['credit_notes'], 0, 40)); ?><?php echo strlen($profile['credit_notes']) > 40 ? '...' : ''; ?></em>
+                                <div style="margin-bottom: 8px;">
+                                    <strong style="color: #555; display: inline-block; min-width: 80px;">Notas:</strong>
+                                    <span style="color: #666; font-style: italic;"><?php echo esc_html(substr($profile['credit_notes'], 0, 35)); ?><?php echo strlen($profile['credit_notes']) > 35 ? '...' : ''; ?></span>
+                                </div>
                             <?php endif; ?>
                         </div>
                     </div>
                 </div>
             </div>
-            
-            <div class="wecc-quick-actions">
-                <a href="<?php echo admin_url('admin.php?page=wecc-dashboard&tab=customers'); ?>" class="button">
-                    <span class="dashicons dashicons-arrow-left-alt" style="line-height: 1.2; margin-right: 5px;"></span>
-                    <?php _e('Volver a lista', 'wc-enhanced-customers-credit'); ?>
-                </a>
-                <a href="<?php echo admin_url("admin.php?page=wecc-dashboard&tab=customers&action=edit&user_id={$customer->ID}"); ?>" class="button">
-                    <span class="dashicons dashicons-edit" style="line-height: 1.2; margin-right: 5px;"></span>
-                    <?php _e('Editar datos', 'wc-enhanced-customers-credit'); ?>
-                </a>
-                <?php if ($account && $account->credit_limit > 0): ?>
-                    <a href="<?php echo admin_url("admin.php?page=wecc-dashboard&tab=credit&action=enable&user_id={$customer->ID}"); ?>" class="button">
-                        <span class="dashicons dashicons-admin-settings" style="line-height: 1.2; margin-right: 5px;"></span>
-                        <?php _e('Configurar crédito', 'wc-enhanced-customers-credit'); ?>
-                    </a>
-                <?php endif; ?>
-            </div>
         </div>
-    </div>
 
     <!-- Resumen de crédito -->
     <?php if ($account && $account->credit_limit > 0): ?>
@@ -281,6 +314,123 @@ $profile = array_merge($profile ?: [], $wecc_data);
         <?php endif; ?>
         
         <?php if (!empty($movements)): ?>
+            <!-- Panel de filtros -->
+            <div class="wecc-filters-panel" style="background: white; padding: 15px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 20px;">
+                <h4 style="margin: 0 0 15px 0; color: #2271b1; display: flex; align-items: center;">
+                    <span class="dashicons dashicons-filter" style="margin-right: 8px;"></span>
+                    Filtros
+                    <?php if (!empty(array_filter($movements_filters))): ?>
+                        <span style="background: #00a32a; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; margin-left: 10px;">
+                            Activos
+                        </span>
+                    <?php endif; ?>
+                </h4>
+                
+                <form method="get" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; align-items: end;">
+                    <!-- Preservar parámetros existentes -->
+                    <input type="hidden" name="page" value="<?php echo esc_attr($_GET['page'] ?? ''); ?>">
+                    <input type="hidden" name="tab" value="<?php echo esc_attr($_GET['tab'] ?? ''); ?>">
+                    <input type="hidden" name="action" value="<?php echo esc_attr($_GET['action'] ?? ''); ?>">
+                    <input type="hidden" name="user_id" value="<?php echo esc_attr($_GET['user_id'] ?? ''); ?>">
+                    
+                    <!-- Filtro por tipo -->
+                    <div>
+                        <label for="filter_type" style="display: block; font-weight: 600; margin-bottom: 5px; color: #555;">Tipo:</label>
+                        <select name="filter_type" id="filter_type" style="width: 100%; padding: 6px 8px; border: 1px solid #ddd; border-radius: 3px;">
+                            <option value="">Todos los tipos</option>
+                            <option value="charge" <?php selected($movements_filters['type'], 'charge'); ?>>Cargos</option>
+                            <option value="payment" <?php selected($movements_filters['type'], 'payment'); ?>>Pagos</option>
+                            <option value="refund" <?php selected($movements_filters['type'], 'refund'); ?>>Reembolsos</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Filtro fecha desde -->
+                    <div>
+                        <label for="filter_date_from" style="display: block; font-weight: 600; margin-bottom: 5px; color: #555;">Desde:</label>
+                        <input type="date" name="filter_date_from" id="filter_date_from" 
+                               value="<?php echo esc_attr($movements_filters['date_from']); ?>"
+                               style="width: 100%; padding: 6px 8px; border: 1px solid #ddd; border-radius: 3px;">
+                    </div>
+                    
+                    <!-- Filtro fecha hasta -->
+                    <div>
+                        <label for="filter_date_to" style="display: block; font-weight: 600; margin-bottom: 5px; color: #555;">Hasta:</label>
+                        <input type="date" name="filter_date_to" id="filter_date_to" 
+                               value="<?php echo esc_attr($movements_filters['date_to']); ?>"
+                               style="width: 100%; padding: 6px 8px; border: 1px solid #ddd; border-radius: 3px;">
+                    </div>
+                    
+                    <!-- Buscador -->
+                    <div>
+                        <label for="filter_search" style="display: block; font-weight: 600; margin-bottom: 5px; color: #555;">Buscar:</label>
+                        <input type="text" name="filter_search" id="filter_search" 
+                               value="<?php echo esc_attr($movements_filters['search']); ?>"
+                               placeholder="Notas, pedidos..."
+                               style="width: 100%; padding: 6px 8px; border: 1px solid #ddd; border-radius: 3px;">
+                    </div>
+                    
+                    <!-- Botones -->
+                    <div style="display: flex; gap: 8px;">
+                        <button type="submit" class="button button-primary" style="display: flex; align-items: center; gap: 5px;">
+                            <span class="dashicons dashicons-search" style="font-size: 16px; line-height: 1;"></span>
+                            Filtrar
+                        </button>
+                        
+                        <?php if (!empty(array_filter($movements_filters))): ?>
+                            <a href="<?php echo remove_query_arg(['filter_type', 'filter_date_from', 'filter_date_to', 'filter_search', 'movements_page']); ?>" 
+                               class="button" style="display: flex; align-items: center; gap: 5px;">
+                                <span class="dashicons dashicons-dismiss" style="font-size: 16px; line-height: 1;"></span>
+                                Limpiar
+                            </a>
+                        <?php endif; ?>
+                    </div>
+                </form>
+            </div>
+            <!-- Información de paginación y controles superiores -->
+            <?php if (isset($movements_pagination) && $movements_pagination['total_pages'] > 1): ?>
+                <div class="wecc-pagination-info" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 4px;">
+                    <span style="color: #666; font-size: 13px;">
+                        <?php if (!empty(array_filter($movements_filters))): ?>
+                            Mostrando <?php echo (($movements_pagination['current_page'] - 1) * $movements_pagination['per_page']) + 1; ?> - 
+                            <?php echo min($movements_pagination['current_page'] * $movements_pagination['per_page'], $movements_pagination['total_items']); ?> 
+                            de <?php echo $movements_pagination['total_items']; ?> movimientos filtrados
+                        <?php else: ?>
+                            Mostrando <?php echo (($movements_pagination['current_page'] - 1) * $movements_pagination['per_page']) + 1; ?> - 
+                            <?php echo min($movements_pagination['current_page'] * $movements_pagination['per_page'], $movements_pagination['total_items']); ?> 
+                            de <?php echo $movements_pagination['total_items']; ?> movimientos
+                        <?php endif; ?>
+                    </span>
+                    <?php 
+                    // Generar controles de paginación preservando filtros
+                    $base_url = remove_query_arg('movements_page');
+                    $current = $movements_pagination['current_page'];
+                    $total = $movements_pagination['total_pages'];
+                    ?>
+                    <div class="wecc-pagination-controls" style="display: flex; gap: 5px; align-items: center;">
+                        <?php if ($current > 1): ?>
+                            <a href="<?php echo add_query_arg('movements_page', 1, $base_url); ?>" class="button button-small" title="Primera página">
+                                ⏮️
+                            </a>
+                            <a href="<?php echo add_query_arg('movements_page', $current - 1, $base_url); ?>" class="button button-small" title="Página anterior">
+                                ⬅️
+                            </a>
+                        <?php endif; ?>
+                        
+                        <span style="padding: 0 10px; font-weight: 600; color: #2271b1;">
+                            <?php echo $current; ?> / <?php echo $total; ?>
+                        </span>
+                        
+                        <?php if ($current < $total): ?>
+                            <a href="<?php echo add_query_arg('movements_page', $current + 1, $base_url); ?>" class="button button-small" title="Página siguiente">
+                                ➡️
+                            </a>
+                            <a href="<?php echo add_query_arg('movements_page', $total, $base_url); ?>" class="button button-small" title="Última página">
+                                ⏭️
+                            </a>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            <?php endif; ?>
             <table class="wp-list-table widefat fixed striped">
                 <thead>
                     <tr>
@@ -288,16 +438,16 @@ $profile = array_merge($profile ?: [], $wecc_data);
                         <th style="width: 80px;">Tipo</th>
                         <th style="width: 100px;">Monto</th>
                         <th style="width: 100px;">Restante</th>
-                        <th style="width: 80px;">Estado</th>
+                        <th style="width: 150px;">Estado</th>
                         <th style="width: 120px;">Vence / Días restantes</th>
                         <th style="width: 80px;">Pedido</th>
                         <th>Notas</th>
-                        <th style="width: 80px;">Fecha</th>
+                        <th style="width: 120px;">Fecha</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php foreach ($movements as $movement): ?>
-                        <tr>
+                        <tr style="height:60px;">
                             <!-- ID -->
                             <td><?php echo $movement['id']; ?></td>
                             
@@ -318,7 +468,7 @@ $profile = array_merge($profile ?: [], $wecc_data);
                                 ];
                                 ?>
                                 <span style="background: <?php echo $type_colors[$movement['type']] ?? '#8c8f94'; ?>; 
-                                             color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px; font-weight: 600;">
+                                             color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px; font-weight: 600;display: block; width: 80%; text-align: center;">
                                     <?php echo $type_labels[$movement['type']] ?? $movement['type']; ?>
                                 </span>
                             </td>
@@ -341,18 +491,24 @@ $profile = array_merge($profile ?: [], $wecc_data);
                                 <?php endif; ?>
                             </td>
                             
-                            <!-- Estado -->
+                            <!-- Estado - VERSIÓN MEJORADA QUE CONSIDERA PAGOS -->
                             <td>
                                 <?php if ($movement['type'] === 'charge'): ?>
                                     <?php 
                                     $remaining = $movement['remaining_amount'];
                                     $original = $movement['original_amount'];
+                                    $was_overdue = $movement['is_overdue']; // Basado en due_date vs now
                                     ?>
                                     <?php if ($remaining <= 0): ?>
                                         <span style="color: #00a32a; font-weight: 600;">✓ Pagado</span>
                                     <?php elseif ($remaining < $original): ?>
-                                        <span style="color: #dba617; font-weight: 600;">🟡 Parcial</span>
-                                    <?php elseif ($movement['is_overdue']): ?>
+                                        <?php if ($was_overdue): ?>
+                                            <span style="color: #d63638; font-weight: 600;">🔴 Vencido</span>
+                                            <br><small style="color: #666;">Pago parcial aplicado</small>
+                                        <?php else: ?>
+                                            <span style="color: #dba617; font-weight: 600;">🟡 Parcial</span>
+                                        <?php endif; ?>
+                                    <?php elseif ($was_overdue): ?>
                                         <span style="color: #d63638; font-weight: 600;">🔴 Vencido</span>
                                     <?php else: ?>
                                         <span style="color: #dba617; font-weight: 600;">🟡 Pendiente</span>
@@ -368,26 +524,34 @@ $profile = array_merge($profile ?: [], $wecc_data);
                                 <?php endif; ?>
                             </td>
                             
-                            <!-- Vencimiento / Días -->
+                            <!-- Vencimiento / Días - MEJORADO PARA OCULTAR VENCIMIENTO SI ESTÁ PAGADO -->
                             <td>
                                 <?php if ($movement['type'] === 'charge' && $movement['due_date']): ?>
-                                    <div>
-                                        <small><?php echo date_i18n('d/m/Y', strtotime($movement['due_date'])); ?></small>
-                                        <br>
-                                        <?php if ($movement['days_remaining'] !== null): ?>
-                                            <?php if ($movement['days_remaining'] < 0): ?>
-                                                <span style="color: #d63638; font-weight: 600;">
-                                                    Vencido hace <?php echo abs($movement['days_remaining']); ?> días
-                                                </span>
-                                            <?php elseif ($movement['days_remaining'] === 0): ?>
-                                                <span style="color: #dba617; font-weight: 600;">Vence hoy</span>
-                                            <?php else: ?>
-                                                <span style="color: #00a32a;">
-                                                    Faltan <?php echo $movement['days_remaining']; ?> días
-                                                </span>
+                                    <?php 
+                                    $remaining = $movement['remaining_amount'];
+                                    $is_paid = $remaining <= 0;
+                                    ?>
+                                    <?php if ($is_paid): ?>
+                                        <span style="color: #8c8f94; font-style: italic;">Pagado</span>
+                                    <?php else: ?>
+                                        <div>
+                                            <small><?php echo date_i18n('d/m/Y', strtotime($movement['due_date'])); ?></small>
+                                            <br>
+                                            <?php if ($movement['days_remaining'] !== null): ?>
+                                                <?php if ($movement['days_remaining'] < 0): ?>
+                                                    <span style="color: #d63638; font-weight: 600;">
+                                                        Vencido hace <?php echo abs($movement['days_remaining']); ?> días
+                                                    </span>
+                                                <?php elseif ($movement['days_remaining'] === 0): ?>
+                                                    <span style="color: #dba617; font-weight: 600;">Vence hoy</span>
+                                                <?php else: ?>
+                                                    <span style="color: #00a32a;">
+                                                        Faltan <?php echo $movement['days_remaining']; ?> días
+                                                    </span>
+                                                <?php endif; ?>
                                             <?php endif; ?>
-                                        <?php endif; ?>
-                                    </div>
+                                        </div>
+                                    <?php endif; ?>
                                 <?php else: ?>
                                     <span style="color: #8c8f94;">-</span>
                                 <?php endif; ?>
@@ -417,13 +581,148 @@ $profile = array_merge($profile ?: [], $wecc_data);
                     <?php endforeach; ?>
                 </tbody>
             </table>
+            
+            <!-- Controles de paginación inferiores -->
+            <?php if (isset($movements_pagination) && $movements_pagination['total_pages'] > 1): ?>
+                <div class="wecc-pagination-bottom" style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 4px; text-align: center;">
+                    <?php 
+                    // Preservar filtros en paginación
+                    $base_url = remove_query_arg('movements_page');
+                    $current = $movements_pagination['current_page'];
+                    $total = $movements_pagination['total_pages'];
+                    ?>
+                    <div style="display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap;">
+                        <?php if ($current > 1): ?>
+                            <a href="<?php echo add_query_arg('movements_page', 1, $base_url); ?>" class="button">
+                                « Primera
+                            </a>
+                            <a href="<?php echo add_query_arg('movements_page', $current - 1, $base_url); ?>" class="button">
+                                ‹ Anterior
+                            </a>
+                        <?php endif; ?>
+                        
+                        <!-- Números de página -->
+                        <?php
+                        $start = max(1, $current - 2);
+                        $end = min($total, $current + 2);
+                        
+                        for ($i = $start; $i <= $end; $i++):
+                        ?>
+                            <?php if ($i == $current): ?>
+                                <span class="button button-primary" style="cursor: default;"><?php echo $i; ?></span>
+                            <?php else: ?>
+                                <a href="<?php echo add_query_arg('movements_page', $i, $base_url); ?>" class="button"><?php echo $i; ?></a>
+                            <?php endif; ?>
+                        <?php endfor; ?>
+                        
+                        <?php if ($current < $total): ?>
+                            <a href="<?php echo add_query_arg('movements_page', $current + 1, $base_url); ?>" class="button">
+                                Siguiente ›
+                            </a>
+                            <a href="<?php echo add_query_arg('movements_page', $total, $base_url); ?>" class="button">
+                                Última »
+                            </a>
+                        <?php endif; ?>
+                    </div>
+                    
+                    <div style="margin-top: 10px; color: #666; font-size: 12px;">
+                        Página <?php echo $current; ?> de <?php echo $total; ?> 
+                        <?php if (!empty(array_filter($movements_filters))): ?>
+                            (<?php echo $movements_pagination['total_items']; ?> movimientos filtrados)
+                        <?php else: ?>
+                            (<?php echo $movements_pagination['total_items']; ?> movimientos en total)
+                        <?php endif; ?>
+                    </div>
+                </div>
+            <?php endif; ?>
         <?php else: ?>
-            <div style="text-align: center; padding: 40px; color: #666;">
-                <p>📄 No hay movimientos registrados para este cliente.</p>
-                <?php if ($account && $account->credit_limit > 0): ?>
-                    <p>El cliente puede empezar a usar su crédito realizando compras.</p>
-                <?php endif; ?>
-            </div>
+            <!-- Panel de filtros para cuando no hay resultados -->
+            <?php if (!empty(array_filter($movements_filters ?? []))): ?>
+                <div class="wecc-filters-panel" style="background: white; padding: 15px; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 20px;">
+                    <h4 style="margin: 0 0 15px 0; color: #2271b1; display: flex; align-items: center;">
+                        <span class="dashicons dashicons-filter" style="margin-right: 8px;"></span>
+                        Filtros
+                        <span style="background: #00a32a; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; margin-left: 10px;">
+                            Activos
+                        </span>
+                    </h4>
+                    
+                    <form method="get" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; align-items: end;">
+                        <!-- Preservar parámetros existentes -->
+                        <input type="hidden" name="page" value="<?php echo esc_attr($_GET['page'] ?? ''); ?>">
+                        <input type="hidden" name="tab" value="<?php echo esc_attr($_GET['tab'] ?? ''); ?>">
+                        <input type="hidden" name="action" value="<?php echo esc_attr($_GET['action'] ?? ''); ?>">
+                        <input type="hidden" name="user_id" value="<?php echo esc_attr($_GET['user_id'] ?? ''); ?>">
+                        
+                        <!-- Filtro por tipo -->
+                        <div>
+                            <label for="filter_type" style="display: block; font-weight: 600; margin-bottom: 5px; color: #555;">Tipo:</label>
+                            <select name="filter_type" id="filter_type" style="width: 100%; padding: 6px 8px; border: 1px solid #ddd; border-radius: 3px;">
+                                <option value="">Todos los tipos</option>
+                                <option value="charge" <?php selected($movements_filters['type'], 'charge'); ?>>Cargos</option>
+                                <option value="payment" <?php selected($movements_filters['type'], 'payment'); ?>>Pagos</option>
+                                <option value="refund" <?php selected($movements_filters['type'], 'refund'); ?>>Reembolsos</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Filtro fecha desde -->
+                        <div>
+                            <label for="filter_date_from" style="display: block; font-weight: 600; margin-bottom: 5px; color: #555;">Desde:</label>
+                            <input type="date" name="filter_date_from" id="filter_date_from" 
+                                   value="<?php echo esc_attr($movements_filters['date_from']); ?>"
+                                   style="width: 100%; padding: 6px 8px; border: 1px solid #ddd; border-radius: 3px;">
+                        </div>
+                        
+                        <!-- Filtro fecha hasta -->
+                        <div>
+                            <label for="filter_date_to" style="display: block; font-weight: 600; margin-bottom: 5px; color: #555;">Hasta:</label>
+                            <input type="date" name="filter_date_to" id="filter_date_to" 
+                                   value="<?php echo esc_attr($movements_filters['date_to']); ?>"
+                                   style="width: 100%; padding: 6px 8px; border: 1px solid #ddd; border-radius: 3px;">
+                        </div>
+                        
+                        <!-- Buscador -->
+                        <div>
+                            <label for="filter_search" style="display: block; font-weight: 600; margin-bottom: 5px; color: #555;">Buscar:</label>
+                            <input type="text" name="filter_search" id="filter_search" 
+                                   value="<?php echo esc_attr($movements_filters['search']); ?>"
+                                   placeholder="Notas, pedidos..."
+                                   style="width: 100%; padding: 6px 8px; border: 1px solid #ddd; border-radius: 3px;">
+                        </div>
+                        
+                        <!-- Botones -->
+                        <div style="display: flex; gap: 8px;">
+                            <button type="submit" class="button button-primary" style="display: flex; align-items: center; gap: 5px;">
+                                <span class="dashicons dashicons-search" style="font-size: 16px; line-height: 1;"></span>
+                                Filtrar
+                            </button>
+                            
+                            <a href="<?php echo remove_query_arg(['filter_type', 'filter_date_from', 'filter_date_to', 'filter_search', 'movements_page']); ?>" 
+                               class="button" style="display: flex; align-items: center; gap: 5px;">
+                                <span class="dashicons dashicons-dismiss" style="font-size: 16px; line-height: 1;"></span>
+                                Limpiar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+                
+                <div style="text-align: center; padding: 40px; color: #666; background: #fff9e6; border: 1px solid #dba617; border-radius: 4px;">
+                    <span class="dashicons dashicons-search" style="font-size: 48px; color: #dba617; margin-bottom: 15px;"></span>
+                    <p style="font-size: 16px; margin: 0 0 10px 0;"><strong>No se encontraron movimientos con los filtros aplicados.</strong></p>
+                    <p style="margin: 0;">Intenta ajustar los criterios de búsqueda o 
+                        <a href="<?php echo remove_query_arg(['filter_type', 'filter_date_from', 'filter_date_to', 'filter_search', 'movements_page']); ?>" style="color: #2271b1; text-decoration: none;">
+                            limpiar todos los filtros
+                        </a>
+                    </p>
+                </div>
+            <?php else: ?>
+                <div style="text-align: center; padding: 40px; color: #666;">
+                    <p>📄 No hay movimientos registrados para este cliente.</p>
+                    <?php if ($account && $account->credit_limit > 0): ?>
+                        <p>El cliente puede empezar a usar su crédito realizando compras.</p>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
         <?php endif; ?>
     </div>
 </div>
@@ -433,15 +732,15 @@ $profile = array_merge($profile ?: [], $wecc_data);
     color: #2271b1;
 }
 
-.wecc-customer-history .wp-list-table th,
-.wecc-customer-history .wp-list-table td {
-    vertical-align: top;
-    padding: 8px 6px;
-    font-size: 12px;
+/* Estilos específicos adicionales para la tabla */
+.wecc-customer-history .wp-list-table {
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    overflow: hidden;
 }
 
-.wecc-customer-history .wp-list-table th {
-    font-weight: 600;
+.wecc-customer-history .wp-list-table thead {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
 }
 
 /* Transición suave para el acordeón */
@@ -449,50 +748,25 @@ $profile = array_merge($profile ?: [], $wecc_data);
     transition: all 0.3s ease;
 }
 
-/* Mejorar layout responsivo */
-.wecc-customer-header {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
+/* Estilos para botones de acción horizontales */
+.wecc-customer-history .button {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
 }
 
-@media (min-width: 1200px) {
-    .wecc-customer-header {
-        flex-direction: row;
-        justify-content: space-between;
-        align-items: flex-start;
-    }
-    
-    .wecc-customer-info {
-        flex: 1;
-    }
-    
-    .wecc-quick-actions {
-        flex-shrink: 0;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        min-width: 200px;
-    }
-}
-
-@media (max-width: 1199px) {
-    .wecc-quick-actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-        border-top: 1px solid #ddd;
-        padding-top: 15px;
-        margin-top: 10px;
-    }
-}
-
-/* Iconos de dashicons en botones */
-.wecc-quick-actions .button .dashicons {
+.wecc-customer-history .button .dashicons {
     font-size: 16px;
     width: 16px;
     height: 16px;
-    vertical-align: middle;
+    line-height: 16px;
+}
+
+/* Responsive para botones */
+@media (max-width: 768px) {
+    .wecc-customer-history .button {
+        margin-bottom: 8px;
+    }
 }
 </style>
 

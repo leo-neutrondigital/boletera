@@ -103,35 +103,58 @@ export function EventFlowProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<EventFlowState>(initialState);
   const renderCount = useRef(0);
   
-  // Contar renders para debugging
+  // 🔧 DEBUG: Añadir debugging de estado en cada render
   renderCount.current += 1;
   console.log('🔄 EventFlowProvider render #', renderCount.current, 'with state:', {
     method: state.method,
     currentStep: state.currentStep,
-    eventId: state.event?.id
+    eventId: state.event?.id,
+    hasCustomerData: !!state.customerData,
+    customerDataName: state.customerData?.name || 'none',
+    selectedTicketsCount: state.selectedTickets.length
   });
 
   // Calcular total automáticamente
   useEffect(() => {
     const total = state.selectedTickets.reduce((sum, ticket) => sum + ticket.total_price, 0);
     if (total !== state.totalAmount) {
-      console.log('💰 Updating total amount:', total);
-      setState(prev => ({ ...prev, totalAmount: total }));
+      console.log('💰 Updating total amount:', total, '(prev:', state.totalAmount, ')');
+      
+      // 🔧 VERIFICAR SI ESTO ESTÁ CORROMPIENDO EL ESTADO
+      setState(prev => {
+        if (prev.customerData) {
+          console.log('💰 totalAmount update - preserving customerData:', prev.customerData.name);
+        } else {
+          console.log('💰 totalAmount update - no customerData to preserve');
+        }
+        return { ...prev, totalAmount: total };
+      });
+    } else {
+      console.log('💰 Total amount unchanged:', total);
     }
   }, [state.selectedTickets, state.totalAmount]);
 
-  // Función canProceed mejorada y estable
-  const canProceed = useCallback((): boolean => {
+  // Función canProceed como función normal (sin useCallback)
+  const canProceed = (): boolean => {
     const result = (() => {
       switch (state.currentStep) {
         case 'method':
           return state.method !== null;
         case 'selection':
-          return state.method === 'preregister' || state.selectedTickets.length > 0;
+          return state.selectedTickets.length > 0; // ✅ OBLIGATORIO para ambos métodos
         case 'details':
-          return state.customerData !== null && 
-                 state.customerData.name.trim() !== '' && 
-                 state.customerData.email.trim() !== '';
+          // 🔧 ARREGLO: Para preregistros NO necesitamos boletos
+          const hasCustomerData = state.customerData !== null && 
+                                  state.customerData.name.trim() !== '' && 
+                                  state.customerData.email.trim() !== '';
+          
+          if (state.method === 'preregister') {
+            // Para preregistros, solo necesitamos datos del cliente
+            return hasCustomerData;
+          } else {
+            // Para compras, necesitamos datos Y boletos
+            return hasCustomerData && state.selectedTickets.length > 0;
+          }
         case 'payment':
           return true;
         case 'configure':
@@ -145,11 +168,14 @@ export function EventFlowProvider({ children }: { children: React.ReactNode }) {
       step: state.currentStep,
       method: state.method,
       result,
-      tickets: state.selectedTickets.length
+      tickets: state.selectedTickets.length,
+      hasCustomerData: !!state.customerData,
+      customerDataName: state.customerData?.name || 'none',
+      customerDataEmail: state.customerData?.email || 'none'
     });
 
     return result;
-  }, [state.currentStep, state.method, state.selectedTickets, state.customerData]);
+  };
 
   // Acciones
   const actions: EventFlowActions = {
@@ -166,19 +192,47 @@ export function EventFlowProvider({ children }: { children: React.ReactNode }) {
       const stepOrder: FlowStep[] = ['method', 'selection', 'details', 'payment', 'configure'];
       const currentIndex = stepOrder.indexOf(state.currentStep);
       
+      // 🔧 ARREGLO FINAL: Evaluar canProceed DIRECTAMENTE sin function closure
+      const directCanProceed = (() => {
+        switch (state.currentStep) {
+          case 'method':
+            return state.method !== null;
+          case 'selection':
+            return state.selectedTickets.length > 0; // ✅ OBLIGATORIO para ambos métodos
+          case 'details':
+            const hasCustomerDataNow = state.customerData !== null && 
+                                    state.customerData.name.trim() !== '' && 
+                                    state.customerData.email.trim() !== '';
+            if (state.method === 'preregister') {
+              return hasCustomerDataNow;
+            } else {
+              return hasCustomerDataNow && state.selectedTickets.length > 0;
+            }
+          case 'payment':
+            return true;
+          case 'configure':
+            return true;
+          default:
+            return false;
+        }
+      })();
+      
       console.log('🔄 goNext attempt:', {
         currentStep: state.currentStep,
         currentIndex,
-        canProceed: canProceed(),
-        method: state.method
+        canProceed: directCanProceed, // 🔧 Usar evaluación directa
+        method: state.method,
+        hasCustomerDataDirect: !!state.customerData,
+        customerDataName: state.customerData?.name || 'none',
+        functionCanProceed: canProceed() // 🔧 Para comparación
       });
       
-      if (currentIndex < stepOrder.length - 1 && canProceed()) {
+      if (currentIndex < stepOrder.length - 1 && directCanProceed) {
         const nextStep = stepOrder[currentIndex + 1];
         console.log('✅ goNext success:', nextStep);
         setState(prev => ({ ...prev, currentStep: nextStep }));
       } else {
-        console.log('❌ goNext blocked');
+        console.log('❌ goNext blocked - directCanProceed:', directCanProceed, 'functionCanProceed:', canProceed());
       }
     },
 
@@ -302,12 +356,37 @@ export function EventFlowProvider({ children }: { children: React.ReactNode }) {
 
     // Datos del cliente
     setCustomerData: (data: CustomerData) => {
-      setState(prev => ({ ...prev, customerData: data }));
+      console.log('💾 setCustomerData called with:', {
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        company: data.company,
+        createAccount: data.createAccount,
+        hasPassword: !!data.password,
+        userId: data.userId || 'none'
+      });
+      
+      setState(prev => {
+        console.log('💾 setCustomerData - prev state had customerData:', !!prev.customerData);
+        
+        // 🔧 VERIFICAR SI EL ESTADO ANTERIOR ESTÁ SIENDO CORRUPTO
+        if (prev.customerData && prev.customerData !== data) {
+          console.warn('⚠️ setCustomerData - OVERWRITING existing customerData!', {
+            existing: prev.customerData,
+            new: data
+          });
+        }
+        
+        const newState = { ...prev, customerData: data };
+        console.log('💾 setCustomerData - new state will have customerData:', !!newState.customerData);
+        return newState;
+      });
     },
 
     // Utilidades
     reset: () => {
-      console.log('🔄 RESET called - this might be the problem!');
+      console.log('😨 RESET called - THIS MIGHT BE THE PROBLEM!');
+      console.trace('Reset called from:'); // Ver quién llama reset
       setState(initialState);
     },
 

@@ -8,6 +8,11 @@ if (!defined('ABSPATH')) exit;
  */
 class WECC_My_Credit_Endpoint {
     
+    private $content_rendered = false;
+    
+    /**
+     * Constructor
+     */
     public function __construct() {
         // Registrar endpoint
         add_action('init', [$this, 'add_endpoint']);
@@ -18,8 +23,8 @@ class WECC_My_Credit_Endpoint {
         // Agregar al menú de My Account
         add_filter('woocommerce_account_menu_items', [$this, 'add_menu_item']);
         
-        // Contenido del endpoint - Usar approach más directo
-        add_action('woocommerce_account_content', [$this, 'maybe_render_credit_content']);
+        // Contenido del endpoint - Usar hook estándar del endpoint con verificación de duplicación
+        add_action('woocommerce_account_mi-credito_endpoint', [$this, 'render_my_credit_dashboard_action']);
         
         // Título de la página
         add_filter('woocommerce_endpoint_mi-credito_title', [$this, 'endpoint_title']);
@@ -35,7 +40,7 @@ class WECC_My_Credit_Endpoint {
         add_action('wp_ajax_wecc_pay_all', [$this, 'ajax_pay_all']);
         
         // Shortcode para usar en páginas
-        add_shortcode('wecc_my_credit', [$this, 'shortcode_handler']);
+        // add_shortcode('wecc_my_credit', [$this, 'shortcode_handler']);
     }
     
     /**
@@ -115,23 +120,24 @@ class WECC_My_Credit_Endpoint {
      * Agrega el endpoint de forma ultra simple
      */
     public function add_endpoint(): void {
-        // Máximo simplificado: solo agregar el endpoint
         add_rewrite_endpoint('mi-credito', EP_PAGES);
-        
-        // Solo un flush si es absolutamente necesario
-        if (!get_option('wecc_simple_endpoint_v7')) {
-            flush_rewrite_rules(false);
-            update_option('wecc_simple_endpoint_v7', true);
-        }
     }
     
     /**
      * Agrega el elemento al menú de My Account
      */
     public function add_menu_item(array $items): array {
-        if (WP_DEBUG) {
-            error_log('WECC: add_menu_item llamado');
-            error_log('WECC: URL esperada: ' . wc_get_endpoint_url('mi-credito', '', wc_get_page_permalink('myaccount')));
+        // Solo mostrar si el usuario tiene crédito activo
+        if (!is_user_logged_in()) {
+            return $items;
+        }
+        
+        $user_id = get_current_user_id();
+        $balance = wecc_get_user_balance($user_id);
+        
+        // Solo mostrar si tiene límite de crédito configurado
+        if ($balance['credit_limit'] <= 0) {
+            return $items;
         }
         
         // Insertar antes de "Cerrar sesión"
@@ -192,7 +198,7 @@ class WECC_My_Credit_Endpoint {
     /**
      * Renderiza contenido solo si estamos en nuestro endpoint
      */
-    public function maybe_render_credit_content(): void {
+   /*  public function maybe_render_credit_content(): void {
         // Solo ejecutar en nuestro endpoint
         if (!is_wc_endpoint_url('mi-credito')) {
             return;
@@ -222,7 +228,36 @@ class WECC_My_Credit_Endpoint {
         echo '<h3 style="color: #dc3545; margin: 0;">✓ Dashboard Renderizado Completamente</h3>';
         echo '</div>';
     }
-    
+     */
+    /**
+     * Renderiza el contenido del endpoint
+     */
+    public function render_my_credit_dashboard_action(): void {
+        if (!is_user_logged_in()) {
+            echo '<div class="woocommerce-info">Debes estar logueado para ver tu crédito.</div>';
+            return;
+        }
+        
+        $user_id = get_current_user_id();
+        $balance = wecc_get_user_balance($user_id);
+        
+        // Si no tiene crédito configurado, mostrar mensaje y ocultar contenido
+        if ($balance['credit_limit'] <= 0) {
+            echo '<div class="woocommerce-info">';
+            echo '<h3>💳 No tienes crédito asignado</h3>';
+            echo '<p>Tu cuenta no tiene límite de crédito configurado. Para obtener crédito, contacta a nuestro departamento de ventas.</p>';
+            
+            // Botón para contactar o volver al dashboard
+            echo '<div style="margin-top: 15px;">';
+            echo '<a href="' . esc_url(wc_get_page_permalink('myaccount')) . '" class="button">← Volver a Mi Cuenta</a>';
+            echo '</div>';
+            echo '</div>';
+            return;
+        }
+        
+        $this->render_my_credit_dashboard($user_id);
+    }
+
     /**
      * Handler del shortcode
      */
@@ -255,6 +290,9 @@ class WECC_My_Credit_Endpoint {
         $total_pages = ceil($total_movements / $per_page);
         
         echo '<div class="wecc-my-credit">';
+        
+        // Información del cliente (NUEVA SECCIÓN)
+        $this->render_customer_info($user_id);
         
         // Resumen de crédito
         $this->render_credit_summary($balance);
@@ -341,48 +379,303 @@ class WECC_My_Credit_Endpoint {
     }
     
     /**
-     * Renderiza el resumen de crédito
+     * Renderiza la información del cliente de crédito
      */
-    private function render_credit_summary(array $balance): void {
-        echo '<div class="wecc-credit-summary">';
-        echo '<h3>' . __('Resumen de tu Crédito', 'wc-enhanced-customers-credit') . '</h3>';
+    private function render_customer_info(int $user_id): void {
+        // Obtener datos del usuario
+        $user = get_user_by('id', $user_id);
+        if (!$user) {
+            return;
+        }
         
-        echo '<div class="wecc-summary-cards">';
+        // Obtener cuenta de crédito
+        $account = wecc_get_or_create_account($user_id);
+        if (!$account || $account->credit_limit <= 0) {
+            return; // No mostrar si no tiene crédito
+        }
         
-        // Límite total
-        echo '<div class="wecc-summary-card">';
-        echo '<h4>' . __('Límite Total', 'wc-enhanced-customers-credit') . '</h4>';
-        echo '<div class="amount">' . wc_price($balance['credit_limit']) . '</div>';
+        // Obtener datos WECC específicos
+        global $wpdb;
+        $profile = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}wecc_customer_profiles WHERE user_id = %d",
+            $user_id
+        ));
+        
+        // Obtener datos de WooCommerce
+        $billing_first_name = get_user_meta($user_id, 'billing_first_name', true);
+        $billing_last_name = get_user_meta($user_id, 'billing_last_name', true);
+        $billing_company = get_user_meta($user_id, 'billing_company', true);
+        $billing_phone = get_user_meta($user_id, 'billing_phone', true);
+        $billing_address_1 = get_user_meta($user_id, 'billing_address_1', true);
+        $billing_city = get_user_meta($user_id, 'billing_city', true);
+        $billing_state = get_user_meta($user_id, 'billing_state', true);
+        $billing_postcode = get_user_meta($user_id, 'billing_postcode', true);
+        
+        // Formar nombre completo
+        $full_name = trim($billing_first_name . ' ' . $billing_last_name);
+        if (empty($full_name)) {
+            $full_name = $user->display_name;
+        }
+        
+        // Formar dirección completa
+        $address_parts = array_filter([$billing_address_1, $billing_city, $billing_state, $billing_postcode]);
+        $full_address = !empty($address_parts) ? implode(', ', $address_parts) : '';
+        
+        echo '<div class="wecc-customer-info">';
+        echo '<h3>📋 Mi información de crédito</h3>';
+        
+        echo '<div class="wecc-info-grid">';
+        
+        // Nombre completo
+        if ($full_name) {
+            echo '<div class="wecc-info-item">';
+            echo '<div class="wecc-info-label">Nombre:</div>';
+            echo '<div class="wecc-info-value">' . esc_html($full_name) . '</div>';
+            echo '</div>';
+        }
+        
+        // Empresa (si existe)
+        if ($billing_company) {
+            echo '<div class="wecc-info-item">';
+            echo '<div class="wecc-info-label">Empresa:</div>';
+            echo '<div class="wecc-info-value">' . esc_html($billing_company) . '</div>';
+            echo '</div>';
+        }
+        
+        // Email
+        echo '<div class="wecc-info-item">';
+        echo '<div class="wecc-info-label">Email:</div>';
+        echo '<div class="wecc-info-value">' . esc_html($user->user_email) . '</div>';
         echo '</div>';
         
-        // Disponible
-        echo '<div class="wecc-summary-card">';
-        echo '<h4>' . __('Disponible', 'wc-enhanced-customers-credit') . '</h4>';
-        echo '<div class="amount wecc-credit-' . ($balance['available_credit'] > 0 ? 'positive' : 'zero') . '">';
-        echo wc_price($balance['available_credit']);
-        echo '</div>';
-        echo '</div>';
+        // Dirección completa
+        if ($full_address) {
+            echo '<div class="wecc-info-item">';
+            echo '<div class="wecc-info-label">Dirección:</div>';
+            echo '<div class="wecc-info-value">' . esc_html($full_address) . '</div>';
+            echo '</div>';
+        }
         
-        // Usado
-        echo '<div class="wecc-summary-card">';
-        echo '<h4>' . __('Saldo Usado', 'wc-enhanced-customers-credit') . '</h4>';
-        echo '<div class="amount wecc-credit-' . ($balance['balance_used'] > 0 ? 'negative' : 'zero') . '">';
-        echo wc_price($balance['balance_used']);
-        echo '</div>';
-        echo '</div>';
+        // Número de cliente
+        if ($profile && $profile->customer_number) {
+            echo '<div class="wecc-info-item">';
+            echo '<div class="wecc-info-label">Número de cliente:</div>';
+            echo '<div class="wecc-info-value">' . esc_html($profile->customer_number) . '</div>';
+            echo '</div>';
+        }
         
-        // Saldo a favor si aplica
-        if ($balance['has_positive_balance']) {
-            echo '<div class="wecc-summary-card wecc-positive-balance">';
-            echo '<h4>' . __('Saldo a Favor', 'wc-enhanced-customers-credit') . '</h4>';
-            echo '<div class="amount wecc-credit-positive">';
-            echo wc_price($balance['positive_amount']);
+        // Tipo de cliente (CORREGIDO)
+        if ($profile && $profile->customer_type) {
+            $types = [
+                'mayorista' => 'Mayorista',
+                'distribuidor' => 'Distribuidor', 
+                'minorista' => 'Minorista',
+                'corporativo' => 'Corporativo',
+                'gobierno' => 'Gobierno',
+                'especial' => 'Cliente Especial'
+            ];
+            
+            $type_label = $types[$profile->customer_type] ?? $profile->customer_type;
+            
+            echo '<div class="wecc-info-item">';
+            echo '<div class="wecc-info-label">Tipo de cliente:</div>';
+            echo '<div class="wecc-info-value">';
+            echo '<span class="wecc-customer-type wecc-type-' . esc_attr($profile->customer_type) . '">';
+            echo esc_html($type_label);
+            echo '</span>';
             echo '</div>';
             echo '</div>';
         }
         
+        // Cliente desde
+        if ($profile && $profile->customer_since) {
+            echo '<div class="wecc-info-item">';
+            echo '<div class="wecc-info-label">Cliente desde:</div>';
+            echo '<div class="wecc-info-value">' . esc_html(date_i18n('j \\d\\e F, Y', strtotime($profile->customer_since))) . '</div>';
+            echo '</div>';
+        }
+        
+        // Términos de pago
+        if ($account->payment_terms_days) {
+            echo '<div class="wecc-info-item">';
+            echo '<div class="wecc-info-label">Términos de pago:</div>';
+            echo '<div class="wecc-info-value">' . esc_html($account->payment_terms_days) . ' días</div>';
+            echo '</div>';
+        }
+        
+        // RFC (si está disponible)
+        if ($profile && $profile->rfc) {
+            echo '<div class="wecc-info-item">';
+            echo '<div class="wecc-info-label">RFC:</div>';
+            echo '<div class="wecc-info-value">';
+            echo '<code class="wecc-rfc">' . esc_html($profile->rfc) . '</code>';
+            echo '</div>';
+            echo '</div>';
+        }
+        
+        // Notas de crédito (si las hay)
+        if ($profile && $profile->credit_notes && trim($profile->credit_notes)) {
+            echo '<div class="wecc-info-item wecc-info-notes">';
+            echo '<div class="wecc-info-label">Notas:</div>';
+            echo '<div class="wecc-info-value">';
+            echo '<em>' . esc_html($profile->credit_notes) . '</em>';
+            echo '</div>';
+            echo '</div>';
+        }
+        
+        echo '</div>'; // .wecc-info-grid
+        
+        // Link para editar información
+        echo '<div class="wecc-edit-info-link">';
+        echo '<a href="' . esc_url(wc_get_endpoint_url('edit-account', '', wc_get_page_permalink('myaccount'))) . '">';
+        echo '✏️ Editar información de contacto y facturación';
+        echo '</a>';
+        echo '</div>';
+        
+        echo '</div>'; // .wecc-customer-info
+    }
+    
+    /**
+     * Renderiza el resumen de crédito
+     */
+    private function render_credit_summary(array $balance): void {
+        $user_id = get_current_user_id();
+        $account = wecc_get_or_create_account($user_id);
+        $is_blocked = wecc_user_has_overdue_charges($user_id);
+        $overdue_info = $is_blocked ? $this->get_overdue_info($user_id) : null;
+        
+        echo '<div class="wecc-credit-summary' . ($is_blocked ? ' wecc-blocked' : '') . '">';
+        echo '<h3>' . __('Tu Crédito Disponible', 'wc-enhanced-customers-credit') . '</h3>';
+        
+        if ($is_blocked) {
+            // Mostrar versión bloqueada con candado
+            echo '<div class="wecc-blocked-info">';
+            echo '<div class="wecc-block-icon">🔒</div>';
+            echo '<div class="wecc-block-message">';
+            echo '<h4>🚑 Tu crédito está temporalmente bloqueado</h4>';
+            echo '<p>Tienes <strong>' . wc_price($overdue_info['amount']) . '</strong> en pagos vencidos desde hace <strong>' . $overdue_info['days'] . ' días</strong>.</p>';
+            echo '<p class="wecc-action-required">Regulariza tu situación para reactivar tu crédito.</p>';
+            echo '</div>';
+            echo '</div>';
+            
+            // Mostrar información básica en gris
+            echo '<div class="wecc-summary-cards wecc-disabled">';
+        } else {
+            // Mostrar versión normal
+            echo '<div class="wecc-summary-cards">';
+        }
+        
+        // Crédito disponible
+        echo '<div class="wecc-summary-item">';
+        echo '<div class="wecc-label">Crédito disponible:</div>';
+        echo '<div class="wecc-value wecc-available">' . wc_price($balance['available_credit']) . '</div>';
+        echo '</div>';
+        
+        // Límite total
+        echo '<div class="wecc-summary-item">';
+        echo '<div class="wecc-label">Límite total:</div>';
+        echo '<div class="wecc-value">' . wc_price($balance['credit_limit']) . '</div>';
+        echo '</div>';
+        
+        // Usado actualmente
+        echo '<div class="wecc-summary-item">';
+        echo '<div class="wecc-label">Usado actualmente:</div>';
+        echo '<div class="wecc-value wecc-used">' . wc_price($balance['balance_used']) . '</div>';
+        echo '</div>';
+        
         echo '</div>'; // .wecc-summary-cards
+        
+        if ($is_blocked) {
+            // Botón de acción para contactar o pagar
+            echo '<div class="wecc-blocked-actions">';
+            if ($balance['balance_used'] > 0) {
+                echo '<a href="#wecc-pending-charges" class="wecc-btn wecc-btn-warning wecc-btn-large">';
+                echo '💳 Pagar Adeudos (' . wc_price($balance['balance_used']) . ')';
+                echo '</a>';
+            }
+            echo '<div class="wecc-contact-info">';
+            echo '<small>¿Necesitas ayuda? Contacta al departamento de crédito</small>';
+            echo '</div>';
+            echo '</div>';
+        } else if ($balance['balance_used'] > 0) {
+            // Mostrar información de próximo vencimiento si no está bloqueado
+            $next_due = $this->get_next_due_date($user_id);
+            if ($next_due) {
+                echo '<div class="wecc-next-due">';
+                echo '<small>📅 Próximo vencimiento: ' . esc_html(date_i18n('j \d\e F, Y', strtotime($next_due))) . '</small>';
+                echo '</div>';
+            }
+        }
+        
         echo '</div>'; // .wecc-credit-summary
+    }
+
+    
+    /**
+     * Obtiene información detallada de adeudos vencidos (CORREGIDO - considera pagos)
+     */
+    private function get_overdue_info(int $user_id): array {
+        global $wpdb;
+        
+        $overdue_data = $wpdb->get_row($wpdb->prepare(
+            "SELECT 
+                SUM(GREATEST(l.amount - COALESCE(payments.paid_amount, 0), 0)) as total_amount,
+                MIN(l.due_date) as oldest_due_date,
+                COUNT(CASE WHEN (l.amount - COALESCE(payments.paid_amount, 0)) > 0.01 THEN 1 END) as count
+             FROM {$wpdb->prefix}wecc_ledger l
+             LEFT JOIN {$wpdb->prefix}wecc_credit_accounts a ON l.account_id = a.id
+             LEFT JOIN (
+                 SELECT 
+                     settles_ledger_id,
+                     SUM(ABS(amount)) as paid_amount
+                 FROM {$wpdb->prefix}wecc_ledger 
+                 WHERE type = 'payment' AND settles_ledger_id IS NOT NULL
+                 GROUP BY settles_ledger_id
+             ) payments ON l.id = payments.settles_ledger_id
+             WHERE a.user_id = %d 
+             AND l.type = 'charge' 
+             AND l.due_date < NOW()
+             AND (l.amount - COALESCE(payments.paid_amount, 0)) > 0.01",
+            $user_id
+        ));
+        
+        if (!$overdue_data || $overdue_data->total_amount <= 0) {
+            return ['amount' => 0, 'days' => 0, 'count' => 0];
+        }
+        
+        // Calcular días desde el vencimiento más antiguo
+        $days_overdue = 0;
+        if ($overdue_data->oldest_due_date) {
+            $oldest_timestamp = strtotime($overdue_data->oldest_due_date);
+            $current_timestamp = time();
+            $days_overdue = ceil(($current_timestamp - $oldest_timestamp) / (24 * 60 * 60));
+        }
+        
+        return [
+            'amount' => (float) $overdue_data->total_amount,
+            'days' => max(1, $days_overdue),
+            'count' => (int) $overdue_data->count
+        ];
+    }
+    
+    /**
+     * Obtiene la próxima fecha de vencimiento
+     */
+    private function get_next_due_date(int $user_id): ?string {
+        global $wpdb;
+        
+        return $wpdb->get_var($wpdb->prepare(
+            "SELECT l.due_date
+             FROM {$wpdb->prefix}wecc_ledger l
+             LEFT JOIN {$wpdb->prefix}wecc_credit_accounts a ON l.account_id = a.id
+             WHERE a.user_id = %d 
+             AND l.type = 'charge' 
+             AND l.due_date >= NOW() 
+             AND l.amount > 0
+             ORDER BY l.due_date ASC
+             LIMIT 1",
+            $user_id
+        ));
     }
     
     /**
@@ -639,12 +932,19 @@ class WECC_My_Credit_Endpoint {
         
         $charge_amount = (float) $charge['amount'];
         
+        // DEBUG TEMPORAL
+        error_log("WECC DEBUG FRONTEND: === Calculando monto restante (frontend) ===");
+        error_log("WECC DEBUG FRONTEND: Charge ID: {$charge['id']}");
+        error_log("WECC DEBUG FRONTEND: Monto original: {$charge_amount}");
+        error_log("WECC DEBUG FRONTEND: Order ID: {$charge['order_id']}");
+        
         // Pagos aplicados a este cargo
         $paid_amount = (float) $wpdb->get_var($wpdb->prepare(
             "SELECT COALESCE(SUM(ABS(amount)), 0) FROM {$wpdb->prefix}wecc_ledger 
              WHERE type = 'payment' AND settles_ledger_id = %d",
             $charge['id']
         ));
+        error_log("WECC DEBUG FRONTEND: Pagos aplicados: {$paid_amount}");
         
         // Ajustes del pedido relacionado
         $adjustments = 0;
@@ -654,9 +954,14 @@ class WECC_My_Credit_Endpoint {
                  WHERE type = 'adjustment' AND order_id = %d",
                 $charge['order_id']
             ));
+            error_log("WECC DEBUG FRONTEND: Ajustes: {$adjustments}");
         }
         
-        return max(0, $charge_amount + min(0, $adjustments) - $paid_amount);
+        $remaining = max(0, $charge_amount + min(0, $adjustments) - $paid_amount);
+        error_log("WECC DEBUG FRONTEND: Monto restante calculado: {$remaining}");
+        error_log("WECC DEBUG FRONTEND: === Fin cálculo frontend ===");
+        
+        return $remaining;
     }
     
     /**

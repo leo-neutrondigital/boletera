@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { 
@@ -25,6 +25,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { authenticatedPost } from '@/lib/utils/api';
 import { formatCurrency } from '@/lib/utils/currency';
+// 🆕 Importar invalidación de cache
+import { useDataCache } from '@/contexts/DataCacheContext';
 
 interface AttendeeTicket {
   id: string;
@@ -63,9 +65,40 @@ export function ManualCheckInModal({
   onSuccess
 }: ManualCheckInModalProps) {
   const { toast } = useToast();
+  // 🆕 Obtener invalidación de cache
+  const { invalidateEvent } = useDataCache();
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedDay, setSelectedDay] = useState<string>('');
   const [notes, setNotes] = useState('');
+
+  // 🆕 Preseleccionar día actual cuando se abre el modal
+  const getTodayAsString = () => {
+    const today = new Date();
+    return today.toISOString().split('T')[0]; // Formato: YYYY-MM-DD
+  };
+
+  // 🆕 Auto-seleccionar día actual si está disponible
+  useEffect(() => {
+    if (attendee && isOpen) {
+      const today = getTodayAsString();
+      const availableDays = attendee.authorized_days.filter(day => 
+        !attendee.used_days.includes(day)
+      );
+      
+      // Si hoy está en los días disponibles, preseleccionarlo
+      if (availableDays.includes(today)) {
+        setSelectedDay(today);
+        console.log('📅 Auto-selected today:', today);
+      } else if (availableDays.length === 1) {
+        // Si solo hay un día disponible, seleccionarlo
+        setSelectedDay(availableDays[0]);
+        console.log('📅 Auto-selected only available day:', availableDays[0]);
+      } else {
+        // Limpiar selección si hay múltiples opciones
+        setSelectedDay('');
+      }
+    }
+  }, [attendee, isOpen]);
 
   if (!attendee) return null;
 
@@ -163,6 +196,8 @@ export function ManualCheckInModal({
 
       // Cerrar modal y recargar datos
       onClose();
+      // 🆕 Invalidar cache del evento para refrescar datos
+      invalidateEvent(eventId);
       onSuccess();
 
       // Limpiar formulario

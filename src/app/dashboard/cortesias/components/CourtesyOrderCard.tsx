@@ -49,7 +49,7 @@ export function CourtesyOrderCard({ order, onViewOrder, onDeleteOrder }: Courtes
   
   return (
     <>
-      <Card className="overflow-hidden border-l-4 border-green-500">
+      <Card className="overflow-auto border-l-4 border-green-500">
       <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50">
         <div className="flex items-start justify-between">
           <div className="flex-1">

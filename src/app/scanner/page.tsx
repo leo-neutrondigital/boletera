@@ -1,13 +1,11 @@
 'use client';
 
-import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   QrCode,
   Calendar,
   Users,
   Zap,
-  Shield,
   Clock
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,13 +17,6 @@ import { useAuth } from '@/contexts/AuthContext';
 export default function ScannerDashboard() {
   const router = useRouter();
   const { userData } = useAuth();
-
-  // Quick stats mockup - después conectaremos con data real
-  const stats = {
-    activeEvents: 3,
-    todayCheckIns: 127,
-    pendingTickets: 425
-  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -57,54 +48,19 @@ export default function ScannerDashboard() {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        
-        {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="bg-blue-100 p-3 rounded-full">
-                  <Calendar className="h-6 w-6 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">{stats.activeEvents}</p>
-                  <p className="text-sm text-gray-600">Eventos activos</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="bg-green-100 p-3 rounded-full">
-                  <Users className="h-6 w-6 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">{stats.todayCheckIns}</p>
-                  <p className="text-sm text-gray-600">Check-ins hoy</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center gap-4">
-                <div className="bg-yellow-100 p-3 rounded-full">
-                  <Clock className="h-6 w-6 text-yellow-600" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-gray-900">{stats.pendingTickets}</p>
-                  <p className="text-sm text-gray-600">Boletos pendientes</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+
+        {/* Welcome Message */}
+        <div className="text-center mb-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            Bienvenido al Scanner de Eventos
+          </h2>
+          <p className="text-gray-600">
+            Valida boletos de forma rápida y eficiente. Elige una opción para comenzar.
+          </p>
         </div>
 
-        {/* Main Actions */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Main Actions - Enfoque directo */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
           
           {/* Start Scanning - Acción principal */}
           <Card className="border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50">

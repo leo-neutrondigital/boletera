@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { DataCacheProvider } from "@/contexts/DataCacheContext"; // 🆕 Cache provider
 import { Toaster } from "@/components/ui/toaster";
 import { QueryProvider } from "@/components/providers/QueryProvider";
 import { PayPalProvider } from "@/components/providers/PayPalProvider";
@@ -24,8 +25,10 @@ export default function RootLayout({
         <PayPalProvider>
           <QueryProvider>
             <AuthProvider>
-              {children}
-              <Toaster />
+              <DataCacheProvider>
+                {children}
+                <Toaster />
+              </DataCacheProvider>
             </AuthProvider>
           </QueryProvider>
         </PayPalProvider>

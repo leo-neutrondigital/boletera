@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Edit, Trash2, Shield, Mail, Phone, Building, Search } from "lucide-react";
+import { Edit, Trash2, Shield, Mail, Phone, Building, Search, KeyRound } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { UserFormDialog } from "./UserFormDialog";
@@ -18,6 +18,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useToast } from "@/hooks/use-toast";
+import { sendPasswordReset } from "@/lib/auth/password-reset";
 import type { User } from "@/types";
 
 interface UsersTableProps {
@@ -39,11 +41,43 @@ export function UsersTable({
 }: UsersTableProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
+  const [sendingReset, setSendingReset] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const handleDelete = async (userId: string) => {
     const success = await onDeleteUser(userId);
     if (success) {
       console.log("✅ User deleted and state updated");
+    }
+  };
+
+  const handlePasswordReset = async (user: User) => {
+    setSendingReset(user.id);
+    
+    try {
+      const result = await sendPasswordReset(user.email);
+      
+      if (result.success) {
+        toast({
+          title: "✅ Email de reset enviado",
+          description: `Se envió un email de restablecimiento a ${user.email}`,
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error al enviar email",
+          description: result.message,
+        });
+      }
+    } catch (error) {
+      console.error('Error sending password reset:', error);
+      toast({
+        variant: "destructive",
+        title: "Error inesperado",
+        description: "No se pudo enviar el email de restablecimiento.",
+      });
+    } finally {
+      setSendingReset(null);
     }
   };
 
@@ -225,6 +259,31 @@ export function UsersTable({
                                 <Edit className="h-4 w-4" />
                               </Button>
                             }
+                          />
+                        )}
+
+                        {/* Botón Reset Contraseña - Solo admin y no para el usuario actual */}
+                        {canEdit && !isCurrentUser && (
+                          <ConfirmDialog
+                            trigger={
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-8 w-8 p-0 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                                disabled={sendingReset === user.id}
+                              >
+                                {sendingReset === user.id ? (
+                                  <div className="w-3 h-3 border border-blue-600 border-t-transparent rounded-full animate-spin" />
+                                ) : (
+                                  <KeyRound className="h-4 w-4" />
+                                )}
+                              </Button>
+                            }
+                            title="¿Enviar reset de contraseña?"
+                            description={`Se enviará un email a "${user.email}" con instrucciones para restablecer su contraseña. ¿Estás seguro?`}
+                            onConfirm={() => handlePasswordReset(user)}
+                            confirmText="Enviar Email"
+                            cancelText="Cancelar"
                           />
                         )}
 

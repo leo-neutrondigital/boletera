@@ -12,29 +12,29 @@ interface EventLandingClientProps {
 
 // Componente interno que usa el EventFlow
 function EventLandingContent({ event }: EventLandingClientProps) {
-  const { initializeFlow, event: contextEvent } = useEventFlow();
+  const { initializeFlow } = useEventFlow();
   const [isInitialized, setIsInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Inicializar el flujo con los datos del evento - SOLO UNA VEZ
+  // 🔧 ARREGLO: Inicializar el flujo SOLO UNA VEZ - SIN verificación de contextEvent
   useEffect(() => {
-    // Evitar múltiples inicializaciones
-    if (isInitialized || contextEvent?.id === event.id) {
-      console.log('🚫 Skipping initializeFlow - already initialized or same event');
+    // Solo verificar si ya está inicializado
+    if (isInitialized) {
+      console.log('🚫 Skipping initializeFlow - already initialized');
       return;
     }
 
     async function init() {
       try {
-        console.log('🚀 SINGLE Initializing flow with event:', event.id);
+        console.log('🚀 Initializing flow with event:', event.id);
         
         // Cargar tipos de boletos
         const ticketTypes = await getPublicTicketTypesForEvent(event.id, event.slug);
         console.log('✅ Loaded ticket types:', ticketTypes.length);
         
-        // Inicializar el flujo UNA SOLA VEZ
+        // Inicializar el flujo
         initializeFlow(event, ticketTypes);
-        console.log('✅ Flow initialized successfully - marking as done');
+        console.log('✅ Flow initialized successfully');
         
         setIsInitialized(true);
       } catch (err) {
@@ -45,7 +45,7 @@ function EventLandingContent({ event }: EventLandingClientProps) {
     }
 
     init();
-  }, [event.id, initializeFlow, isInitialized, contextEvent?.id]);
+  }, [event.id, isInitialized]); // 🔧 REMOVER initializeFlow y contextEvent de dependencias
 
   if (!isInitialized) {
     return (

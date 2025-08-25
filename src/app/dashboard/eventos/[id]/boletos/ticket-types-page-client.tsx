@@ -2,12 +2,13 @@
 
 import { Plus, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Breadcrumb } from "@/components/shared/Breadcrumb";
 import { TicketTypesList } from "@/components/dashboard/TicketTypesList";
 import { TicketTypeFormDialog } from "@/components/dashboard/TicketTypeFormDialog";
 import { Can } from "@/components/auth/Can";
+import { useSalesPage } from "@/contexts/SalesPageContext";
 import { useTicketTypes } from "@/hooks/use-ticket-types";
 import { getEventDateInfo } from "@/lib/utils/event-dates";
+import { useState, useEffect, useMemo } from "react";
 import type { Event, TicketType } from "@/types";
 
 interface TicketTypesPageClientProps {
@@ -16,6 +17,9 @@ interface TicketTypesPageClientProps {
 }
 
 export function TicketTypesPageClient({ event, initialTicketTypes }: TicketTypesPageClientProps) {
+  const { setTicketTypesActions } = useSalesPage();
+  const [showNewTypeDialog, setShowNewTypeDialog] = useState(false);
+  
   const {
     ticketTypes,
     isLoading,
@@ -38,72 +42,48 @@ export function TicketTypesPageClient({ event, initialTicketTypes }: TicketTypes
     } else {
       refreshTicketTypes();
     }
+    setShowNewTypeDialog(false);
   };
 
-  const breadcrumbItems = [
-    { label: "Eventos", href: "/dashboard/eventos" },
-    { label: event.name, href: `/dashboard/eventos/${event.id}` },
-    { label: "Tipos de Boletos", current: true },
-  ];
+  // Configurar acciones para el header
+  useEffect(() => {
+    setTicketTypesActions({
+      onRefresh: refreshTicketTypes,
+      onNewType: () => setShowNewTypeDialog(true),
+      isRefreshing: isLoading
+    });
+
+    // Cleanup: quitar acciones cuando el componente se desmonta
+    return () => setTicketTypesActions(null);
+  }, [isLoading, setTicketTypesActions, refreshTicketTypes]);
+
+  // Breadcrumbs are now handled by EventTabsNavigation in layout
 
   return (
-    <main className="p-6 space-y-6">
-      <Breadcrumb items={breadcrumbItems} />
-
-      {/* Header */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Tipos de Boletos</h1>
-            <p className="text-muted-foreground">
-              {event.name} • {eventDateInfo.dateRange}
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={refreshTicketTypes}
-              disabled={isLoading}
-              className="flex items-center gap-2"
-            >
-              <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
-              {isLoading ? "Actualizando..." : "Actualizar"}
-            </Button>
-
-            {/* 🔐 Solo admin y gestor pueden crear tipos de boletos */}
-            <Can do="create" on="ticketTypes">
-              <TicketTypeFormDialog
-                event={event}
-                onSuccess={handleTicketTypeSuccess}
-                trigger={
-                  <Button className="flex items-center gap-2">
-                    <Plus className="w-4 h-4" />
-                    Nuevo tipo
-                  </Button>
-                }
-              />
-            </Can>
-          </div>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Stats summary */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="text-2xl font-bold text-blue-600">{ticketTypes.length}</div>
+          <div className="text-sm text-blue-600">Tipos configurados</div>
         </div>
-
-        {/* Información del evento */}
-        <div className="flex items-center gap-4 text-sm text-muted-foreground bg-muted/30 p-3 rounded-lg">
-          <div className="flex items-center gap-1">
-            <span className="font-medium">Ubicación:</span>
-            <span>{event.location}</span>
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <div className="text-2xl font-bold text-green-600">
+            {ticketTypes.filter(tt => tt.is_active).length}
           </div>
-          {eventDateInfo.isMultiDay && (
-            <div className="flex items-center gap-1">
-              <span className="font-medium">Duración:</span>
-              <span>{eventDateInfo.duration} días</span>
-            </div>
-          )}
-          <div className="flex items-center gap-1">
-            <span className="font-medium">Estado:</span>
-            <span className={event.published ? "text-green-600" : "text-yellow-600"}>
-              {event.published ? "Publicado" : "Borrador"}
-            </span>
+          <div className="text-sm text-green-600">Activos</div>
+        </div>
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <div className="text-2xl font-bold text-yellow-600">
+            {ticketTypes.filter(tt => tt.is_courtesy).length}
           </div>
+          <div className="text-sm text-yellow-600">Cortesías</div>
+        </div>
+        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+          <div className="text-2xl font-bold text-purple-600">
+            {ticketTypes.reduce((sum, tt) => sum + (tt.total_stock || 0), 0)}
+          </div>
+          <div className="text-sm text-purple-600">Stock total</div>
         </div>
       </div>
 
@@ -116,6 +96,14 @@ export function TicketTypesPageClient({ event, initialTicketTypes }: TicketTypes
         onUpdateTicketType={updateTicketTypeLocally}
         onAddTicketType={addTicketTypeLocally}
       />
-    </main>
+
+      {/* Dialog para nuevo tipo (controlado desde el header) */}
+      <TicketTypeFormDialog
+        event={event}
+        open={showNewTypeDialog}
+        onOpenChange={setShowNewTypeDialog}
+        onSuccess={handleTicketTypeSuccess}
+      />
+    </div>
   );
 }

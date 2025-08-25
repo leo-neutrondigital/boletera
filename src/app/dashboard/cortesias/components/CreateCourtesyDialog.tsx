@@ -18,14 +18,14 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert'; // 🆕 Para validaciones
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Gift, Plus, User, CheckCircle, AlertCircle, Search, AlertTriangle } from 'lucide-react';
 import { auth } from '@/lib/firebase/client';
-import { useToast } from '@/hooks/use-toast'; // 🆕 Toast notifications
+import { useToast } from '@/hooks/use-toast';
 
 import type { Event, TicketType, CourtesyType } from './types';
 
-// 🆕 Tipo para usuario encontrado
+// Tipo para usuario encontrado
 interface FoundUser {
   uid: string;
   name: string;
@@ -49,19 +49,17 @@ export function CreateCourtesyDialog({
   onCreateCourtesy,
   isCreating
 }: CreateCourtesyDialogProps) {
-  const { toast } = useToast(); // 🆕 Toast notifications
+  const { toast } = useToast();
   const [showDialog, setShowDialog] = useState(false);
   const [form, setForm] = useState({
     eventId: '',
     ticketTypeId: '',
     attendeeName: '',
     attendeeEmail: '',
-    attendeePhone: '',
     courtesyType: '',
     notes: '',
     quantity: 1,
-    sendEmail: true,
-    autoLink: true
+    sendEmail: true
   });
   
   // Estados para búsqueda de usuario
@@ -70,38 +68,23 @@ export function CreateCourtesyDialog({
   const [emailSearched, setEmailSearched] = useState('');
   const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
   
-  // 🆕 Estados para validaciones
+  // Estados para validaciones
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
-  // 🆕 Función de validación completa
+  // Función de validación simplificada
   const validateForm = (): boolean => {
     const errors: string[] = [];
     
-    // Validaciones básicas
     if (!form.eventId) errors.push('Debe seleccionar un evento');
     if (!form.ticketTypeId) errors.push('Debe seleccionar un tipo de boleto');
     if (!form.attendeeEmail || !form.attendeeEmail.includes('@')) {
       errors.push('Debe ingresar un email válido');
     }
     if (!form.courtesyType) errors.push('Debe seleccionar un tipo de cortesía');
-    
-    // 🆕 Validación clave: Cantidad vs Vinculación
-    if (form.quantity > 1 && !form.autoLink) {
-      errors.push('Para crear más de 1 cortesía debe habilitar la vinculación automática');
+    if (form.quantity < 1 || form.quantity > 10) {
+      errors.push('La cantidad debe estar entre 1 y 10');
     }
-    
-    // Validaciones condicionales según tipo de cortesía
-    if (!form.autoLink) {
-      // Cortesía standalone: requiere nombre (teléfono opcional)
-      if (!form.attendeeName?.trim()) {
-        errors.push('El nombre es obligatorio para cortesías independientes');
-      }
-      // Forzar cantidad = 1 para cortesías standalone
-      if (form.quantity !== 1) {
-        errors.push('Las cortesías independientes solo permiten cantidad 1');
-      }
-    }
-    // Para cortesías vinculadas no se requiere nombre ni teléfono
+    // 🆕 attendeeName YA NO es requerido
     
     setValidationErrors(errors);
     return errors.length === 0;
@@ -110,11 +93,10 @@ export function CreateCourtesyDialog({
   const handleEventChange = (eventId: string) => {
     setForm(prev => ({ ...prev, eventId, ticketTypeId: '' }));
     onEventChange(eventId);
-    // Limpiar errores cuando cambie evento
     setValidationErrors([]);
   };
 
-  // 🆕 Función para buscar usuario por email
+  // 🎯 Función para buscar usuario por email (MANTENER)
   const searchUserByEmail = async (email: string) => {
     if (!email || !email.includes('@')) {
       setFoundUser(null);
@@ -130,7 +112,6 @@ export function CreateCourtesyDialog({
       
       const token = await currentUser.getIdToken();
       
-      // Buscar en la API de usuarios (necesitaremos crearla)
       const response = await fetch(`/api/admin/users/search?email=${encodeURIComponent(email)}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -169,14 +150,12 @@ export function CreateCourtesyDialog({
   // Manejar cambio de email con debounce
   const handleEmailChange = (email: string) => {
     setForm(prev => ({ ...prev, attendeeEmail: email }));
-    setValidationErrors([]); // 🆕 Limpiar errores
+    setValidationErrors([]);
     
-    // Limpiar timeout anterior
     if (searchTimeout) {
       clearTimeout(searchTimeout);
     }
     
-    // Buscar después de 500ms sin cambios
     const newTimeout = setTimeout(() => {
       searchUserByEmail(email);
     }, 500);
@@ -187,13 +166,11 @@ export function CreateCourtesyDialog({
   // Resetear ticketTypeId cuando cambian los ticketTypes
   useEffect(() => {
     if (ticketTypes.length === 0 && form.eventId) {
-      // Solo resetear si había un evento seleccionado pero no hay tipos
       setForm(prev => ({ ...prev, ticketTypeId: '' }));
     }
   }, [ticketTypes, form.eventId]);
 
   const handleCreate = async () => {
-    // 🆕 Validar formulario antes de enviar
     if (!validateForm()) {
       toast({
         variant: "destructive",
@@ -204,29 +181,40 @@ export function CreateCourtesyDialog({
     }
     
     try {
-      await onCreateCourtesy(form);
+      const payload = {
+        // 🆕 Mapear campos al formato esperado por la API
+        eventId: form.eventId,
+        ticketTypeId: form.ticketTypeId,
+        attendeeEmail: form.attendeeEmail,
+        attendeeName: form.attendeeName || 'Solicitante de cortesía', // 🆕 Valor por defecto
+        courtesyType: form.courtesyType,
+        quantity: form.quantity,
+        notes: form.notes,
+        sendEmail: form.sendEmail,
+        autoLink: true // 🆕 Siempre habilitar autoLink
+      };
       
-      // Toast de éxito
+      console.log('📤 Sending courtesy data:', payload);
+      await onCreateCourtesy(payload);
+      
       toast({
         title: "Cortesía creada exitosamente",
         description: `Se ${form.quantity > 1 ? 'crearon' : 'creó'} ${form.quantity} cortesía${form.quantity > 1 ? 's' : ''} para ${form.attendeeEmail}`,
       });
       
-      // Reset form y estados
+      // Reset form
       setForm({
         eventId: '',
         ticketTypeId: '',
         attendeeName: '',
         attendeeEmail: '',
-        attendeePhone: '',
         courtesyType: '',
         notes: '',
         quantity: 1,
-        sendEmail: true,
-        autoLink: true
+        sendEmail: true
       });
       
-      // Limpiar estados de búsqueda y validación
+      // Limpiar estados de búsqueda
       setFoundUser(null);
       setSearchingUser(false);
       setEmailSearched('');
@@ -239,7 +227,6 @@ export function CreateCourtesyDialog({
       setShowDialog(false);
       
     } catch (error) {
-      // Toast de error
       toast({
         variant: "destructive",
         title: "Error al crear cortesía",
@@ -264,9 +251,9 @@ export function CreateCourtesyDialog({
           </DialogTitle>
         </DialogHeader>
         
-        <div className="space-y-3 py-2">
+        <div className="space-y-4 py-2">
           
-          {/* 🆕 Alert de validaciones */}
+          {/* Alert de validaciones */}
           {validationErrors.length > 0 && (
             <Alert className="bg-red-50 border-red-200">
               <AlertTriangle className="h-4 w-4" />
@@ -280,13 +267,13 @@ export function CreateCourtesyDialog({
               </AlertDescription>
             </Alert>
           )}
-          {/* 🆕 Fila 1: Evento y Tipo de Boleto */}
-          <div className="grid grid-cols-2 gap-3">
-            {/* Seleccionar Evento */}
+
+          {/* Fila 1: Evento y Tipo de Boleto */}
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <Label className="text-sm font-medium">Evento *</Label>
               <Select value={form.eventId} onValueChange={handleEventChange}>
-                <SelectTrigger className="h-9">
+                <SelectTrigger>
                   <SelectValue placeholder="Seleccionar evento..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -299,7 +286,6 @@ export function CreateCourtesyDialog({
               </Select>
             </div>
 
-            {/* Seleccionar Tipo de Boleto */}
             <div>
               <Label className="text-sm font-medium">Tipo de Boleto *</Label>
               <Select 
@@ -307,8 +293,12 @@ export function CreateCourtesyDialog({
                 onValueChange={(value) => setForm(prev => ({ ...prev, ticketTypeId: value }))}
                 disabled={!form.eventId || ticketTypes.length === 0}
               >
-                <SelectTrigger className="h-9">
-                  <SelectValue placeholder={ticketTypes.length === 0 ? "Primero selecciona evento" : "Seleccionar tipo..."} />
+                <SelectTrigger>
+                  <SelectValue placeholder={
+                    !form.eventId ? "Primero selecciona evento" :
+                    ticketTypes.length === 0 ? "Cargando tipos de boletos..." :
+                    "Seleccionar tipo..."
+                  } />
                 </SelectTrigger>
                 <SelectContent>
                   {ticketTypes.map((type) => (
@@ -318,64 +308,10 @@ export function CreateCourtesyDialog({
                   ))}
                 </SelectContent>
               </Select>
-              {form.eventId && ticketTypes.length === 0 && (
-                <p className="text-xs text-gray-500 mt-1">
-                  Cargando tipos de boletos...
-                </p>
-              )}
             </div>
           </div>
 
-          {/* 🆕 Fila 2: Nombre y Cantidad (condicionales) */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-2">
-              <Label className="text-sm font-medium">
-                Nombre del solicitante {!form.autoLink && '*'}
-              </Label>
-              <Input
-                value={form.attendeeName}
-                onChange={(e) => {
-                  setForm(prev => ({ ...prev, attendeeName: e.target.value }));
-                  setValidationErrors([]);
-                }}
-                placeholder={form.autoLink 
-                  ? "Quien solicita las cortesías (opcional)" 
-                  : "Nombre de quien solicita"
-                }
-                className="h-9"
-                disabled={form.autoLink} // 🆕 Bloqueado si está vinculado
-              />
-              {form.autoLink && (
-                <p className="text-xs text-blue-600 mt-1">
-                  Cada asistente configurará sus datos individuales después
-                </p>
-              )}
-            </div>
-            <div>
-              <Label className="text-sm font-medium">Cantidad</Label>
-              <Input
-                type="number"
-                min="1"
-                max="10"
-                value={form.quantity}
-                onChange={(e) => {
-                  const newQuantity = parseInt(e.target.value) || 1;
-                  setForm(prev => ({ ...prev, quantity: newQuantity }));
-                  setValidationErrors([]);
-                }}
-                className="h-9"
-                disabled={!form.autoLink} // 🆕 Bloqueado si NO está vinculado
-                title={form.autoLink ? "Máximo 10 cortesías" : "Solo 1 cortesía sin vinculación"}
-              />
-              {!form.autoLink && (
-                <p className="text-xs text-blue-600 mt-1">
-                  Cortesías independientes: solo 1 por vez
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* 🆕 Fila 3: Email (ancho completo para mostrar indicadores) */}
+          {/* Fila 2: Email (ancho completo con búsqueda de usuario) */}
           <div>
             <Label className="text-sm font-medium">Email del solicitante *</Label>
             <div className="space-y-2">
@@ -385,7 +321,7 @@ export function CreateCourtesyDialog({
                   value={form.attendeeEmail}
                   onChange={(e) => handleEmailChange(e.target.value)}
                   placeholder="email@ejemplo.com"
-                  className={`h-9 ${foundUser ? 'border-green-500' : ''}`}
+                  className={foundUser ? 'border-green-500' : ''}
                 />
                 {searchingUser && (
                   <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
@@ -394,7 +330,7 @@ export function CreateCourtesyDialog({
                 )}
               </div>
               
-              {/* Indicador de usuario encontrado/no encontrado */}
+              {/* 🎯 Indicador de usuario encontrado/no encontrado (MANTENER) */}
               {emailSearched && form.attendeeEmail === emailSearched && (
                 <div className="flex items-center gap-2 text-sm flex-wrap">
                   {foundUser ? (
@@ -411,14 +347,10 @@ export function CreateCourtesyDialog({
                   ) : (
                     <>
                       <AlertCircle className="w-4 h-4 text-orange-500" />
-                      <span className="text-orange-700">
-                        Usuario no encontrado
-                      </span>
-                      {form.autoLink && (
-                        <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-300">
-                          Se creará al registrarse
-                        </Badge>
-                      )}
+                      <span className="text-orange-700">Usuario no encontrado</span>
+                      <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-300">
+                        Cuenta nueva
+                      </Badge>
                     </>
                   )}
                 </div>
@@ -426,51 +358,59 @@ export function CreateCourtesyDialog({
             </div>
           </div>
 
-          {/* 🆕 Fila 4: Teléfono y Tipo de Cortesía (teléfono condicional) */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-sm font-medium">Teléfono del solicitante</Label>
+          {/* Fila 3: Nombre (opcional) y Cantidad */}
+          <div className="grid grid-cols-3 gap-4">
+            <div className="col-span-2">
+              <Label className="text-sm font-medium">Nombre del solicitante</Label>
               <Input
-                value={form.attendeePhone}
+                value={form.attendeeName}
                 onChange={(e) => {
-                  setForm(prev => ({ ...prev, attendeePhone: e.target.value }));
+                  setForm(prev => ({ ...prev, attendeeName: e.target.value }));
                   setValidationErrors([]);
                 }}
-                placeholder={form.autoLink 
-                  ? "El usuario lo configurará (opcional)" 
-                  : "Opcional"
-                }
-                className="h-9"
-                disabled={form.autoLink} // 🆕 Bloqueado si está vinculado
+                placeholder="Quien solicita las cortesías (opcional)"
               />
-              {form.autoLink && (
-                <p className="text-xs text-blue-600 mt-1">
-                  El usuario puede agregar su teléfono después
-                </p>
-              )}
+              <p className="text-xs text-blue-600 mt-1">
+                Cada asistente configurará sus datos individuales después
+              </p>
             </div>
-
             <div>
-              <Label className="text-sm font-medium">Tipo de Cortesía *</Label>
-              <Select 
-                value={form.courtesyType} 
-                onValueChange={(value) => setForm(prev => ({ ...prev, courtesyType: value }))}
-              >
-                <SelectTrigger className="h-9">
-                  <SelectValue placeholder="Seleccionar tipo..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {courtesyTypes.map((type) => (
-                    <SelectItem key={type.value} value={type.value}>
-                      {type.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label className="text-sm font-medium">Cantidad</Label>
+              <Input
+                type="number"
+                min="1"
+                max="10"
+                value={form.quantity}
+                onChange={(e) => {
+                  const newQuantity = parseInt(e.target.value) || 1;
+                  setForm(prev => ({ ...prev, quantity: newQuantity }));
+                  setValidationErrors([]);
+                }}
+              />
             </div>
           </div>
 
-          {/* 🆕 Notas (más compactas) */}
+          {/* Fila 4: Tipo de Cortesía */}
+          <div>
+            <Label className="text-sm font-medium">Tipo de Cortesía *</Label>
+            <Select 
+              value={form.courtesyType} 
+              onValueChange={(value) => setForm(prev => ({ ...prev, courtesyType: value }))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Seleccionar tipo..." />
+              </SelectTrigger>
+              <SelectContent>
+                {courtesyTypes.map((type) => (
+                  <SelectItem key={type.value} value={type.value}>
+                    {type.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Notas */}
           <div>
             <Label className="text-sm font-medium">Notas</Label>
             <Textarea
@@ -482,45 +422,8 @@ export function CreateCourtesyDialog({
             />
           </div>
 
-          {/* 🆕 Opciones (Switch de Vinculación + Email) */}
-          <div className="space-y-3 border rounded-lg p-3 bg-gray-50">
-            {/* Switch de Vinculación */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="autoLink"
-                  checked={form.autoLink}
-                  onChange={(e) => {
-                    const autoLink = e.target.checked;
-                    setForm(prev => ({ 
-                      ...prev, 
-                      autoLink,
-                      // Si deshabilita autoLink, resetear cantidad a 1 y limpiar campos
-                      quantity: !autoLink ? 1 : prev.quantity,
-                      // Si habilita autoLink, limpiar campos que el usuario llenará
-                      attendeeName: autoLink ? '' : prev.attendeeName,
-                      attendeePhone: autoLink ? '' : prev.attendeePhone
-                    }));
-                    setValidationErrors([]);
-                  }}
-                  className="rounded"
-                />
-                <Label htmlFor="autoLink" className="text-sm font-medium">
-                  Vincular automáticamente a cuenta de usuario
-                </Label>
-              </div>
-              <p className="text-xs text-gray-600 pl-6">
-                {form.autoLink 
-                  ? foundUser 
-                    ? "🔗 Se vinculará inmediatamente a la cuenta existente de " + foundUser.name
-                    : "🔗 Si existe una cuenta con este email, se vinculará automáticamente. Si no existe, se vinculará cuando se registre."
-                  : "🎫 Cortesía independiente. Solo se enviará por email sin vincular a cuenta."
-                }
-              </p>
-            </div>
-            
-            {/* Enviar Email */}
+          {/* Opciones simplificadas */}
+          <div className="border rounded-lg p-3 bg-gray-50">
             <div className="flex items-center gap-2">
               <input
                 type="checkbox"
@@ -533,14 +436,17 @@ export function CreateCourtesyDialog({
                 Enviar email de notificación
               </Label>
             </div>
+            <p className="text-xs text-gray-600 mt-2">
+              📧 Los usuarios recibirán un email con instrucciones para configurar sus boletos
+            </p>
           </div>
 
-          {/* 🆕 Botones (más compactos) */}
+          {/* Botones */}
           <div className="flex gap-2 pt-2">
             <Button
               variant="outline"
               onClick={() => setShowDialog(false)}
-              className="flex-1 h-9"
+              className="flex-1"
               disabled={isCreating}
             >
               Cancelar
@@ -548,7 +454,7 @@ export function CreateCourtesyDialog({
             <Button
               onClick={handleCreate}
               disabled={isCreating}
-              className="flex-1 h-9 bg-green-600 hover:bg-green-700"
+              className="flex-1 bg-green-600 hover:bg-green-700"
             >
               {isCreating ? (
                 <>
@@ -557,7 +463,7 @@ export function CreateCourtesyDialog({
                 </>
               ) : (
                 <>
-                  <Gift className="w-3 h-3 mr-2" />
+                  <Gift className="w-4 h-4 mr-2" />
                   Crear {form.quantity > 1 ? `${form.quantity} ` : ''}Cortesía{form.quantity > 1 ? 's' : ''}
                 </>
               )}

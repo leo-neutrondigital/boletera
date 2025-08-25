@@ -1,0 +1,101 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 👤 Users collection - solo el propio usuario puede leer/escribir
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      // Los admins pueden leer todos los usuarios
+      allow read: if request.auth != null && hasRole(['admin']);
+    }
+    
+    // 🎪 Events - lectura pública, escritura solo admin/gestor
+    match /events/{eventId} {
+      allow read: if true; // Lectura pública para mostrar eventos
+      allow write: if request.auth != null && hasRole(['admin', 'gestor']);
+    }
+    
+    // 🎫 Ticket Types - lectura pública, escritura solo admin/gestor
+    match /ticket_types/{ticketTypeId} {
+      allow read: if true; // Lectura pública para mostrar tipos
+      allow write: if request.auth != null && hasRole(['admin', 'gestor']);
+    }
+    
+    // 🎟️ Tickets - solo el propietario o admins pueden leer/escribir
+    match /tickets/{ticketId} {
+      // El propietario puede leer/escribir sus propios tickets
+      allow read, write: if request.auth != null && 
+                          request.auth.uid == resource.data.user_id;
+      
+      // Los admins y gestores pueden leer/escribir todos los tickets
+      allow read, write: if request.auth != null && 
+                          hasRole(['admin', 'gestor']);
+      
+      // Los comprobadores pueden leer todos los tickets (para validación)
+      allow read: if request.auth != null && hasRole(['comprobador']);
+      
+      // 🆕 PERMITIR creación de tickets para usuarios autenticados (para compras)
+      allow create: if request.auth != null;
+    }
+    
+    // 📋 Preregistrations - REGLAS ACTUALIZADAS para permitir user_id: null
+    match /preregistrations/{preregistrationId} {
+      // 🆕 PERMITIR creación sin user_id (para preregistros de invitados)
+      allow create: if 
+        // Caso 1: Usuario loggeado creando preregistro
+        (request.auth != null && request.auth.uid == request.resource.data.user_id) ||
+        // Caso 2: Preregistro de invitado (user_id: null) - NUEVO
+        (request.resource.data.user_id == null && validateGuestPreregistration());
+      
+      // El propietario puede leer/escribir sus propios preregistros
+      allow read, write: if request.auth != null && 
+                          request.auth.uid == resource.data.user_id;
+      
+      // Los admins, gestores y comprobadores pueden leer/escribir todos los preregistros
+      allow read, write: if request.auth != null && 
+                          hasRole(['admin', 'gestor', 'comprobador']);
+      
+      // 🆕 PERMITIR actualización por admins/gestores (cambiar estados)
+      allow update: if request.auth != null && 
+                    hasRole(['admin', 'gestor']) &&
+                    onlyAllowedFieldsChanged(['status', 'contacted_at', 'contacted_by', 'updated_at']);
+    }
+    
+    // 🆕 FUNCIÓN para validar preregistros de invitados
+    function validateGuestPreregistration() {
+      return 
+        // Debe tener campos requeridos
+        request.resource.data.name is string &&
+        request.resource.data.name.size() > 0 &&
+        request.resource.data.email is string &&
+        request.resource.data.email.size() > 0 &&
+        request.resource.data.phone is string &&
+        request.resource.data.phone.size() > 0 &&
+        request.resource.data.event_id is string &&
+        request.resource.data.event_id.size() > 0 &&
+        // Debe tener status inicial 'nuevo'
+        request.resource.data.status == 'nuevo' &&
+        // Debe tener source válido
+        request.resource.data.source in ['landing_page', 'admin_import'];
+    }
+    
+    // 🆕 FUNCIÓN para validar solo cambios de campos permitidos
+    function onlyAllowedFieldsChanged(allowedFields) {
+      return request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(allowedFields);
+    }
+    
+    // 🛡️ FUNCIÓN para verificar roles
+    function hasRole(roles) {
+      return request.auth != null && 
+             request.auth.uid != null &&
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles.hasAny(roles);
+    }
+    
+    // 🚫 Denegar acceso por defecto a otras colecciones
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

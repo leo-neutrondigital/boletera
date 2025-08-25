@@ -6,6 +6,13 @@ export interface User {
   name: string;
   phone?: string;
   company?: string;
+  address?: {
+    street?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+    zipCode?: string;
+  };
   roles: string[];
   created_at: Date;
   updated_at?: Date;
@@ -207,6 +214,55 @@ export interface EventData {
   featured_image_url?: string;
   terms_and_conditions?: string;
   contact_email?: string;
+}
+
+// 🆕 Nuevo: Interfaz para preregistros
+export interface Preregistration {
+  id: string;
+  event_id: string;
+  user_id: string | null; // 🆕 Permitir preregistros sin usuario
+  
+  // Datos del interesado
+  name: string;
+  email: string;
+  phone: string;
+  company?: string;
+  
+  // 🆕 Boletos de interés
+  interested_tickets?: {
+    ticket_type_id: string;
+    ticket_type_name: string;
+    quantity: number;
+    unit_price: number;
+    currency: string;
+    total_price: number;
+  }[];
+  
+  // Estado y gestión CRM
+  status: 'nuevo' | 'contactado' | 'interesado' | 'no_interesado' | 'convertido';
+  
+  // Metadata
+  created_at: Date;
+  updated_at?: Date;
+  contacted_at?: Date;
+  contacted_by?: string; // user_id del admin/gestor
+  
+  // Origen
+  source: 'landing_page' | 'admin_import';
+  
+  // Email
+  email_sent: boolean;
+  email_sent_at?: Date;
+  
+  // Datos del evento (para joins)
+  event?: {
+    id: string;
+    name: string;
+    start_date: Date;
+    end_date: Date;
+    location: string;
+    description?: string;
+  };
 }
 
 export interface TicketTypeData {

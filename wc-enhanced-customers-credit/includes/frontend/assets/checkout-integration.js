@@ -43,6 +43,12 @@ jQuery(document).ready(function($) {
             return;
         }
         
+        // Si ya está marcado como bloqueado, NO hacer AJAX
+        if ($creditSummary.hasClass('wecc-blocked')) {
+            console.log('WECC: Bloque ya está marcado como bloqueado, saltando actualización AJAX');
+            return;
+        }
+        
         // Mostrar loading
         $creditSummary.addClass('wecc-updating');
         $gatewayInfo.addClass('wecc-updating');
@@ -73,7 +79,13 @@ jQuery(document).ready(function($) {
      * Actualiza la visualización con los nuevos datos
      */
     function updateCreditDisplay(data) {
-        // Actualizar resumen principal
+        // Si está bloqueado, NO actualizar el display - mantener el estado de bloqueo
+        if (data.is_blocked) {
+            console.log('WECC: Usuario bloqueado, manteniendo display de bloqueo');
+            return; // Salir temprano para mantener el display de bloqueo original
+        }
+        
+        // Actualizar resumen principal solo si NO está bloqueado
         const $purchaseInfo = $('.wecc-purchase-info');
         
         if (data.can_pay) {

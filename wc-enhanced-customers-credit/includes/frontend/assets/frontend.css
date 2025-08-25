@@ -132,6 +132,9 @@
 }
 
 /* Payment Actions */
+.payment-button{
+    color:white !important;
+}
 .wecc-payment-actions {
     margin: 20px 0;
     padding: 15px;

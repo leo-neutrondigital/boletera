@@ -108,8 +108,30 @@ class WECC_Gateway extends WC_Payment_Gateway {
             return false;
         }
         
-        // Verificar que el usuario tenga crédito disponible
         $user_id = get_current_user_id();
+        
+        // Verificar que tenga cuenta de crédito activa
+        $account = wecc_get_or_create_account($user_id);
+        if (!$account) {
+            return false;
+        }
+        
+        // Verificar que el crédito esté habilitado
+        if ($account->status !== 'active') {
+            return false;
+        }
+        
+        // Verificar que tenga límite de crédito
+        if ($account->credit_limit <= 0) {
+            return false;
+        }
+        
+        // NUEVA VALIDACIÓN: Verificar que no esté bloqueado por vencidos
+        if ($this->has_overdue_charges($user_id)) {
+            return false;
+        }
+        
+        // Verificar que el usuario tenga crédito disponible
         $balance = wecc_get_user_balance($user_id);
         
         if ($balance['available_credit'] <= 0) {
@@ -133,7 +155,15 @@ class WECC_Gateway extends WC_Payment_Gateway {
     }
     
     /**
-     * Campos del formulario de pago
+     * Verifica si el usuario tiene cargos vencidos - VERSIÓN CORREGIDA
+     */
+    private function has_overdue_charges(int $user_id): bool {
+        // Usar la función helper corregida
+        return wecc_user_has_overdue_charges($user_id);
+    }
+    
+    /**
+     * Campos del formulario de pago - VERSIÓN SIMPLIFICADA
      */
     public function payment_fields() {
         if ($this->description) {
@@ -144,32 +174,18 @@ class WECC_Gateway extends WC_Payment_Gateway {
         $balance = wecc_get_user_balance($user_id);
         $cart_total = WC()->cart ? WC()->cart->get_total('edit') : 0;
         
-        echo '<div class="wecc-credit-info">';
-        
-        // Mostrar crédito disponible
-        echo '<div class="wecc-available-credit">';
-        echo '<strong>' . __('Crédito disponible:', 'wc-enhanced-customers-credit') . '</strong> ';
-        echo '<span class="amount">' . wc_price($balance['available_credit']) . '</span>';
-        echo '</div>';
-        
-        // Mostrar total de la orden
-        echo '<div class="wecc-order-total">';
-        echo '<strong>' . __('Total a pagar:', 'wc-enhanced-customers-credit') . '</strong> ';
-        echo '<span class="amount">' . wc_price($cart_total) . '</span>';
-        echo '</div>';
+        // SOLO mostrar mensaje de confirmación con estilo del bloque superior
+        echo '<div class="wecc-credit-confirmation" style="background: linear-gradient(135deg, #00a32a, #00d084); padding: 15px; border-radius: 8px; text-align: center; margin: 10px 0;">';
         
         // Verificar si hay suficiente crédito
         if ($balance['available_credit'] < $cart_total) {
-            echo '<div class="wecc-insufficient-credit notice notice-error">';
-            echo '<p>' . sprintf(
-                __('Crédito insuficiente. Necesitas %s adicionales.', 'wc-enhanced-customers-credit'),
-                wc_price($cart_total - $balance['available_credit'])
-            ) . '</p>';
-            echo '</div>';
+            echo '<p style="color: white; margin: 0; font-weight: 600;">';
+            echo '⚠️ Crédito insuficiente para completar esta compra.';
+            echo '</p>';
         } else {
-            echo '<div class="wecc-sufficient-credit notice notice-success">';
-            echo '<p>' . __('✓ Tienes suficiente crédito para esta compra.', 'wc-enhanced-customers-credit') . '</p>';
-            echo '</div>';
+            echo '<p style="color: white; margin: 0; font-weight: 600;">';
+            echo '✅ Puedes pagar esta compra con crédito.';
+            echo '</p>';
         }
         
         echo '</div>';
@@ -186,6 +202,29 @@ class WECC_Gateway extends WC_Payment_Gateway {
         
         if (!$user_id) {
             wc_add_notice(__('Debes estar logueado para usar crédito.', 'wc-enhanced-customers-credit'), 'error');
+            return false;
+        }
+        
+        // Verificar cuenta y estado
+        $account = wecc_get_or_create_account($user_id);
+        if (!$account) {
+            wc_add_notice(__('No tienes una cuenta de crédito configurada.', 'wc-enhanced-customers-credit'), 'error');
+            return false;
+        }
+        
+        if ($account->status !== 'active') {
+            wc_add_notice(__('Tu crédito no está activo. Contacta al administrador.', 'wc-enhanced-customers-credit'), 'error');
+            return false;
+        }
+        
+        if ($account->credit_limit <= 0) {
+            wc_add_notice(__('No tienes límite de crédito asignado.', 'wc-enhanced-customers-credit'), 'error');
+            return false;
+        }
+        
+        // Verificar si está bloqueado por vencidos
+        if (wecc_user_has_overdue_charges($user_id)) {
+            wc_add_notice(__('Tu crédito está bloqueado por tener pagos vencidos. Regulariza tu situación antes de continuar.', 'wc-enhanced-customers-credit'), 'error');
             return false;
         }
         
@@ -228,17 +267,30 @@ class WECC_Gateway extends WC_Payment_Gateway {
         }
         
         try {
+            // Verificar estado de la cuenta una vez más antes de procesar
+            $account = wecc_get_or_create_account($user_id);
+            if (!$account) {
+                throw new Exception(__('No se pudo obtener la cuenta de crédito.', 'wc-enhanced-customers-credit'));
+            }
+            
+            if ($account->status !== 'active') {
+                throw new Exception(__('Crédito no activo.', 'wc-enhanced-customers-credit'));
+            }
+            
+            if ($account->credit_limit <= 0) {
+                throw new Exception(__('Sin límite de crédito.', 'wc-enhanced-customers-credit'));
+            }
+            
+            // Verificar si está bloqueado por vencidos
+            if (wecc_user_has_overdue_charges($user_id)) {
+                throw new Exception(__('Crédito bloqueado por pagos vencidos.', 'wc-enhanced-customers-credit'));
+            }
+            
             // Verificar crédito disponible una vez más
             $balance = wecc_get_user_balance($user_id);
             
             if ($balance['available_credit'] < $order_total) {
                 throw new Exception(__('Crédito insuficiente al procesar el pago.', 'wc-enhanced-customers-credit'));
-            }
-            
-            // Crear cuenta si no existe
-            $account = wecc_get_or_create_account($user_id);
-            if (!$account) {
-                throw new Exception(__('No se pudo crear la cuenta de crédito.', 'wc-enhanced-customers-credit'));
             }
             
             // Crear cargo en el ledger

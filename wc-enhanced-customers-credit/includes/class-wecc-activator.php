@@ -25,6 +25,9 @@ class WECC_Activator {
         // Establecer versión de DB
         update_option('wecc_db_version', WECC_DB_VERSION);
         
+        // Inicializar indexación automática
+        self::init_indexing();
+        
         // Crear páginas si es necesario
         self::create_pages();
         
@@ -40,6 +43,31 @@ class WECC_Activator {
         
         // Log de activación
         error_log('WECC Plugin activado correctamente');
+    }
+    
+    /**
+     * Inicializar sistema de indexación en activación
+     */
+    private static function init_indexing(): void {
+        $indexing_file = WECC_PLUGIN_DIR . 'includes/database/class-wecc-indexing-manager.php';
+        if (file_exists($indexing_file)) {
+            require_once $indexing_file;
+            
+            if (class_exists('WECC_Indexing_Manager')) {
+                // Crear índices básicos automáticamente
+                $results = WECC_Indexing_Manager::create_basic_indexes();
+                
+                // Log de resultados
+                $created_count = count(array_filter($results, fn($r) => $r['status'] === 'created'));
+                $existing_count = count(array_filter($results, fn($r) => $r['status'] === 'exists'));
+                $error_count = count(array_filter($results, fn($r) => $r['status'] === 'error'));
+                
+                error_log("WECC Indexing: {$created_count} índices creados, {$existing_count} ya existían, {$error_count} errores");
+                
+                // Marcar versión de indexación
+                update_option('wecc_indexing_version', '1.0');
+            }
+        }
     }
     
     /**
@@ -170,32 +198,18 @@ class WECC_Activator {
     }
     
     /**
-     * Crea páginas necesarias del plugin
+     * Manejo de página "Mi Crédito"
+     * - Ya no crea la página automáticamente
+     * - Solo actualiza la opción si la página existe
      */
     private static function create_pages(): void {
-        // Página "Mi Crédito" si no existe
         $page_slug = 'mi-credito';
         $existing_page = get_page_by_path($page_slug);
         
-        if (!$existing_page) {
-            $page_data = [
-                'post_title' => __('Mi Crédito', 'wc-enhanced-customers-credit'),
-                'post_content' => '[wecc_my_credit]',
-                'post_status' => 'publish',
-                'post_type' => 'page',
-                'post_name' => $page_slug,
-                'comment_status' => 'closed',
-                'ping_status' => 'closed'
-            ];
-            
-            $page_id = wp_insert_post($page_data);
-            
-            if ($page_id && !is_wp_error($page_id)) {
-                update_option('wecc_my_credit_page_id', $page_id);
-                error_log("WECC: Página 'Mi Crédito' creada con ID $page_id");
-            }
-        } else {
+        if ($existing_page) {
             update_option('wecc_my_credit_page_id', $existing_page->ID);
+        } else {
+            delete_option('wecc_my_credit_page_id');
         }
     }
 }

@@ -77,6 +77,8 @@ interface TicketTypeFormDialogProps {
   ticketTypeToEdit?: TicketType;
   onSuccess: (ticketType?: TicketType) => void;
   trigger?: React.ReactElement;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function TicketTypeFormDialog({
@@ -84,13 +86,19 @@ export function TicketTypeFormDialog({
   ticketTypeToEdit,
   onSuccess,
   trigger,
+  open: externalOpen,
+  onOpenChange: externalOnOpenChange,
 }: TicketTypeFormDialogProps) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'basic' | 'public' | 'advanced'>('basic');
   const [features, setFeatures] = useState<string[]>(ticketTypeToEdit?.features || []);
   const [newFeature, setNewFeature] = useState('');
   const { toast } = useToast();
   const eventDays = getEventDays(event);
+
+  // Usar open externo si se proporciona, sino usar estado interno
+  const open = externalOpen !== undefined ? externalOpen : internalOpen;
+  const setOpen = externalOnOpenChange || setInternalOpen;
 
   const {
     register,
@@ -246,13 +254,11 @@ export function TicketTypeFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {trigger ?? (
-          <Button variant="default">
-            {ticketTypeToEdit ? "Editar" : "+ Nuevo tipo"}
-          </Button>
-        )}
-      </DialogTrigger>
+      {trigger && (
+        <DialogTrigger asChild>
+          {trigger}
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">

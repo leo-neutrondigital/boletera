@@ -224,13 +224,15 @@ class WECC_Admin_Controller_New {
     private function load_controllers(): void {
         require_once WECC_PLUGIN_DIR . 'includes/admin/controllers/class-wecc-customers-controller.php';
         require_once WECC_PLUGIN_DIR . 'includes/admin/controllers/class-wecc-credit-controller.php';
-        require_once WECC_PLUGIN_DIR . 'includes/admin/controllers/class-wecc-payments-controller.php';
         require_once WECC_PLUGIN_DIR . 'includes/admin/controllers/class-wecc-bulk-controller.php';
+        
+        // Cargar payments_controller solo para funciones AJAX que podrían ser útiles
+        require_once WECC_PLUGIN_DIR . 'includes/admin/controllers/class-wecc-payments-controller.php';
         
         $this->customers_controller = new WECC_Customers_Controller();
         $this->credit_controller = new WECC_Credit_Controller();
-        $this->payments_controller = new WECC_Payments_Controller();
         $this->bulk_controller = new WECC_Bulk_Controller();
+        $this->payments_controller = new WECC_Payments_Controller(); // Solo para AJAX
     }
     
     /**
@@ -245,6 +247,23 @@ class WECC_Admin_Controller_New {
         
         // AJAX hooks - delegar a controladores especializados
         $this->register_ajax_hooks();
+        
+        // Inicializar página de indexación
+        $this->init_indexing_page();
+    }
+    
+    /**
+     * Inicializar página de indexación
+     */
+    private function init_indexing_page(): void {
+        $indexing_admin_file = WECC_PLUGIN_DIR . 'includes/admin/class-wecc-indexing-admin.php';
+        if (file_exists($indexing_admin_file)) {
+            require_once $indexing_admin_file;
+            
+            if (class_exists('WECC_Indexing_Admin_Page')) {
+                WECC_Indexing_Admin_Page::init();
+            }
+        }
     }
     
     /**
@@ -288,9 +307,6 @@ class WECC_Admin_Controller_New {
             case 'credit':
                 $this->route_credit($action);
                 break;
-            case 'payments':
-                $this->route_payments($action);
-                break;
             case 'bulk':
                 $this->route_bulk($action);
                 break;
@@ -323,28 +339,8 @@ class WECC_Admin_Controller_New {
      * Rutas para el controlador de crédito
      */
     private function route_credit(string $action): void {
-        switch ($action) {
-            case 'enable':
-                $this->credit_controller->render_enable_credit_form();
-                break;
-            default:
-                $this->credit_controller->render_credit_config();
-                break;
-        }
-    }
-    
-    /**
-     * Rutas para el controlador de pagos
-     */
-    private function route_payments(string $action): void {
-        switch ($action) {
-            case 'register':
-                $this->payments_controller->render_payment_form();
-                break;
-            default:
-                $this->payments_controller->render_payments_page();
-                break;
-        }
+        // Solo manejar configuración individual
+        $this->credit_controller->render_enable_credit_form();
     }
     
     /**
@@ -374,27 +370,45 @@ class WECC_Admin_Controller_New {
         $tabs = [
             'dashboard' => __('Dashboard', 'wc-enhanced-customers-credit'),
             'customers' => __('Clientes', 'wc-enhanced-customers-credit'),
-            'payments' => __('Pagos Externos', 'wc-enhanced-customers-credit'),
             'bulk' => __('Carga Masiva', 'wc-enhanced-customers-credit')
         ];
+        
+        // Lógica especial: cuando estamos en "credit", mostrar "customers" como activo
+        $active_tab = $current_tab === 'credit' ? 'customers' : $current_tab;
         
         echo '<h2 class="nav-tab-wrapper">';
         foreach ($tabs as $tab_key => $tab_label) {
             $url = admin_url("admin.php?page=wecc-dashboard&tab={$tab_key}");
-            $active = $current_tab === $tab_key ? 'nav-tab-active' : '';
+            $active = $active_tab === $tab_key ? 'nav-tab-active' : '';
             echo "<a href='{$url}' class='nav-tab {$active}'>{$tab_label}</a>";
         }
         echo '</h2>';
     }
     
     /**
-     * Dashboard básico - TODO: implementar
+     * Dashboard ejecutivo - Con métricas completas
      */
     private function render_dashboard_tab(): void {
-        echo '<div class="wecc-dashboard">';
-        echo '<h3>Dashboard - TODO: Implementar estadísticas</h3>';
-        echo '<p>Esta será la página de resumen con estadísticas generales.</p>';
-        echo '</div>';
+        // Mostrar descripción del dashboard
+        echo '<p class="description">';
+        echo 'Resumen ejecutivo del sistema de crédito - ';
+        echo 'Última actualización: ' . current_time('d/m/Y H:i');
+        echo '</p>';
+        
+        // Cargar controller del dashboard
+        require_once WECC_PLUGIN_DIR . 'includes/admin/controllers/class-wecc-dashboard-controller.php';
+        $controller = new WECC_Dashboard_Controller();
+        $metrics = $controller->get_dashboard_metrics();
+        
+        // Extraer datos para facilitar el uso
+        $financial = $metrics['financial_summary'];
+        $clients = $metrics['client_metrics'];
+        $alerts = $metrics['critical_alerts'];
+        $trends = $metrics['monthly_trends'];
+        $quality = $metrics['quality_metrics'];
+        
+        // Incluir el template
+        include WECC_PLUGIN_DIR . 'templates/admin/dashboard.php';
     }
     
     /**
@@ -440,9 +454,6 @@ class WECC_Admin_Controller_New {
                 break;
             case 'enable_credit':
                 $this->credit_controller->handle_enable_credit();
-                break;
-            case 'external_payment':
-                $this->payments_controller->handle_external_payment();
                 break;
             case 'bulk_import':
                 $this->bulk_controller->handle_import();
@@ -526,6 +537,7 @@ class WECC_Admin_Controller_New {
         $notices = [
             'customer_saved' => ['success', __('Cliente guardado correctamente.', 'wc-enhanced-customers-credit')],
             'credit_enabled' => ['success', __('Crédito habilitado correctamente.', 'wc-enhanced-customers-credit')],
+            'credit_saved' => ['success', __('Configuración de crédito guardada correctamente.', 'wc-enhanced-customers-credit')],
             'payment_registered' => ['success', __('Pago registrado correctamente.', 'wc-enhanced-customers-credit')],
             'import_completed' => ['success', __('Importación completada.', 'wc-enhanced-customers-credit')],
             'error_saving' => ['error', __('Error al guardar. Revisa los datos.', 'wc-enhanced-customers-credit')]

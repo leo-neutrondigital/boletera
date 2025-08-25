@@ -34,8 +34,11 @@ const userSchema = z.object({
   role: z.enum(["admin", "gestor", "comprobador", "usuario"]),
   phone: z.string().optional(),
   company: z.string().optional(),
+  street: z.string().optional(),
   city: z.string().optional(),
+  state: z.string().optional(),
   country: z.string().default("México"),
+  zipCode: z.string().optional(),
   marketing_consent: z.boolean().default(false),
 });
 
@@ -72,9 +75,12 @@ export function UserFormDialog({
       role: userToEdit?.roles?.[0] ?? "usuario",
       phone: userToEdit?.phone ?? "",
       company: userToEdit?.company ?? "",
+      street: userToEdit?.address?.street ?? "",
       city: userToEdit?.address?.city ?? "",
+      state: userToEdit?.address?.state ?? "",
       country: userToEdit?.address?.country ?? "México",
-      marketing_consent: userToEdit?.marketing_consent ?? false,
+      zipCode: userToEdit?.address?.zipCode ?? "",
+      marketing_consent: (userToEdit as any)?.marketing_consent ?? false,
     },
   });
 
@@ -90,8 +96,11 @@ export function UserFormDialog({
           phone: data.phone || "",
           company: data.company || "",
           address: {
+            street: data.street || "",
             city: data.city || "",
+            state: data.state || "",
             country: data.country || "México",
+            zipCode: data.zipCode || "",
           },
           marketing_consent: data.marketing_consent,
         };
@@ -274,15 +283,40 @@ export function UserFormDialog({
                 />
               </div>
 
+              <div>
+                <Label className="flex items-center gap-2">
+                  <MapPin className="w-4 h-4" />
+                  Dirección
+                </Label>
+                <Input 
+                  {...register("street")} 
+                  placeholder="Calle y número"
+                />
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4" />
-                    Ciudad
-                  </Label>
+                  <Label>Ciudad</Label>
                   <Input 
                     {...register("city")} 
                     placeholder="Ciudad de México"
+                  />
+                </div>
+                <div>
+                  <Label>Estado</Label>
+                  <Input 
+                    {...register("state")} 
+                    placeholder="Estado de México"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Código postal</Label>
+                  <Input 
+                    {...register("zipCode")} 
+                    placeholder="12345"
                   />
                 </div>
                 <div>

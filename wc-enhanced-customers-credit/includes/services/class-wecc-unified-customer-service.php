@@ -315,10 +315,13 @@ class WECC_Unified_Customer_Service {
                 u.user_email LIKE %s OR
                 um_phone.meta_value LIKE %s OR
                 um_company.meta_value LIKE %s OR
+                um_first_name.meta_value LIKE %s OR
+                um_last_name.meta_value LIKE %s OR
+                CONCAT(um_first_name.meta_value, ' ', um_last_name.meta_value) LIKE %s OR
                 p.rfc LIKE %s OR
                 p.customer_number LIKE %s
             )";
-            $params = array_merge($params, [$search, $search, $search, $search, $search, $search]);
+            $params = array_merge($params, [$search, $search, $search, $search, $search, $search, $search, $search, $search]);
         }
         
         // Filtro por tipo de cliente
@@ -336,6 +339,8 @@ class WECC_Unified_Customer_Service {
             LEFT JOIN {$this->wecc_table} p ON u.ID = p.user_id
             LEFT JOIN {$wpdb->usermeta} um_phone ON u.ID = um_phone.user_id AND um_phone.meta_key = 'billing_phone'
             LEFT JOIN {$wpdb->usermeta} um_company ON u.ID = um_company.user_id AND um_company.meta_key = 'billing_company'
+            LEFT JOIN {$wpdb->usermeta} um_first_name ON u.ID = um_first_name.user_id AND um_first_name.meta_key = 'billing_first_name'
+            LEFT JOIN {$wpdb->usermeta} um_last_name ON u.ID = um_last_name.user_id AND um_last_name.meta_key = 'billing_last_name'
             {$where_sql}
         ";
         
@@ -349,6 +354,8 @@ class WECC_Unified_Customer_Service {
             LEFT JOIN {$this->wecc_table} p ON u.ID = p.user_id
             LEFT JOIN {$wpdb->usermeta} um_phone ON u.ID = um_phone.user_id AND um_phone.meta_key = 'billing_phone'
             LEFT JOIN {$wpdb->usermeta} um_company ON u.ID = um_company.user_id AND um_company.meta_key = 'billing_company'
+            LEFT JOIN {$wpdb->usermeta} um_first_name ON u.ID = um_first_name.user_id AND um_first_name.meta_key = 'billing_first_name'
+            LEFT JOIN {$wpdb->usermeta} um_last_name ON u.ID = um_last_name.user_id AND um_last_name.meta_key = 'billing_last_name'
             {$where_sql}
             ORDER BY u.display_name ASC
             LIMIT %d OFFSET %d

@@ -1,0 +1,420 @@
+/* WECC Dashboard Styles */
+
+.wecc-dashboard {
+    background: #f1f1f1;
+    margin: 0 -20px;
+    padding: 20px;
+}
+
+.wecc-dashboard h1 {
+    color: #23282d;
+    margin-bottom: 10px;
+}
+
+.wecc-logo {
+    font-size: 1.2em;
+    margin-right: 8px;
+}
+
+.wecc-dashboard .description {
+    color: #666;
+    font-style: italic;
+    margin-bottom: 30px;
+}
+
+/* Grid Layout */
+.wecc-metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+/* Card Styles */
+.wecc-card {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    overflow: hidden;
+    transition: transform 0.2s ease;
+}
+
+.wecc-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+}
+
+.wecc-card-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 15px 20px;
+    border-bottom: 1px solid #ddd;
+}
+
+.wecc-card-header h2 {
+    color: white;
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+}
+
+.wecc-card-header .dashicons {
+    margin-right: 8px;
+    font-size: 18px;
+}
+
+.wecc-card-content {
+    padding: 20px;
+}
+
+/* Financial Summary */
+.wecc-financial-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+    margin-bottom: 15px;
+}
+
+.wecc-metric {
+    text-align: center;
+    padding: 15px;
+    border-radius: 6px;
+    background: #f8f9fa;
+}
+
+.wecc-metric-value {
+    font-size: 24px;
+    font-weight: bold;
+    color: #2c3e50;
+    margin-bottom: 5px;
+}
+
+.wecc-metric-label {
+    font-size: 12px;
+    color: #7f8c8d;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.wecc-metric-secondary {
+    font-size: 11px;
+    color: #95a5a6;
+    margin-top: 3px;
+}
+
+.wecc-metric-alert .wecc-metric-value {
+    color: #e74c3c;
+}
+
+.wecc-metric-note {
+    background: #e8f4fd;
+    border: 1px solid #bee5eb;
+    border-radius: 4px;
+    padding: 10px;
+    font-size: 13px;
+    color: #0c5460;
+    display: flex;
+    align-items: center;
+}
+
+.wecc-metric-note .dashicons {
+    margin-right: 8px;
+    color: #17a2b8;
+}
+
+/* Client Metrics */
+.wecc-clients-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.wecc-client-count {
+    text-align: center;
+}
+
+.wecc-big-number {
+    display: block;
+    font-size: 36px;
+    font-weight: bold;
+    color: #2c3e50;
+    line-height: 1;
+}
+
+.wecc-label {
+    font-size: 12px;
+    color: #7f8c8d;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.wecc-client-breakdown {
+    display: flex;
+    gap: 20px;
+}
+
+.wecc-status-item {
+    text-align: center;
+    padding: 10px;
+    border-radius: 6px;
+    min-width: 70px;
+}
+
+.wecc-status-active {
+    background: #d4edda;
+    color: #155724;
+}
+
+.wecc-status-current {
+    background: #cce7ff;
+    color: #004085;
+}
+
+.wecc-status-blocked {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.wecc-status-count {
+    display: block;
+    font-size: 20px;
+    font-weight: bold;
+    line-height: 1;
+}
+
+.wecc-status-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.wecc-client-stats {
+    border-top: 1px solid #eee;
+    padding-top: 15px;
+}
+
+.wecc-stat {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-size: 13px;
+}
+
+.wecc-stat-warning {
+    color: #856404;
+    background: #fff3cd;
+    padding: 8px;
+    border-radius: 4px;
+    border: 1px solid #ffeaa7;
+}
+
+.wecc-stat-label {
+    color: #666;
+}
+
+.wecc-stat-value {
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+/* Alerts */
+.wecc-alert {
+    display: flex;
+    align-items: flex-start;
+    padding: 15px;
+    margin-bottom: 15px;
+    border-radius: 6px;
+    border-left: 4px solid;
+}
+
+.wecc-alert:last-child {
+    margin-bottom: 0;
+}
+
+.wecc-alert-success {
+    background: #d4edda;
+    border-left-color: #28a745;
+    color: #155724;
+}
+
+.wecc-alert-warning {
+    background: #fff3cd;
+    border-left-color: #ffc107;
+    color: #856404;
+}
+
+.wecc-alert-danger {
+    background: #f8d7da;
+    border-left-color: #dc3545;
+    color: #721c24;
+}
+
+.wecc-alert-icon {
+    font-size: 20px;
+    margin-right: 12px;
+    margin-top: 2px;
+}
+
+.wecc-alert-content {
+    flex: 1;
+}
+
+.wecc-alert-title {
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.wecc-alert-details {
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.wecc-alert-amount {
+    font-weight: 600;
+    margin-left: 8px;
+}
+
+/* Trends */
+.wecc-trends-grid {
+    display: grid;
+    gap: 20px;
+}
+
+.wecc-trend-item {
+    padding: 15px;
+    border: 1px solid #eee;
+    border-radius: 6px;
+    background: #f8f9fa;
+}
+
+.wecc-trend-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.wecc-trend-label {
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.wecc-trend-growth {
+    font-weight: bold;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.wecc-trend-growth.positive {
+    background: #d4edda;
+    color: #155724;
+}
+
+.wecc-trend-growth.negative {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.wecc-trend-current {
+    font-size: 20px;
+    font-weight: bold;
+    color: #2c3e50;
+    margin-bottom: 4px;
+}
+
+.wecc-trend-previous {
+    font-size: 12px;
+    color: #7f8c8d;
+}
+
+/* Quality Metrics */
+.wecc-quality-metrics {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+}
+
+.wecc-quality-item {
+    text-align: center;
+    padding: 20px;
+    border: 1px solid #eee;
+    border-radius: 6px;
+    background: #f8f9fa;
+}
+
+.wecc-quality-value {
+    font-size: 28px;
+    font-weight: bold;
+    margin-bottom: 8px;
+    padding: 10px;
+    border-radius: 6px;
+}
+
+.wecc-quality-value.good {
+    background: #d4edda;
+    color: #155724;
+}
+
+.wecc-quality-value.average {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.wecc-quality-value.poor {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.wecc-quality-label {
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 4px;
+}
+
+.wecc-quality-detail {
+    font-size: 11px;
+    color: #7f8c8d;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+    .wecc-metrics-grid {
+        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    }
+}
+
+@media (max-width: 782px) {
+    .wecc-dashboard {
+        margin: 0 -10px;
+        padding: 10px;
+    }
+    
+    .wecc-metrics-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    .wecc-financial-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    .wecc-clients-summary {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .wecc-client-breakdown {
+        justify-content: center;
+    }
+    
+    .wecc-quality-metrics {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+}

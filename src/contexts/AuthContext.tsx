@@ -2,7 +2,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { User } from "firebase/auth";
+import { User, signOut as firebaseSignOut } from "firebase/auth";
 import { doc, getDoc, onSnapshot } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase/client";
 import { hasPermission, getAccessibleRoutes } from "@/lib/auth/permissions";
@@ -12,6 +12,15 @@ interface UserData {
   uid: string;
   email: string;
   name: string;
+  phone?: string;
+  company?: string;
+  address?: {
+    street?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+    zipCode?: string;
+  };
   roles: UserRole[];
   created_at: Date;
 }
@@ -77,6 +86,7 @@ interface AuthState {
   
   // Acciones
   refreshUserData: () => Promise<void>;
+  signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -151,6 +161,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         uid: authUser.uid,
         email: authUser.email || "",
         name: data.name || "",
+        phone: data.phone || undefined,
+        company: data.company || undefined,
+        address: data.address || undefined,
         roles: data.roles || [],
         created_at: data.created_at?.toDate() || new Date(),
       };
@@ -173,6 +186,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (newUserData) {
       setUserData(newUserData);
       setPermissions(calculatePermissions(newUserData.roles));
+    }
+  };
+
+  // Función para cerrar sesión
+  const signOut = async (): Promise<void> => {
+    try {
+      await firebaseSignOut(auth);
+      // Los estados se limpiarán automáticamente por el listener
+      console.log('🔐 User signed out successfully');
+    } catch (error) {
+      console.error('❌ Error signing out:', error);
+      throw error;
     }
   };
 
@@ -235,6 +260,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             uid: user.uid,
             email: user.email || "",
             name: data.name || "",
+            phone: data.phone || undefined,
+            company: data.company || undefined,
+            address: data.address || undefined,
             roles: data.roles || [],
             created_at: data.created_at?.toDate() || new Date(),
           };
@@ -277,6 +305,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     // Acciones
     refreshUserData,
+    signOut,
   };
 
   return (

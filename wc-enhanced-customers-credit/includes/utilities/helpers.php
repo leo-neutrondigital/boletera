@@ -154,3 +154,100 @@ function wecc_get_user_ledger(int $user_id, int $limit = 20, int $offset = 0): a
         $account->id, $limit, $offset
     ), ARRAY_A);
 }
+
+/**
+ * Verifica si el usuario tiene el bloqueo total activado
+ * NUEVA FUNCIÓN VERSIÓN 2.2
+ */
+function wecc_user_has_total_block_enabled(int $user_id): bool {
+    $account = wecc_get_or_create_account($user_id);
+    if (!$account) {
+        return true; // Por defecto, bloquear si no hay cuenta
+    }
+    
+    // Verificar si el campo existe (compatibilidad con versiones anteriores)
+    if (!isset($account->block_all_purchases_when_overdue)) {
+        return true; // Por defecto, bloquear si el campo no existe
+    }
+    
+    return (bool) $account->block_all_purchases_when_overdue;
+}
+
+/**
+ * Verifica si el usuario tiene vencidos
+ * NUEVA FUNCIÓN VERSIÓN 2.2 - CORREGIDA PARA CONSIDERAR PAGOS
+ */
+function wecc_user_has_overdue_charges(int $user_id): bool {
+    global $wpdb;
+    
+    // Query mejorada que considera pagos aplicados
+    $overdue_count = (int) $wpdb->get_var($wpdb->prepare(
+        "SELECT COUNT(*) 
+         FROM (
+             SELECT 
+                 l.id,
+                 l.amount,
+                 l.due_date,
+                 COALESCE(payments.paid_amount, 0) as paid_amount,
+                 (l.amount - COALESCE(payments.paid_amount, 0)) as remaining_amount
+             FROM {$wpdb->prefix}wecc_ledger l
+             LEFT JOIN {$wpdb->prefix}wecc_credit_accounts a ON l.account_id = a.id
+             LEFT JOIN (
+                 SELECT 
+                     settles_ledger_id,
+                     SUM(ABS(amount)) as paid_amount
+                 FROM {$wpdb->prefix}wecc_ledger 
+                 WHERE type = 'payment' AND settles_ledger_id IS NOT NULL
+                 GROUP BY settles_ledger_id
+             ) payments ON l.id = payments.settles_ledger_id
+             WHERE a.user_id = %d 
+             AND l.type = 'charge' 
+             AND l.due_date < NOW()
+         ) charges_with_payments
+         WHERE remaining_amount > 0",
+        $user_id
+    ));
+    
+    return $overdue_count > 0;
+}
+
+/**
+ * Verifica si se deben bloquear TODAS las compras para este usuario
+ * NUEVA FUNCIÓN VERSIÓN 2.2
+ */
+function wecc_should_block_all_purchases(int $user_id): bool {
+    // Solo bloquear si:
+    // 1. Tiene el bloqueo total activado
+    // 2. Y tiene cargos vencidos
+    return wecc_user_has_total_block_enabled($user_id) && wecc_user_has_overdue_charges($user_id);
+}
+
+/**
+ * Detecta si estamos en una página de pago de adeudos de crédito
+ * NUEVA FUNCIÓN VERSIÓN 2.2
+ */
+function wecc_is_credit_payment_page(): bool {
+    // Si es página order-pay, verificar si es pago de crédito
+    if (is_wc_endpoint_url('order-pay')) {
+        $order_id = absint(get_query_var('order-pay'));
+        if ($order_id) {
+            $order = wc_get_order($order_id);
+            if ($order && $order->get_meta('_wecc_credit_payment')) {
+                return true;
+            }
+        }
+    }
+    
+    // Si es endpoint mi-credito con parámetros de pago REALES
+    if (is_wc_endpoint_url('mi-credito')) {
+        return isset($_GET['wecc_pay_charge']) || isset($_GET['wecc_pay_all']);
+    }
+    
+    // NUEVO: Detectar si es checkout con orden de pago de adeudos en sesión
+    if (is_checkout() && !is_wc_endpoint_url('order-pay')) {
+        // Verificar si hay una marca en la sesión que indique que es pago de adeudos
+        return WC()->session->get('wecc_paying_credit_debts') === true;
+    }
+    
+    return false;
+}

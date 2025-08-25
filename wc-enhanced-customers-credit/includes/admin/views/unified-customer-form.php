@@ -22,11 +22,27 @@ if ($user_id && class_exists('WECC_Unified_Customer_Service')) {
 ?>
 
 <div class="wecc-unified-customer-form">
-    <h3><?php echo $user ? __('Editar Cliente', 'wc-enhanced-customers-credit') : __('Nuevo Cliente', 'wc-enhanced-customers-credit'); ?></h3>
+    <h3 style="margin: 20px 0 20px 0; color: #2271b1; border-bottom: 2px solid #2271b1; padding-bottom: 10px;">
+        <?php echo $user ? __('Editar Cliente', 'wc-enhanced-customers-credit') : __('Nuevo Cliente', 'wc-enhanced-customers-credit'); ?>
+    </h3>
     
     <?php if (isset($_GET['message']) && $_GET['message'] === 'customer_saved'): ?>
         <div class="notice notice-success is-dismissible">
             <p><strong>✅ Cliente actualizado correctamente.</strong> Los cambios han sido guardados.</p>
+        </div>
+    <?php endif; ?>
+    
+    <?php if ($user): ?>
+        <!-- Botones de acción - ARRIBA Y HORIZONTALES -->
+        <div style="display: flex; gap: 10px; margin-bottom: 20px; align-items: center; flex-wrap: wrap;">
+            <a href="<?php echo admin_url("admin.php?page=wecc-dashboard&tab=customers&action=view&user_id={$user->ID}"); ?>" class="button">
+                <span class="dashicons dashicons-visibility" style="line-height: 1.2; margin-right: 5px;"></span>
+                <?php _e('Ver Historial', 'wc-enhanced-customers-credit'); ?>
+            </a>
+            <a href="<?php echo admin_url("admin.php?page=wecc-dashboard&tab=credit&user_id={$user->ID}"); ?>" class="button">
+                <span class="dashicons dashicons-money-alt" style="line-height: 1.2; margin-right: 5px;"></span>
+                <?php _e('Configurar Crédito', 'wc-enhanced-customers-credit'); ?>
+            </a>
         </div>
     <?php endif; ?>
     
@@ -55,18 +71,10 @@ if ($user_id && class_exists('WECC_Unified_Customer_Service')) {
         <div class="submit-buttons" style="display: flex; align-items: center; gap: 15px; margin-top: 20px; padding: 15px 0; border-top: 1px solid #ddd;">
             <?php submit_button($user ? __('Actualizar Cliente', 'wc-enhanced-customers-credit') : __('Crear Cliente', 'wc-enhanced-customers-credit'), 'primary', 'submit', false); ?>
             
-            <?php if ($user): ?>
-                <a href="<?php echo admin_url("admin.php?page=wecc-dashboard&tab=customers&action=view&user_id={$user->ID}"); ?>" 
-                   class="button" style="margin: 0;">
-                    <span class="dashicons dashicons-visibility" style="line-height: 1.2; margin-right: 5px;"></span>
-                    <?php _e('Ver Historial', 'wc-enhanced-customers-credit'); ?>
-                </a>
-            <?php endif; ?>
-            
             <a href="<?php echo admin_url('admin.php?page=wecc-dashboard&tab=customers'); ?>" 
                class="button" style="margin: 0;">
                 <span class="dashicons dashicons-arrow-left-alt" style="line-height: 1.2; margin-right: 5px;"></span>
-                <?php _e('Volver a lista', 'wc-enhanced-customers-credit'); ?>
+                <?php _e('Volver a Clientes', 'wc-enhanced-customers-credit'); ?>
             </a>
         </div>
     </form>

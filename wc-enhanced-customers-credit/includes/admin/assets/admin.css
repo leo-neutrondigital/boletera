@@ -184,6 +184,242 @@
     }
 }
 
+/* Panel de filtros */
+.wecc-filters-panel {
+    background: white;
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-bottom: 20px;
+}
+
+.wecc-filters-panel h4 {
+    margin: 0 0 15px 0;
+    color: #2271b1;
+    display: flex;
+    align-items: center;
+}
+
+.wecc-filters-panel form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    align-items: end;
+}
+
+.wecc-filters-panel label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 5px;
+    color: #555;
+    font-size: 13px;
+}
+
+.wecc-filters-panel input,
+.wecc-filters-panel select {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    font-size: 13px;
+}
+
+.wecc-filters-panel input:focus,
+.wecc-filters-panel select:focus {
+    border-color: #2271b1;
+    box-shadow: 0 0 0 1px #2271b1;
+    outline: none;
+}
+
+/* Responsive para filtros */
+@media (max-width: 768px) {
+    .wecc-filters-panel form {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    
+    .wecc-filters-panel .button {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* Historial de movimientos - Tabla mejorada */
+.wecc-customer-history .wp-list-table th,
+.wecc-customer-history .wp-list-table td {
+    vertical-align: top;
+    padding: 10px 8px;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.wecc-customer-history .wp-list-table th {
+    font-weight: 600;
+    font-size: 14px;
+    background: #f8f9fa;
+    border-bottom: 2px solid #ddd;
+}
+
+.wecc-customer-history .wp-list-table tbody tr:hover {
+    background: #f9f9f9;
+}
+
+/* Ajuste de columnas específicas */
+.wecc-customer-history .wp-list-table th:nth-child(8),
+.wecc-customer-history .wp-list-table td:nth-child(8) {
+    min-width: 210px;
+    word-wrap: break-word;
+    white-space: normal;
+}
+
+/* Mejor responsive para la tabla */
+.wecc-customer-history .wp-list-table {
+    table-layout: auto;
+    min-width: 100%;
+}
+
+@media (max-width: 768px) {
+    .wecc-customer-history .wp-list-table {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+    
+    .wecc-customer-history .wp-list-table th:nth-child(8),
+    .wecc-customer-history .wp-list-table td:nth-child(8) {
+        min-width: 210px;
+        white-space: normal;
+    }
+}
+
+/* Controles de paginación */
+.wecc-pagination-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 4px;
+    border: 1px solid #e0e0e0;
+}
+
+.wecc-pagination-controls {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+}
+
+.wecc-pagination-bottom {
+    margin-top: 20px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 4px;
+    text-align: center;
+    border: 1px solid #e0e0e0;
+}
+
+.wecc-pagination-bottom .button {
+    margin: 0 2px;
+}
+
+.wecc-pagination-bottom .button-primary {
+    background: #2271b1;
+    border-color: #2271b1;
+}
+
+/* Responsive para paginación */
+@media (max-width: 768px) {
+    .wecc-pagination-info {
+        flex-direction: column;
+        gap: 10px;
+        text-align: center;
+    }
+    
+    .wecc-pagination-controls {
+        justify-content: center;
+    }
+    
+    .wecc-pagination-bottom > div {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+}
+
+/* Historial de movimientos - Tabla mejorada */
+.wecc-customer-history .wp-list-table th,
+.wecc-customer-history .wp-list-table td {
+    vertical-align: top;
+    padding: 10px 8px;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.wecc-customer-history .wp-list-table th {
+    font-weight: 600;
+    font-size: 14px;
+    background: #f8f9fa;
+    border-bottom: 2px solid #ddd;
+}
+
+.wecc-customer-history .wp-list-table tbody tr:hover {
+    background: #f9f9f9;
+}
+
+/* Controles de paginación */
+.wecc-pagination-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 4px;
+    border: 1px solid #e0e0e0;
+}
+
+.wecc-pagination-controls {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+}
+
+.wecc-pagination-bottom {
+    margin-top: 20px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 4px;
+    text-align: center;
+    border: 1px solid #e0e0e0;
+}
+
+.wecc-pagination-bottom .button {
+    margin: 0 2px;
+}
+
+.wecc-pagination-bottom .button-primary {
+    background: #2271b1;
+    border-color: #2271b1;
+}
+
+/* Responsive para paginación */
+@media (max-width: 768px) {
+    .wecc-pagination-info {
+        flex-direction: column;
+        gap: 10px;
+        text-align: center;
+    }
+    
+    .wecc-pagination-controls {
+        justify-content: center;
+    }
+    
+    .wecc-pagination-bottom > div {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+}
+
 /* Debug notices */
 .notice h3 {
     margin-top: 0;

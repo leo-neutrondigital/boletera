@@ -139,6 +139,14 @@ class WECC_Payment_Service {
         $amount = wc_format_decimal($amount, 2);
         if ($amount <= 0) return;
         
+        // DEBUG TEMPORAL
+        error_log("WECC DEBUG ORDER: === Creando orden de pago ===");
+        error_log("WECC DEBUG ORDER: User ID: {$user_id}");
+        error_log("WECC DEBUG ORDER: Monto recibido: {$amount}");
+        error_log("WECC DEBUG ORDER: Label: {$label}");
+        error_log("WECC DEBUG ORDER: Mode: {$mode}");
+        error_log("WECC DEBUG ORDER: Ledger ID: {$ledger_id}");
+        
         // Verificar si ya existe una orden pendiente para evitar duplicados
         $existing = $this->find_existing_payment_order($user_id, $mode, $ledger_id);
         if ($existing) {
@@ -162,6 +170,8 @@ class WECC_Payment_Service {
         $item_fee->set_tax_status('none');
         $order->add_item($item_fee);
         
+        error_log("WECC DEBUG ORDER: Fee agregado con monto: {$amount}");
+        
         // Metadatos para identificación
         $payment_data = [
             'mode' => $mode,
@@ -177,8 +187,13 @@ class WECC_Payment_Service {
         }
         
         $order->calculate_totals();
+        error_log("WECC DEBUG ORDER: Total calculado de la orden: " . $order->get_total());
+        
         $order->update_status('pending', __('Orden de pago de crédito creada', 'wc-enhanced-customers-credit'));
         $order->save();
+        
+        error_log("WECC DEBUG ORDER: Orden #{$order->get_id()} creada exitosamente");
+        error_log("WECC DEBUG ORDER: === Fin creación orden ===");
         
         // Limpiar y redirigir
         if (WC()->cart) WC()->cart->empty_cart();
@@ -411,6 +426,12 @@ class WECC_Payment_Service {
         
         $charge_amount = (float) $charge_entry->amount;
         
+        // DEBUG TEMPORAL
+        error_log("WECC DEBUG PAYMENT: === Calculando monto restante ===");
+        error_log("WECC DEBUG PAYMENT: Charge ID: {$charge_entry->id}");
+        error_log("WECC DEBUG PAYMENT: Monto original: {$charge_amount}");
+        error_log("WECC DEBUG PAYMENT: Order ID: {$charge_entry->order_id}");
+        
         // Ajustes del pedido
         $adj_sum = 0.0;
         if ($charge_entry->order_id) {
@@ -419,6 +440,7 @@ class WECC_Payment_Service {
                  WHERE type='adjustment' AND order_id=%d",
                 $charge_entry->order_id
             ));
+            error_log("WECC DEBUG PAYMENT: Ajustes: {$adj_sum}");
         }
         
         // Pagos aplicados
@@ -427,8 +449,12 @@ class WECC_Payment_Service {
              WHERE type='payment' AND settles_ledger_id=%d",
             $charge_entry->id
         ));
+        error_log("WECC DEBUG PAYMENT: Pagos aplicados: {$paid_sum}");
         
         $remaining = max(0, $charge_amount + min(0.0, $adj_sum) - $paid_sum);
+        error_log("WECC DEBUG PAYMENT: Monto restante calculado: {$remaining}");
+        error_log("WECC DEBUG PAYMENT: === Fin cálculo ===");
+        
         return (float) wc_format_decimal($remaining, 2);
     }
     

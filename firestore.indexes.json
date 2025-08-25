@@ -1,19 +1,4 @@
 {
-  "indexes": [
-    {
-      "collectionGroup": "ticket_types",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "event_id",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "sort_order",
-          "order": "ASCENDING"
-        }
-      ]
-    }
-  ],
+  "indexes": [],
   "fieldOverrides": []
 }

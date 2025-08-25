@@ -49,6 +49,12 @@ function wecc_activate() {
     WECC_Activator::activate();
 }
 
+// Flush rewrite rules al activar para asegurar endpoints
+register_activation_hook(__FILE__, 'wecc_flush_rewrite_rules');
+function wecc_flush_rewrite_rules() {
+    flush_rewrite_rules();
+}
+
 // Desactivación del plugin
 register_deactivation_hook(__FILE__, 'wecc_deactivate');
 function wecc_deactivate() {
@@ -91,6 +97,10 @@ function wecc_init_plugin() {
     // Cargar el plugin principal
     require_once WECC_PLUGIN_DIR . 'includes/class-wecc-plugin.php';
     WECC_Plugin::instance();
+    
+    // Cargar endpoint "Mi Crédito"
+    require_once WECC_PLUGIN_DIR . 'includes/frontend/class-wecc-my-credit-endpoint.php';
+    new WECC_My_Credit_Endpoint();
 }
 
 // Hook para añadir enlaces en la página de plugins

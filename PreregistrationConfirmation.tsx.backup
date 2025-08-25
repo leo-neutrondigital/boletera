@@ -1,0 +1,293 @@
+'use client';
+
+import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
+import { CheckCircle, Mail, ArrowRight, AlertCircle, Home } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { useEventFlow } from '@/components/event/EventFlowProvider';
+
+export function PreregistrationConfirmation() {
+  const router = useRouter();
+  const { 
+    event, 
+    customerData, 
+    selectedTickets, 
+    reset 
+  } = useEventFlow();
+  
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  // 🔧 SOLUCIÓN: useRef para control inmediato (no async como useState)
+  const isProcessingRef = useRef(false);
+  const hasProcessedRef = useRef(false);
+
+  // Procesar preregistro al cargar el componente
+  useEffect(() => {
+    console.log('🐛 DEBUG: useEffect triggered', {
+      timestamp: Date.now(),
+      hasCustomerData: !!customerData,
+      hasEvent: !!event,
+      customerDataName: customerData?.name,
+      eventId: event?.id,
+      hasProcessed: hasProcessedRef.current,
+      isProcessing: isProcessingRef.current,
+      reactStrictMode: process.env.NODE_ENV
+    });
+    // 🔧 PREVENIR DOBLE EJECUCIÓN CON useRef (inmediato)
+    if (hasProcessedRef.current || isProcessingRef.current) {
+      console.log('⚠️ Preregistration already processed or in progress, skipping...', {
+        hasProcessed: hasProcessedRef.current,
+        isProcessing: isProcessingRef.current
+      });
+      return;
+    }
+    
+    if (!customerData || !event) {
+      setError('Datos incompletos para procesar el preregistro');
+      return;
+    }
+
+    const processPreregistration = async () => {
+      // 🔧 MARCAR COMO EN PROCESO INMEDIATAMENTE
+      isProcessingRef.current = true;
+      setIsProcessing(true);
+      setError(null);
+
+      try {
+        const fetchId = Math.random().toString(36).substring(7);
+        console.log('📝 Processing preregistration:', {
+          fetchId, // 🐛 ID único para esta llamada
+          timestamp: Date.now(),
+          eventId: event.id,
+          customerEmail: customerData.email,
+          interestedTickets: selectedTickets.length,
+          hasTickets: selectedTickets.length > 0
+        });
+
+        const response = await fetch('/api/preregistrations', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            event_id: event.id,
+            customer_data: {
+              name: customerData.name,
+              email: customerData.email,
+              phone: customerData.phone,
+              company: customerData.company,
+              user_id: customerData.userId || null, // Para usuarios loggeados
+            },
+            interested_tickets: selectedTickets.map(ticket => ({
+              ticket_type_id: ticket.ticket_type_id,
+              ticket_type_name: ticket.ticket_type_name,
+              quantity: ticket.quantity,
+              unit_price: ticket.unit_price,
+              currency: ticket.currency,
+              total_price: ticket.total_price,
+            })), // 📝 Puede ser array vacío para preregistros generales
+          }),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.error || 'Error procesando preregistro');
+        }
+
+        console.log('✅ Preregistration processed successfully:', {
+          fetchId,
+          result,
+          timestamp: Date.now()
+        });
+        
+        // 🔧 MARCAR COMO PROCESADO EN AMBOS useRef Y useState
+        hasProcessedRef.current = true;
+        setIsSuccess(true);
+
+      } catch (err) {
+        console.error('❌ Error processing preregistration:', err);
+        setError(err instanceof Error ? err.message : 'Error desconocido');
+      } finally {
+        // 🔧 LIMPIAR ESTADO DE PROCESAMIENTO
+        isProcessingRef.current = false;
+        setIsProcessing(false);
+      }
+    };
+
+    processPreregistration();
+    
+    // 🔧 CLEANUP: Limpiar refs si el componente se desmonta
+    return () => {
+      isProcessingRef.current = false;
+    };
+  }, [customerData, event]); // 🔧 REMOVER selectedTickets de dependencias
+
+  const handleStartOver = () => {
+    reset();
+  };
+
+  const handleGoHome = () => {
+    router.push('/');
+  };
+
+  if (!event || !customerData) {
+    return (
+      <div className="text-center py-8">
+        <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">
+          Error en el preregistro
+        </h3>
+        <p className="text-gray-600 mb-4">
+          No se pudieron cargar los datos necesarios.
+        </p>
+        <Button onClick={handleStartOver}>
+          Reintentar
+        </Button>
+      </div>
+    );
+  }
+
+  // Vista de procesamiento
+  if (isProcessing) {
+    return (
+      <div className="text-center py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-6"></div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">
+          Procesando tu preregistro...
+        </h3>
+        <p className="text-gray-600">
+          Enviando email de confirmación y guardando tus datos
+        </p>
+      </div>
+    );
+  }
+
+  // Vista de error
+  if (error) {
+    return (
+      <div className="text-center py-8">
+        <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">
+          Error en el preregistro
+        </h3>
+        <p className="text-red-600 mb-6">
+          {error}
+        </p>
+        
+        <div className="flex items-center justify-center gap-4">
+          <Button variant="outline" onClick={handleStartOver}>
+            Reintentar
+          </Button>
+          <Button onClick={handleGoHome}>
+            <Home className="h-4 w-4 mr-2" />
+            Inicio
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Vista de éxito
+  if (isSuccess) {
+    return (
+      <div className="space-y-6">
+        {/* Mensaje de éxito */}
+        <div className="text-center">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <CheckCircle className="h-8 w-8 text-green-600" />
+          </div>
+          
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            ¡Preregistro exitoso!
+          </h2>
+          
+          <p className="text-gray-600 max-w-md mx-auto">
+            Tu interés en <strong>{event.name}</strong> ha sido registrado correctamente. 
+            Te contactaremos pronto con más información.
+          </p>
+        </div>
+
+        {/* Información del preregistro */}
+        <Card className="border-green-200 bg-green-50">
+          <CardContent className="p-4">
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-green-800">
+                <CheckCircle className="h-4 w-4" />
+                <span className="font-medium">Preregistro confirmado</span>
+              </div>
+              
+              <div className="text-sm text-green-700 space-y-1">
+                <div><strong>Nombre:</strong> {customerData.name}</div>
+                <div><strong>Email:</strong> {customerData.email}</div>
+                <div><strong>Evento:</strong> {event.name}</div>
+                {selectedTickets.length > 0 ? (
+                  <div>
+                    <strong>Boletos de interés:</strong>
+                    <ul className="list-disc list-inside ml-4 mt-1">
+                      {selectedTickets.map((ticket, index) => (
+                        <li key={index}>
+                          {ticket.quantity}x {ticket.ticket_type_name}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : (
+                  <div>
+                    <strong>Tipo de interés:</strong> Interés general en el evento
+                  </div>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Próximos pasos */}
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-start gap-3">
+              <Mail className="h-5 w-5 text-blue-600 mt-0.5" />
+              <div>
+                <h4 className="font-medium text-gray-900 mb-2">
+                  ¿Qué sigue ahora?
+                </h4>
+                <ul className="text-sm text-gray-600 space-y-1">
+                  <li>• Te hemos enviado un email de confirmación</li>
+                  <li>• Nuestro equipo te contactará en 24-48 horas</li>
+                  <li>• Recibirás información personalizada sobre precios</li>
+                  <li>• Tendrás acceso prioritario cuando abra la venta</li>
+                </ul>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Acciones */}
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+          <Button variant="outline" onClick={handleStartOver}>
+            Hacer otro preregistro
+          </Button>
+          
+          <Button onClick={handleGoHome} className="flex items-center gap-2">
+            <Home className="h-4 w-4" />
+            Ir al inicio
+          </Button>
+        </div>
+
+        {/* Información adicional */}
+        <div className="text-center text-xs text-gray-500 border-t pt-4">
+          <p>
+            🔒 Tu información está protegida y solo la usaremos para contactarte sobre este evento.
+            <br />
+            Si tienes dudas, puedes contactarnos respondiendo al email de confirmación.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}

@@ -1,9 +1,11 @@
 "use client"
 
-import { Plus } from "lucide-react"
+import { Plus, Calendar, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import EventTable from "@/components/dashboard/EventTable"
 import { EventFormDialog } from "@/components/dashboard/EventFormDialog"
+import { PageHeader } from "@/components/shared/PageHeader"
+import { PageContent } from "@/components/shared/PageContent"
 import { useEvents } from "@/hooks/use-events"
 import type { Event } from "@/types"
 
@@ -33,36 +35,48 @@ export default function EventPageClient({ events: initialEvents }: { events: Eve
   }
 
   return (
-    <main className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Gestión de Eventos</h1>
-        <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            onClick={refreshEvents}
-            disabled={isLoading}
-          >
-            {isLoading ? "Actualizando..." : "Actualizar"}
-          </Button>
-          <EventFormDialog
-            onSuccess={handleEventSuccess}
-            trigger={
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                Crear evento
-              </Button>
-            }
-          />
-        </div>
-      </div>
-      
-      <EventTable 
-        events={events} 
-        onRefresh={refreshEvents}
-        onDeleteEvent={deleteEvent}
-        onUpdateEvent={updateEventLocally}
-        onAddEvent={addEventLocally}
+    <div className="h-full flex flex-col">
+      {/* Header */}
+      <PageHeader
+        icon={Calendar}
+        title="Gestión de Eventos"
+        description="Crear, editar y administrar eventos de la plataforma"
+        iconColor="blue"
+        badgeColor="blue"
+        actions={
+          <>
+            <Button 
+              variant="outline" 
+              onClick={refreshEvents}
+              disabled={isLoading}
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
+              {isLoading ? "Actualizando..." : "Actualizar"}
+            </Button>
+            <EventFormDialog
+              onSuccess={handleEventSuccess}
+              trigger={
+                <Button className="flex items-center gap-2">
+                  <Plus className="w-4 h-4" />
+                  Crear evento
+                </Button>
+              }
+            />
+          </>
+        }
       />
-    </main>
+
+      {/* Content */}
+      <PageContent className="flex-1" padding="lg">
+        <EventTable 
+          events={events} 
+          onRefresh={refreshEvents}
+          onDeleteEvent={deleteEvent}
+          onUpdateEvent={updateEventLocally}
+          onAddEvent={addEventLocally}
+        />
+      </PageContent>
+    </div>
   )
 }

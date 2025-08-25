@@ -1,0 +1,84 @@
+<?php
+/**
+ * Script de prueba para el buscador de clientes
+ * 
+ * Usar desde: wp-admin/admin.php?page=wecc-test-search
+ */
+
+// Solo para testing - eliminar después de verificar
+if (!defined('ABSPATH')) {
+    require_once('../../../wp-config.php');
+}
+
+// Solo para administradores
+if (!current_user_can('manage_woocommerce')) {
+    wp_die('No tienes permisos para acceder a esta página.');
+}
+
+echo '<div class="wrap">';
+echo '<h1>🔍 Test del Buscador de Clientes WECC</h1>';
+
+try {
+    // Cargar el servicio unificado
+    require_once(WECC_PLUGIN_DIR . 'includes/services/class-wecc-unified-customer-service.php');
+    $unified_service = new WECC_Unified_Customer_Service();
+    
+    // Términos de prueba
+    $test_terms = [
+        '',           // Sin búsqueda (debería mostrar todos)
+        'juan',       // Buscar por nombre
+        '@',          // Buscar por email
+        '993',        // Buscar por teléfono
+        'RFC',        // Buscar por RFC
+        'CLI',        // Buscar por customer_number
+    ];
+    
+    foreach ($test_terms as $term) {
+        echo '<div style="border: 1px solid #ccc; margin: 20px 0; padding: 15px; background: #f9f9f9;">';
+        echo '<h3>Búsqueda: "' . esc_html($term) . '"</h3>';
+        
+        $filters = $term ? ['search' => $term] : [];
+        $results = $unified_service->search_customers($filters, 1, 5);
+        
+        echo '<p><strong>Total encontrados:</strong> ' . $results['total'] . '</p>';
+        
+        if (!empty($results['profiles'])) {
+            echo '<table border="1" style="border-collapse: collapse; width: 100%;">';
+            echo '<tr style="background: #0073aa; color: white;">';
+            echo '<th>ID</th><th>Nombre WP</th><th>Email</th><th>Billing Name</th><th>Teléfono</th><th>RFC</th><th>Customer#</th>';
+            echo '</tr>';
+            
+            foreach ($results['profiles'] as $profile) {
+                $full_name = trim(($profile['billing_first_name'] ?? '') . ' ' . ($profile['billing_last_name'] ?? ''));
+                echo '<tr>';
+                echo '<td>' . $profile['user_id'] . '</td>';
+                echo '<td>' . esc_html($profile['display_name']) . '</td>';
+                echo '<td>' . esc_html($profile['user_email']) . '</td>';
+                echo '<td>' . esc_html($full_name) . '</td>';
+                echo '<td>' . esc_html($profile['billing_phone'] ?? '') . '</td>';
+                echo '<td>' . esc_html($profile['rfc'] ?? '') . '</td>';
+                echo '<td>' . esc_html($profile['customer_number'] ?? '') . '</td>';
+                echo '</tr>';
+            }
+            echo '</table>';
+        } else {
+            echo '<p style="color: #d63638;"><em>No se encontraron resultados</em></p>';
+        }
+        
+        echo '</div>';
+    }
+    
+} catch (Exception $e) {
+    echo '<div class="notice notice-error"><p><strong>Error:</strong> ' . esc_html($e->getMessage()) . '</p></div>';
+}
+
+echo '<p><a href="' . admin_url('admin.php?page=wecc-dashboard&tab=customers') . '" class="button button-primary">← Volver a Clientes</a></p>';
+echo '</div>';
+
+// CSS básico
+echo '<style>
+.wrap { max-width: 1200px; }
+table { font-size: 12px; }
+th, td { padding: 8px; text-align: left; }
+tr:nth-child(even) { background-color: #f2f2f2; }
+</style>';

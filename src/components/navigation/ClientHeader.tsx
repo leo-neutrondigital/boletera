@@ -130,7 +130,7 @@ export function ClientHeader({ currentPage }: ClientHeaderProps) {
                       </button>
                       
                       {/* Enlace admin si tiene permisos */}
-                      {userData?.roles?.some(role => ['admin', 'gestor'].includes(role)) && (
+                      {userData?.roles?.some(role => ['admin', 'gestor', 'comprobador'].includes(role)) && (
                         <>
                           <div className="border-t border-gray-100"></div>
                           <button
@@ -259,7 +259,7 @@ export function ClientHeader({ currentPage }: ClientHeaderProps) {
                   </button>
 
                   {/* Enlace admin en móvil */}
-                  {userData?.roles?.some(role => ['admin', 'gestor'].includes(role)) && (
+                  {userData?.roles?.some(role => ['admin', 'gestor', 'comprobador'].includes(role)) && (
                     <button
                       onClick={() => {
                         router.push('/dashboard');

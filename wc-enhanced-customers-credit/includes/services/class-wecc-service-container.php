@@ -35,6 +35,11 @@ class WECC_Service_Container {
             return new WECC_Customer_Service();
         });
         
+        // Servicio unificado para datos de clientes (WC + WECC)
+        $this->register('unified_customer_service', function() {
+            return new WECC_Unified_Customer_Service();
+        });
+        
         $this->register('balance_service', function() {
             return new WECC_Balance_Service();
         });

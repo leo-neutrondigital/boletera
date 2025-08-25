@@ -57,16 +57,24 @@ export interface EventFormDialogProps {
   eventToEdit?: Event;
   onSuccess: (event?: Event) => void;
   trigger?: React.ReactElement;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function EventFormDialog({
   eventToEdit,
   onSuccess,
   trigger,
+  open: externalOpen,
+  onOpenChange: externalOnOpenChange,
 }: EventFormDialogProps) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'basic' | 'public' | 'advanced'>('basic');
   const { toast } = useToast();
+
+  // Usar open externo si se proporciona, sino usar estado interno
+  const open = externalOpen !== undefined ? externalOpen : internalOpen;
+  const setOpen = externalOnOpenChange || setInternalOpen;
 
   const {
     register,
@@ -227,13 +235,11 @@ export function EventFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {trigger ?? (
-          <Button variant="default">
-            {eventToEdit ? "Editar" : "+ Crear evento"}
-          </Button>
-        )}
-      </DialogTrigger>
+      {trigger && (
+        <DialogTrigger asChild>
+          {trigger}
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">

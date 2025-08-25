@@ -120,23 +120,111 @@ export function CompactEventPage() {
           <div className="grid lg:grid-cols-2 gap-8">
             
             {/* COLUMNA IZQUIERDA - Info del Evento */}
-            <div>
-              <Card>
+            <div className="lg:sticky lg:top-8 lg:self-start">
+              <Card className="shadow-md border-0 bg-gradient-to-br from-white to-gray-50">
                 <CardContent className="p-6">
-                  <h1 className="text-2xl font-bold text-gray-900 mb-4">
-                    {event.name}
-                  </h1>
-                  
-                  <div className="space-y-2 text-gray-600">
-                    <div>📅 {event.start_date.toLocaleDateString()}</div>
-                    <div>📍 {event.location}</div>
-                    <div>🎫 {availableTicketTypes.length} tipos de boletos</div>
-                    <div>✅ Preregistro: {event.allow_preregistration ? 'Sí' : 'No'}</div>
+                  {/* Header con Badge */}
+                  <div className="flex items-start justify-between mb-6">
+                    <h1 className="text-2xl font-bold text-gray-900 leading-tight flex-1 mr-4">
+                      {event.name}
+                    </h1>
+                    {/* Badge de Estado */}
+                    <div className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${
+                      new Date() > event.end_date 
+                        ? 'bg-gray-100 text-gray-600' // Finalizado
+                        : new Date() > event.start_date 
+                        ? 'bg-green-100 text-green-700' // En curso
+                        : new Date() < new Date(event.start_date.getTime() - 7 * 24 * 60 * 60 * 1000)
+                        ? 'bg-blue-100 text-blue-700' // Próximamente
+                        : 'bg-orange-100 text-orange-700' // Próximo (esta semana)
+                    }`}>
+                      {new Date() > event.end_date 
+                        ? 'Finalizado'
+                        : new Date() > event.start_date 
+                        ? 'En curso'
+                        : new Date() < new Date(event.start_date.getTime() - 7 * 24 * 60 * 60 * 1000)
+                        ? 'Próximamente'
+                        : 'Esta semana'
+                      }
+                    </div>
                   </div>
                   
+                  {/* Información Principal */}
+                  <div className="space-y-4">
+                    {/* Fechas */}
+                    <div className="flex items-center gap-3 text-gray-700">
+                      <div className="flex items-center justify-center w-8 h-8 bg-blue-100 rounded-lg">
+                        <span className="text-lg">📅</span>
+                      </div>
+                      <div>
+                        <div className="font-medium text-gray-900">
+                          {event.start_date.toLocaleDateString('es-ES', {
+                            weekday: 'long',
+                            day: 'numeric',
+                            month: 'long',
+                            year: 'numeric'
+                          })}
+                        </div>
+                        {event.start_date.toDateString() !== event.end_date.toDateString() && (
+                          <div className="text-sm text-gray-600">
+                            hasta {event.end_date.toLocaleDateString('es-ES', {
+                              weekday: 'long',
+                              day: 'numeric',
+                              month: 'long'
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Ubicación */}
+                    <div className="flex items-center gap-3 text-gray-700">
+                      <div className="flex items-center justify-center w-8 h-8 bg-red-100 rounded-lg">
+                        <span className="text-lg">📍</span>
+                      </div>
+                      <div className="font-medium text-gray-900">
+                        {event.location}
+                      </div>
+                    </div>
+
+                    {/* Boletos Disponibles */}
+                    <div className="flex items-center gap-3 text-gray-700">
+                      <div className="flex items-center justify-center w-8 h-8 bg-purple-100 rounded-lg">
+                        <span className="text-lg">🎫</span>
+                      </div>
+                      <div>
+                        <div className="font-medium text-gray-900">
+                          {availableTicketTypes.length} {availableTicketTypes.length === 1 ? 'tipo de boleto' : 'tipos de boletos'}
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          disponibles
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Preregistro */}
+                    {event.allow_preregistration && (
+                      <div className="flex items-center gap-3 text-gray-700">
+                        <div className="flex items-center justify-center w-8 h-8 bg-green-100 rounded-lg">
+                          <span className="text-lg">✅</span>
+                        </div>
+                        <div>
+                          <div className="font-medium text-green-700">
+                            Preregistro disponible
+                          </div>
+                          <div className="text-sm text-gray-600">
+                            Sin costo de reservación
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Descripción */}
                   {event.public_description && (
-                    <div className="mt-4">
-                      <p className="text-gray-600">
+                    <div className="mt-6 pt-6 border-t border-gray-200">
+                      <h3 className="font-semibold text-gray-900 mb-2">Acerca del evento</h3>
+                      <p className="text-gray-600 leading-relaxed">
                         {event.public_description}
                       </p>
                     </div>

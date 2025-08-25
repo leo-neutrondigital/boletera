@@ -359,11 +359,19 @@ class WECC_Balance_Service {
         
         $this->ensure_settles_columns();
         
-        // Incluir metadata en las notas si existe
-        $final_notes = $notes;
-        if (!empty($metadata)) {
-            $final_notes .= ' | Metadata: ' . wp_json_encode($metadata);
-        }
+                // Crear una versión sin metadata para admin_quick_payment
+                $clean_metadata = $metadata;
+                
+                // Si es admin_quick_payment, no incluir la metadata en las notas
+                if (isset($metadata['payment_method']) && $metadata['payment_method'] === 'admin_quick_payment') {
+                    $final_notes = $notes; // Sin metadata
+                } else {
+                    // Para otros tipos de pago, mantener metadata
+                    $final_notes = $notes;
+                    if (!empty($metadata)) {
+                        $final_notes .= ' | Metadata: ' . wp_json_encode($metadata);
+                    }
+                }
         
         $result = $wpdb->insert($this->table_ledger, [
             'account_id' => $account_id,

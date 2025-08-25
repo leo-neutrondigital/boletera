@@ -7,7 +7,7 @@ import { CustomerForm, CustomerFormData } from './CustomerForm';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/utils/currency';
-import { useState } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 
 export function CustomerDetails() {
   const { 
@@ -16,15 +16,19 @@ export function CustomerDetails() {
     selectedTickets, 
     totalAmount, 
     setCustomerData,
-    customerData,
+    customerData, // 🔧 Usar esto directamente
     goNext,
-    goBack
+    goBack,
+    canProceed
   } = useEventFlow();
   const { user, userData } = useAuth();
   const stepInfo = useCurrentStepInfo();
   
   const [isFormValid, setIsFormValid] = useState(false);
   const [currentFormData, setCurrentFormData] = useState<CustomerFormData | null>(null);
+  const isSettingRef = useRef(false); // 🔧 Flag para evitar dobles llamadas
+  const latestCustomerDataRef = useRef(customerData); // 🔧 Ref para el customerData más actualizado
+  const shouldNavigateRef = useRef(false); // 🔧 Flag para controlar navegación automática
 
   if (!event) return null;
 
@@ -32,6 +36,45 @@ export function CustomerDetails() {
   const currency = selectedTickets[0]?.currency || 'MXN';
   const isPreregistration = method === 'preregister';
   const isLoggedIn = !!user;
+
+  // 🔧 Mantener el ref actualizado
+  useEffect(() => {
+    latestCustomerDataRef.current = customerData;
+    console.log('🔄 CustomerDetails - customerData ref updated:', {
+      hasCustomerData: !!customerData,
+      name: customerData?.name || 'none',
+      email: customerData?.email || 'none'
+    });
+  }, [customerData]);
+
+  // 🔧 SOLUCIÓN DEFINITIVA: useEffect que detecta cuando customerData se actualiza y navega automáticamente
+  useEffect(() => {
+    if (shouldNavigateRef.current && customerData) {
+      console.log('🚪 CustomerDetails - Auto-navigation triggered by customerData change');
+      
+      const hasCustomerDataNow = !!customerData.name && !!customerData.email;
+      const shouldProceed = isPreregistration ? hasCustomerDataNow : (hasCustomerDataNow && selectedTickets.length > 0);
+      
+      console.log('🔍 CustomerDetails - Auto-navigation check:', {
+        hasCustomerDataNow,
+        shouldProceed,
+        isPreregistration,
+        customerName: customerData.name,
+        customerEmail: customerData.email
+      });
+      
+      if (shouldProceed) {
+        console.log('✅ CustomerDetails - Auto-navigation: calling goNext');
+        shouldNavigateRef.current = false; // Reset flag
+        isSettingRef.current = false; // Reset setting flag
+        goNext();
+      } else {
+        console.log('❌ CustomerDetails - Auto-navigation: conditions not met');
+        shouldNavigateRef.current = false;
+        isSettingRef.current = false;
+      }
+    }
+  }, [customerData, isPreregistration, selectedTickets.length, goNext]);
 
   // Datos iniciales del formulario
   const initialData: Partial<CustomerFormData> = {
@@ -43,17 +86,45 @@ export function CustomerDetails() {
   };
 
   // Callback cuando cambia la validación del formulario
-  const handleValidationChange = (isValid: boolean, data?: CustomerFormData) => {
+  const handleValidationChange = useCallback((isValid: boolean, data?: CustomerFormData) => {
+    console.log('🔄 CustomerDetails - Validation changed:', {
+      isValid,
+      hasData: !!data,
+      isPreregistration,
+      step: 'details',
+      data: data ? {
+        ...data,
+        passwordLength: data.password?.length || 0,
+        passwordProvided: !!data.password
+      } : null
+    });
+    
     setIsFormValid(isValid);
     if (isValid && data) {
+      console.log('✅ CustomerDetails - Setting currentFormData');
       setCurrentFormData(data);
+    } else {
+      console.log('🗑️ CustomerDetails - Clearing currentFormData');
+      setCurrentFormData(null);
     }
-  };
+  }, [isPreregistration]); // 🔧 Solo isPreregistration como dependencia
 
   // Proceder al siguiente paso
   const handleContinue = () => {
+    console.log('🚀 CustomerDetails - handleContinue called:', {
+      isFormValid,
+      hasCurrentFormData: !!currentFormData,
+      canProceedFromContext: canProceed(),
+      contextCustomerData: !!customerData,
+      currentFormData: currentFormData ? {
+        ...currentFormData,
+        passwordLength: currentFormData.password?.length || 0,
+        passwordProvided: !!currentFormData.password
+      } : null
+    });
+    
     if (!isFormValid || !currentFormData) {
-      console.log('❌ Form not valid or no data');
+      console.log('❌ CustomerDetails - Form not valid or no data');
       return;
     }
 
@@ -62,7 +133,7 @@ export function CustomerDetails() {
       passwordLength: currentFormData.password?.length || 0
     });
     
-    // Convertir a formato del contexto
+    // 🔧 ARREGLO CRITICO: Guardar datos ANTES de navegar
     const customerInfo = {
       name: currentFormData.name,
       email: currentFormData.email,
@@ -70,22 +141,28 @@ export function CustomerDetails() {
       company: currentFormData.company || '',
       createAccount: currentFormData.createAccount || false,
       password: currentFormData.createAccount ? currentFormData.password : undefined,
-      userId: isLoggedIn ? user?.uid : undefined, // 🆕 AGREGADO para usuarios registrados
+      userId: isLoggedIn ? user?.uid : undefined,
     };
     
-    console.log('📝 CustomerDetails - Customer info for context:', {
+    console.log('📝 CustomerDetails - Setting customer data in context:', {
       ...customerInfo,
       passwordLength: customerInfo.password?.length || 0,
       isLoggedIn,
       userUid: user?.uid || 'not-logged-in'
     });
 
-    // Guardar en contexto
-    setCustomerData(customerInfo);
-    console.log('✅ Customer data set in context, proceeding to next step');
+    // 🔧 NUEVA ESTRATEGIA: NO usar setTimeout, activar flag para navegación automática
+    if (isSettingRef.current) {
+      console.warn('⚠️ CustomerDetails - setCustomerData already in progress, skipping');
+      return;
+    }
     
-    // Avanzar al siguiente paso
-    goNext();
+    isSettingRef.current = true;
+    shouldNavigateRef.current = true; // 🔧 Activar flag para navegación automática
+    
+    console.log('📝 CustomerDetails - About to call setCustomerData for navigation trigger...');
+    setCustomerData(customerInfo);
+    console.log('📝 CustomerDetails - setCustomerData called, auto-navigation will trigger via useEffect');
   };
 
   const getStepTitle = () => {

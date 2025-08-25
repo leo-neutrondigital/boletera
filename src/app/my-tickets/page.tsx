@@ -27,6 +27,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { ClientAuthGuard } from '@/components/auth/ClientAuthGuard';
 import { authenticatedGet } from '@/lib/utils/api';
+import { EventGroupCard } from '@/components/shared/EventGroupCard'; // 🆕 Componente reutilizable
 import type { UserTicketsResponse, EventGroup, OrderSummary } from '@/types';
 
 function safeConvertDate(dateValue: any): Date {
@@ -34,24 +35,6 @@ function safeConvertDate(dateValue: any): Date {
   if (dateValue instanceof Date) return dateValue;
   if (dateValue._seconds) return new Date(dateValue._seconds * 1000);
   return new Date(dateValue);
-}
-
-// Función para obtener el texto del botón según el estado de la orden
-function getOrderButtonText(order: OrderSummary): string {
-  const { configuredTickets, ticketCount } = order;
-  
-  if (configuredTickets === 0) return 'Configurar boletos';
-  if (configuredTickets === ticketCount) return 'Ver boletos';
-  return `Configurar (${ticketCount - configuredTickets} pendientes)`;
-}
-
-// Función para obtener la variante del botón según el estado
-function getOrderButtonVariant(order: OrderSummary): "default" | "outline" | "secondary" {
-  const { configuredTickets, ticketCount } = order;
-  
-  if (configuredTickets === 0) return 'default';  // Azul
-  if (configuredTickets === ticketCount) return 'outline';  // Gris
-  return 'secondary';  // Amarillo/naranja
 }
 
 function MyTicketsPageContent() {
@@ -382,155 +365,19 @@ function MyTicketsPageContent() {
           </div>
         )}
 
-        {/* Lista de eventos con órdenes separadas */}
+        {/* Lista de eventos usando componente reutilizable */}
         <div className="space-y-8">
           {filteredEvents.map((event) => (
-            <Card key={event.event_id} className="overflow-hidden">
-              <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <CardTitle className="text-xl mb-2">{event.event_name}</CardTitle>
-                    <div className="flex items-center gap-4 text-sm text-gray-600">
-                      <div className="flex items-center gap-1">
-                        <Calendar className="w-4 h-4" />
-                        <span>{format(event.event_start_date, "d 'de' MMMM, yyyy", { locale: es })}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <MapPin className="w-4 h-4" />
-                        <span>{event.event_location}</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="text-right">
-                    <p className="text-2xl font-bold text-gray-900">
-                      {event.totalTickets}
-                    </p>
-                    <p className="text-sm text-gray-600">boletos</p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {event.totalOrders} orden{event.totalOrders !== 1 ? 'es' : ''}
-                    </p>
-                  </div>
-                </div>
-                
-                {/* Estadísticas rápidas del evento */}
-                <div className="grid grid-cols-3 gap-4 mt-4 p-3 bg-white/70 rounded-lg">
-                  <div className="text-center">
-                    <p className="text-lg font-semibold text-green-600">
-                      {event.configuredTickets}
-                    </p>
-                    <p className="text-xs text-gray-600">Configurados</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-lg font-semibold text-yellow-600">
-                      {event.pendingTickets}
-                    </p>
-                    <p className="text-xs text-gray-600">Pendientes</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-lg font-semibold text-purple-600">
-                      {formatCurrency(event.totalAmount, event.currency)}
-                    </p>
-                    <p className="text-xs text-gray-600">Total</p>
-                  </div>
-                </div>
-              </CardHeader>
-              
-              <CardContent className="p-6">
-                <div className="space-y-4">
-                  
-                  {/* Órdenes separadas por evento */}
-                  {event.orders.map((order) => (
-                    <div key={order.id} className="border-l-4 border-blue-500 pl-4 py-3 bg-gray-50 rounded-r-lg">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Package className="w-4 h-4 text-gray-500" />
-                            <p className="font-medium text-gray-900">
-                              Orden #{order.id.slice(-8).toUpperCase()}
-                            </p>
-                            <Badge variant="outline" className="text-xs">
-                              {format(order.createdAt, "d MMM yyyy", { locale: es })}
-                            </Badge>
-                          </div>
-                          
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                            <div>
-                              <p className="text-gray-600">Boletos</p>
-                              <p className="font-semibold">{order.ticketCount}</p>
-                            </div>
-                            <div>
-                              <p className="text-gray-600">Configurados</p>
-                              <p className="font-semibold text-green-600">{order.configuredTickets}</p>
-                            </div>
-                            <div>
-                              <p className="text-gray-600">Pendientes</p>
-                              <p className="font-semibold text-yellow-600">{order.pendingTickets}</p>
-                            </div>
-                            <div>
-                              <p className="text-gray-600">Total</p>
-                              <p className="font-semibold">{formatCurrency(order.totalAmount, order.currency)}</p>
-                            </div>
-                          </div>
-                          
-                          {/* Vista previa de boletos de esta orden */}
-                          {order.tickets.length > 0 && (
-                            <div className="mt-3">
-                              <p className="text-xs text-gray-500 mb-2">Boletos en esta orden:</p>
-                              <div className="flex flex-wrap gap-1">
-                                {order.tickets.slice(0, 3).map((ticket) => (
-                                  <Badge 
-                                    key={ticket.id} 
-                                    variant="outline" 
-                                    className="text-xs"
-                                  >
-                                    {ticket.ticket_type_name}
-                                    {ticket.attendee_name && (
-                                      <span className="ml-1 text-gray-500">
-                                        • {ticket.attendee_name.split(' ')[0]}
-                                      </span>
-                                    )}
-                                  </Badge>
-                                ))}
-                                {order.tickets.length > 3 && (
-                                  <Badge variant="outline" className="text-xs text-gray-500">
-                                    +{order.tickets.length - 3} más
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                        
-                        <div className="ml-4">
-                          <Button
-                            onClick={() => router.push(`/my-tickets/${order.id}`)}
-                            variant={getOrderButtonVariant(order)}
-                            size="sm"
-                            className="flex items-center gap-2"
-                          >
-                            <Settings className="w-4 h-4" />
-                            {getOrderButtonText(order)}
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  
-                  {/* Acción para ver el evento */}
-                  <div className="pt-4 border-t">
-                    <Button
-                      variant="outline"
-                      onClick={() => router.push(`/events/${event.event_id}`)}
-                      className="flex items-center gap-2 w-full sm:w-auto"
-                    >
-                      Ver página del evento
-                      <ArrowRight className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <EventGroupCard
+              key={event.event_id}
+              event={event}
+              mode="user"
+              onOrderAction={(orderId) => router.push(`/my-tickets/${orderId}`)}
+              onEventAction={(eventId) => router.push(`/events/${eventId}`)}
+              headerColor="blue"
+              showEventAction={true}
+              eventActionText="Ver página del evento"
+            />
           ))}
         </div>
 

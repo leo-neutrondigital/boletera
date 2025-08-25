@@ -1,10 +1,12 @@
-// src/components/auth/AuthGuard.tsx
 "use client";
 
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { AlertCircle, Loader2, ShieldAlert } from "lucide-react";
+import { AlertCircle, Loader2, ShieldAlert, LogOut, Ticket } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { signOut } from "firebase/auth";
+import { auth } from "@/lib/firebase/client";
 import type { UserRole } from "@/lib/auth/permissions";
 
 interface AuthGuardProps {
@@ -45,7 +47,7 @@ export function AuthGuard({
     isAuthenticated, 
     userData, 
     loading, 
-    error 
+    error
   } = useAuth();
   const router = useRouter();
 
@@ -80,11 +82,21 @@ export function AuthGuard({
     }
 
     if (requireAuth && isAuthenticated && !hasPermission) {
-      console.log("🔒 AuthGuard: Redirecting to dashboard - insufficient permissions");
-      router.push("/dashboard");
+      console.log("🔒 AuthGuard: Access denied - insufficient permissions");
+      // No redirigir automáticamente, mostrar pantalla de acceso denegado
       return;
     }
   }, [loading, isAuthenticated, hasPermission, requireAuth, redirectTo, router]);
+
+  // Función para cerrar sesión
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      router.push('/login');
+    } catch (error) {
+      console.error('Error logging out:', error);
+    }
+  };
 
   // Estados de carga
   if (loading && showLoadingScreen) {
@@ -113,12 +125,18 @@ export function AuthGuard({
             <h1 className="text-xl font-semibold">Error de Autenticación</h1>
             <p className="text-sm text-muted-foreground">{error}</p>
           </div>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
-          >
-            Reintentar
-          </button>
+          <div className="flex gap-4 justify-center">
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+            >
+              Reintentar
+            </button>
+            <Button variant="outline" onClick={handleLogout}>
+              <LogOut className="w-4 h-4 mr-2" />
+              Cerrar Sesión
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -135,26 +153,85 @@ export function AuthGuard({
       return <>{fallback}</>;
     }
 
+    const userRoles = userData?.roles || [];
+    const isUsuario = userRoles.includes('usuario') && !userRoles.some(role => ['admin', 'gestor', 'comprobador'].includes(role));
+    
+    // Lógica simple de redirección
+    const getSimpleRedirectPath = () => {
+      return userRoles.some(role => ['admin', 'gestor', 'comprobador'].includes(role))
+        ? '/dashboard'
+        : '/my-tickets';
+    };
+    
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center space-y-4 max-w-md">
-          <ShieldAlert className="h-12 w-12 mx-auto text-yellow-500" />
-          <div className="space-y-2">
-            <h1 className="text-xl font-semibold">Acceso Restringido</h1>
-            <p className="text-muted-foreground">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-red-50">
+        <div className="text-center space-y-6 max-w-lg p-8">
+          <div className="w-20 h-20 bg-gradient-to-r from-orange-500 to-red-500 rounded-full flex items-center justify-center mx-auto">
+            <ShieldAlert className="h-10 w-10 text-white" />
+          </div>
+          
+          <div className="space-y-3">
+            <h1 className="text-3xl font-bold text-gray-900">Acceso Restringido</h1>
+            <p className="text-lg text-gray-600">
               No tienes permisos para acceder a esta sección.
             </p>
           </div>
-          <div className="text-sm text-muted-foreground space-y-1">
-            <p><strong>Tus roles:</strong> {userData?.roles.join(", ") || "Ninguno"}</p>
-            <p><strong>Roles requeridos:</strong> {effectiveAllowedRoles.join(", ")}</p>
+          
+          <div className="bg-white rounded-lg p-6 shadow-sm border space-y-3">
+            <div className="text-sm space-y-2">
+              <div className="flex justify-between">
+                <span className="font-medium text-gray-700">Tus roles:</span>
+                <span className="text-gray-900">{userRoles.join(", ") || "Ninguno"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="font-medium text-gray-700">Roles requeridos:</span>
+                <span className="text-gray-900">{effectiveAllowedRoles.join(", ")}</span>
+              </div>
+            </div>
           </div>
-          <button
-            onClick={() => router.push("/dashboard")}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
-          >
-            Ir al Dashboard
-          </button>
+
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            {/* Botón principal según el tipo de usuario */}
+            {isUsuario ? (
+              <Button
+                onClick={() => router.push('/my-tickets')}
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+                size="lg"
+              >
+                <Ticket className="w-4 h-4" />
+                Ir a Mis Boletos
+              </Button>
+            ) : (
+              <Button
+                onClick={() => router.push(getSimpleRedirectPath())}
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+                size="lg"
+              >
+                Ir a mi Área
+              </Button>
+            )}
+            
+            {/* Botón secundario */}
+            <Button
+              variant="outline"
+              onClick={handleLogout}
+              className="flex items-center gap-2"
+              size="lg"
+            >
+              <LogOut className="w-4 h-4" />
+              Cerrar Sesión
+            </Button>
+          </div>
+          
+          {/* Mensaje adicional para usuarios */}
+          {isUsuario && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm">
+              <p className="text-blue-800">
+                <strong>Para usuarios:</strong> Puedes gestionar tus boletos desde "Mis Boletos" 
+                o contactar al administrador si necesitas acceso a otras secciones.
+              </p>
+            </div>
+          )}
         </div>
       </div>
     );

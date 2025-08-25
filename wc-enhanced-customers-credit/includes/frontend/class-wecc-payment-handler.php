@@ -20,6 +20,16 @@ class WECC_Payment_Handler {
         
         // Deshabilitar gateway de crédito en pagos de crédito
         add_filter('woocommerce_available_payment_gateways', [$this, 'disable_credit_gateway_for_credit_payments']);
+        
+        // PREVENIR DESCUENTOS EN PRODUCTOS DE PAGO
+        add_filter('woocommerce_coupon_is_valid_for_product', [$this, 'prevent_coupons_on_payment_products'], 10, 4);
+        add_filter('woocommerce_product_is_on_sale', [$this, 'prevent_sale_on_payment_products'], 10, 2);
+        add_action('woocommerce_before_calculate_totals', [$this, 'protect_payment_product_prices'], 10, 1);
+        
+        // FILTROS ADICIONALES PARA PREVENIR DESCUENTOS DESDE EL ORIGEN
+        add_filter('woocommerce_product_get_price', [$this, 'override_payment_product_price'], 10, 2);
+        add_filter('woocommerce_product_get_regular_price', [$this, 'override_payment_product_price'], 10, 2);
+        add_filter('woocommerce_product_get_sale_price', [$this, 'prevent_sale_price_on_payment_products'], 10, 2);
     }
     
     /**
@@ -47,6 +57,108 @@ class WECC_Payment_Handler {
             error_log('WECC Payment Handler: Procesando pago completo');
             $this->handle_pay_all();
         }
+    }
+    
+    /**
+     * Previene que cupones se apliquen a productos de pago de crédito
+     */
+    public function prevent_coupons_on_payment_products($valid, $product, $coupon, $values): bool {
+        // Si es un producto de pago de crédito, no aplicar cupones
+        if ($this->is_payment_product($product)) {
+            error_log('WECC: Cupon bloqueado para producto de pago ID: ' . $product->get_id());
+            return false;
+        }
+        
+        return $valid;
+    }
+    
+    /**
+     * Previene que productos de pago aparezcan como "en oferta"
+     */
+    public function prevent_sale_on_payment_products($on_sale, $product): bool {
+        // Si es un producto de pago de crédito, nunca está en oferta
+        if ($this->is_payment_product($product)) {
+            return false;
+        }
+        
+        return $on_sale;
+    }
+    
+    /**
+     * Protege los precios de productos de pago contra modificaciones
+     */
+    public function protect_payment_product_prices($cart): void {
+        if (is_admin() && !defined('DOING_AJAX')) {
+            return;
+        }
+        
+        foreach ($cart->get_cart() as $cart_item_key => $cart_item) {
+            $product = $cart_item['data'];
+            
+            // Si es un producto de pago, forzar precio original
+            if ($this->is_payment_product($product)) {
+                $original_price = get_post_meta($product->get_id(), '_wecc_original_price', true);
+                
+                if ($original_price) {
+                    error_log('WECC: Restaurando precio original ' . $original_price . ' para producto de pago ID: ' . $product->get_id());
+                    $product->set_price($original_price);
+                }
+            }
+        }
+    }
+    
+    /**
+     * Determina si un producto es un producto de pago de crédito
+     */
+    private function is_payment_product($product): bool {
+        if (!$product) {
+            return false;
+        }
+        
+        // Verificar metadata
+        $is_payment_product = $product->get_meta('_wecc_payment_product');
+        $no_discounts = $product->get_meta('_wecc_no_discounts');
+        $payment_type = get_post_meta($product->get_id(), 'wecc_payment_type', true);
+        
+        $is_protected = ($is_payment_product === 'yes') || ($no_discounts === 'yes') || !empty($payment_type);
+        
+        // DEBUG: Log cuando detectamos un producto de pago
+        if ($is_protected) {
+            error_log('WECC: Producto de pago detectado - ID: ' . $product->get_id() . ', Payment type: ' . $payment_type);
+        }
+        
+        return $is_protected;
+    }
+    
+    /**
+     * Sobrescribe el precio de productos de pago para evitar descuentos
+     */
+    public function override_payment_product_price($price, $product): string {
+        if (!$this->is_payment_product($product)) {
+            return $price;
+        }
+        
+        // Obtener precio original guardado
+        $original_price = get_post_meta($product->get_id(), '_wecc_original_price', true);
+        
+        if ($original_price) {
+            error_log('WECC: Interceptando precio - Producto: ' . $product->get_id() . ', Precio actual: ' . $price . ', Restaurando: ' . $original_price);
+            return $original_price;
+        }
+        
+        return $price;
+    }
+    
+    /**
+     * Previene precio de oferta en productos de pago
+     */
+    public function prevent_sale_price_on_payment_products($sale_price, $product) {
+        if ($this->is_payment_product($product)) {
+            error_log('WECC: Bloqueando precio de oferta para producto de pago ID: ' . $product->get_id());
+            return ''; // Sin precio de oferta
+        }
+        
+        return $sale_price;
     }
     
     /**
@@ -124,6 +236,15 @@ class WECC_Payment_Handler {
     private function create_payment_checkout(float $amount, string $description, array $metadata = []): void {
         error_log('WECC Payment: Creando checkout - Monto: ' . $amount . ', Descripción: ' . $description);
         
+        // DEBUG TEMPORAL
+        error_log('WECC DEBUG CHECKOUT: === Inicio create_payment_checkout ===');
+        error_log('WECC DEBUG CHECKOUT: Monto recibido: ' . $amount);
+        error_log('WECC DEBUG CHECKOUT: Descripción: ' . $description);
+        error_log('WECC DEBUG CHECKOUT: Metadata: ' . print_r($metadata, true));
+        
+        // NUEVO V2.2: Guardar carrito actual antes de vaciarlo
+        $this->save_current_cart_for_restoration();
+        
         // Limpiar carrito actual
         WC()->cart->empty_cart();
         
@@ -137,6 +258,14 @@ class WECC_Payment_Handler {
         $product->set_status('publish');
         $product->set_catalog_visibility('hidden');
         
+        // PROTECCIÓN CONTRA DESCUENTOS: Marcar como exento de descuentos ANTES de guardar
+        $product->set_meta_data('_wecc_no_discounts', 'yes');
+        $product->set_meta_data('_wecc_payment_product', 'yes');
+        $product->set_meta_data('_wecc_original_price', $amount);
+        
+        error_log('WECC DEBUG CHECKOUT: Producto configurado con precio: ' . $amount);
+        error_log('WECC DEBUG CHECKOUT: Metadata de protección agregado ANTES de guardar');
+        
         // Guardar el producto temporalmente
         $product_id = $product->save();
         
@@ -147,10 +276,25 @@ class WECC_Payment_Handler {
             exit;
         }
         
+        error_log('WECC DEBUG CHECKOUT: Producto creado con ID: ' . $product_id);
+        
+        // Verificar precio del producto recién creado
+        $saved_product = wc_get_product($product_id);
+        if ($saved_product) {
+            error_log('WECC DEBUG CHECKOUT: Precio del producto guardado: ' . $saved_product->get_price());
+        }
+        
         // Agregar metadata al producto
         foreach ($metadata as $key => $value) {
             update_post_meta($product_id, $key, $value);
+            error_log('WECC DEBUG CHECKOUT: Metadata agregada: ' . $key . ' = ' . $value);
         }
+        
+        // IMPORTANTE: Asegurar que la protección esté en la BD
+        update_post_meta($product_id, '_wecc_original_price', $amount);
+        update_post_meta($product_id, '_wecc_no_discounts', 'yes');
+        update_post_meta($product_id, '_wecc_payment_product', 'yes');
+        error_log('WECC DEBUG CHECKOUT: Precio original y protección guardados: ' . $amount);
         
         // Agregar al carrito
         $cart_item_key = WC()->cart->add_to_cart($product_id, 1);
@@ -164,7 +308,25 @@ class WECC_Payment_Handler {
             exit;
         }
         
-        error_log('WECC Payment: Producto ' . $product_id . ' agregado al carrito, redirigiendo a checkout');
+        error_log('WECC DEBUG CHECKOUT: Producto agregado al carrito con key: ' . $cart_item_key);
+        
+        // Verificar precio en el carrito
+        $cart_contents = WC()->cart->get_cart();
+        if (isset($cart_contents[$cart_item_key])) {
+            $cart_item = $cart_contents[$cart_item_key];
+            error_log('WECC DEBUG CHECKOUT: Precio del producto en carrito: ' . $cart_item['data']->get_price());
+            error_log('WECC DEBUG CHECKOUT: Total de línea en carrito: ' . $cart_item['line_total']);
+        }
+        
+        // Verificar total del carrito
+        error_log('WECC DEBUG CHECKOUT: Total del carrito: ' . WC()->cart->get_total('edit'));
+        error_log('WECC DEBUG CHECKOUT: Subtotal del carrito: ' . WC()->cart->get_subtotal());
+        error_log('WECC DEBUG CHECKOUT: === Fin create_payment_checkout ===');
+        
+        // NUEVO V2.2: Marcar en sesión que estamos pagando adeudos de crédito
+        WC()->session->set('wecc_paying_credit_debts', true);
+        
+        error_log('WECC Payment: Producto ' . $product_id . ' agregado al carrito, marca de sesión establecida, redirigiendo a checkout');
         
         // Redirigir al checkout
         wp_redirect(wc_get_checkout_url());
@@ -220,6 +382,12 @@ class WECC_Payment_Handler {
         
         // Redirigir de vuelta a Mi Crédito si fue un pago de crédito
         if ($is_credit_payment) {
+            // NUEVO V2.2: Limpiar marca de sesión
+            WC()->session->__unset('wecc_paying_credit_debts');
+            
+            // NUEVO V2.2: Restaurar carrito guardado
+            $this->restore_saved_cart();
+            
             $redirect_url = wc_get_page_permalink('myaccount') . 'mi-credito/?wecc_payment_success=1';
             $order->add_order_note('Pago de crédito procesado exitosamente. Cliente redirigido a Mi Crédito.');
             
@@ -294,13 +462,25 @@ class WECC_Payment_Handler {
         
         $charge_amount = (float) $charge->amount;
         
+        // DEBUG TEMPORAL
+        error_log('WECC DEBUG HANDLER: === Calculando monto restante (handler) ===');
+        error_log('WECC DEBUG HANDLER: Charge ID: ' . $charge->id);
+        error_log('WECC DEBUG HANDLER: Monto original: ' . $charge_amount);
+        
         $paid_amount = (float) $wpdb->get_var($wpdb->prepare(
             "SELECT COALESCE(SUM(ABS(amount)), 0) FROM {$wpdb->prefix}wecc_ledger 
              WHERE type = 'payment' AND settles_ledger_id = %d",
             $charge->id
         ));
         
-        return max(0, $charge_amount - $paid_amount);
+        error_log('WECC DEBUG HANDLER: Pagos aplicados: ' . $paid_amount);
+        
+        $remaining = max(0, $charge_amount - $paid_amount);
+        
+        error_log('WECC DEBUG HANDLER: Monto restante calculado: ' . $remaining);
+        error_log('WECC DEBUG HANDLER: === Fin cálculo handler ===');
+        
+        return $remaining;
     }
     
     /**
@@ -362,5 +542,105 @@ class WECC_Payment_Handler {
         }
         
         return $gateways;
+    }
+    
+    /**
+     * NUEVA FUNCIONALIDAD V2.2: Guarda el carrito actual para restaurarlo después
+     */
+    private function save_current_cart_for_restoration(): void {
+        if (!WC()->cart || WC()->cart->is_empty()) {
+            error_log('WECC Cart Save: Carrito vacío, no hay nada que guardar');
+            return;
+        }
+        
+        $cart_contents = [];
+        
+        foreach (WC()->cart->get_cart() as $cart_item_key => $cart_item) {
+            // Solo guardar productos regulares (no productos temporales de pago)
+            $product_id = $cart_item['product_id'];
+            $payment_type = get_post_meta($product_id, 'wecc_payment_type', true);
+            
+            // Excluir productos de pago de adeudos
+            if ($payment_type) {
+                continue;
+            }
+            
+            $cart_contents[] = [
+                'product_id' => $cart_item['product_id'],
+                'variation_id' => $cart_item['variation_id'] ?? 0,
+                'quantity' => $cart_item['quantity'],
+                'variation' => $cart_item['variation'] ?? [],
+                'cart_item_data' => $cart_item
+            ];
+        }
+        
+        if (!empty($cart_contents)) {
+            WC()->session->set('wecc_saved_cart', $cart_contents);
+            error_log('WECC Cart Save: Guardados ' . count($cart_contents) . ' productos en sesión');
+        } else {
+            error_log('WECC Cart Save: No hay productos regulares que guardar');
+        }
+    }
+    
+    /**
+     * NUEVA FUNCIONALIDAD V2.2: Restaura el carrito guardado
+     */
+    private function restore_saved_cart(): void {
+        $saved_cart = WC()->session->get('wecc_saved_cart');
+        
+        if (!$saved_cart || !is_array($saved_cart)) {
+            error_log('WECC Cart Restore: No hay carrito guardado para restaurar');
+            return;
+        }
+        
+        $restored_count = 0;
+        $failed_count = 0;
+        
+        foreach ($saved_cart as $item) {
+            try {
+                $result = WC()->cart->add_to_cart(
+                    $item['product_id'],
+                    $item['quantity'],
+                    $item['variation_id'],
+                    $item['variation']
+                );
+                
+                if ($result) {
+                    $restored_count++;
+                } else {
+                    $failed_count++;
+                    error_log('WECC Cart Restore: Error restaurando producto ID ' . $item['product_id']);
+                }
+            } catch (Exception $e) {
+                $failed_count++;
+                error_log('WECC Cart Restore: Excepción restaurando producto ID ' . $item['product_id'] . ': ' . $e->getMessage());
+            }
+        }
+        
+        // Limpiar carrito guardado
+        WC()->session->__unset('wecc_saved_cart');
+        
+        error_log("WECC Cart Restore: Restaurados {$restored_count} productos, {$failed_count} fallaron");
+        
+        // Mostrar mensaje al usuario
+        if ($restored_count > 0) {
+            wc_add_notice(
+                sprintf(
+                    __('Tu carrito anterior ha sido restaurado con %d productos.', 'wc-enhanced-customers-credit'),
+                    $restored_count
+                ),
+                'success'
+            );
+        }
+        
+        if ($failed_count > 0) {
+            wc_add_notice(
+                sprintf(
+                    __('No se pudieron restaurar %d productos de tu carrito anterior.', 'wc-enhanced-customers-credit'),
+                    $failed_count
+                ),
+                'notice'
+            );
+        }
     }
 }
