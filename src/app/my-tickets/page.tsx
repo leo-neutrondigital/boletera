@@ -236,17 +236,43 @@ function MyTicketsPageContent() {
     );
   }
 
-  // Filtrar eventos
-  const filteredEvents = events.filter(event => {
-    const matchesSearch = event.event_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         event.event_location.toLowerCase().includes(searchTerm.toLowerCase());
+  // Filtrar y ordenar eventos
+  const filteredEvents = events
+    .filter(event => {
+      const matchesSearch = event.event_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           event.event_location.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesStatus = statusFilter === 'all' ||
-                         (statusFilter === 'configured' && event.configuredTickets > 0) ||
-                         (statusFilter === 'pending' && event.pendingTickets > 0);
+      const matchesStatus = statusFilter === 'all' ||
+                           (statusFilter === 'configured' && event.configuredTickets > 0) ||
+                           (statusFilter === 'pending' && event.pendingTickets > 0);
 
-    return matchesSearch && matchesStatus;
-  });
+      return matchesSearch && matchesStatus;
+    })
+    .sort((a, b) => {
+      const now = new Date();
+      const dateA = new Date(a.event_start_date);
+      const dateB = new Date(b.event_start_date);
+      
+      // Separar eventos futuros y pasados
+      const aIsPast = dateA < now;
+      const bIsPast = dateB < now;
+      
+      // Si uno es futuro y otro pasado, el futuro va primero
+      if (!aIsPast && bIsPast) return -1;
+      if (aIsPast && !bIsPast) return 1;
+      
+      // Si ambos son futuros: el más próximo primero (orden ascendente)
+      if (!aIsPast && !bIsPast) {
+        return dateA.getTime() - dateB.getTime();
+      }
+      
+      // Si ambos son pasados: el más reciente primero (orden descendente)
+      if (aIsPast && bIsPast) {
+        return dateB.getTime() - dateA.getTime();
+      }
+      
+      return 0;
+    });
 
   return (
     <div className="py-8">
@@ -367,18 +393,58 @@ function MyTicketsPageContent() {
 
         {/* Lista de eventos usando componente reutilizable */}
         <div className="space-y-8">
-          {filteredEvents.map((event) => (
-            <EventGroupCard
-              key={event.event_id}
-              event={event}
-              mode="user"
-              onOrderAction={(orderId) => router.push(`/my-tickets/${orderId}`)}
-              onEventAction={(eventId) => router.push(`/events/${eventId}`)}
-              headerColor="blue"
-              showEventAction={true}
-              eventActionText="Ver página del evento"
-            />
-          ))}
+          {(() => {
+            const now = new Date();
+            const upcomingEvents = filteredEvents.filter(event => new Date(event.event_start_date) >= now);
+            const pastEvents = filteredEvents.filter(event => new Date(event.event_start_date) < now);
+
+            return (
+              <>
+                {/* Eventos próximos */}
+                {upcomingEvents.map((event) => (
+                  <EventGroupCard
+                    key={event.event_id}
+                    event={event}
+                    mode="user"
+                    onOrderAction={(orderId) => router.push(`/my-tickets/${orderId}`)}
+                    onEventAction={(eventId) => router.push(`/events/${eventId}`)}
+                    headerColor="blue"
+                    showEventAction={true}
+                    eventActionText="Ver página del evento"
+                  />
+                ))}
+
+                {/* Separador si hay eventos pasados */}
+                {pastEvents.length > 0 && upcomingEvents.length > 0 && (
+                  <div className="relative py-6">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-gray-300" />
+                    </div>
+                    <div className="relative flex justify-center">
+                      <span className="bg-gray-50 px-4 text-sm text-gray-500 font-medium">
+                        Eventos pasados
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Eventos pasados con opacidad reducida */}
+                {pastEvents.map((event) => (
+                  <div key={event.event_id} className="opacity-75">
+                    <EventGroupCard
+                      event={event}
+                      mode="user"
+                      onOrderAction={(orderId) => router.push(`/my-tickets/${orderId}`)}
+                      onEventAction={(eventId) => router.push(`/events/${eventId}`)}
+                      headerColor="gray"
+                      showEventAction={true}
+                      eventActionText="Ver página del evento"
+                    />
+                  </div>
+                ))}
+              </>
+            );
+          })()}
         </div>
 
         {/* Mensaje cuando no hay resultados */}
