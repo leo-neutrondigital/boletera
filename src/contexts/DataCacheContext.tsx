@@ -24,6 +24,59 @@ interface CourtesyOrder {
   tickets: any[];
 }
 
+// 🆕 Tipo para boletos huérfanos (soporte)
+interface OrphanTicket {
+  id: string;
+  user_id: null;
+  customer_email: string;
+  customer_name: string;
+  customer_phone: string;
+  order_id: string;
+  ticket_type_name: string;
+  amount_paid: number;
+  currency: string;
+  event_id: string;
+  authorized_days: Date[];
+  orphan_recovery_data: {
+    recovery_status: 'pending' | 'recovered' | 'expired';
+    customer_email: string;
+    customer_name: string;
+    customer_phone: string;
+    order_id: string;
+    failure_timestamp: Date;
+    account_requested: boolean;
+    password_provided: boolean;
+  };
+  purchase_date: Date;
+  qr_id: string;
+}
+
+// 🆕 Tipo para opciones de usuario (búsqueda)
+interface UserOption {
+  id: string;
+  email: string;
+  name: string;
+}
+
+// 🆕 Tipo para usuarios (reutilizando del proyecto)
+interface User {
+  id: string;
+  uid: string;
+  email: string;
+  name: string;
+  phone?: string;
+  company?: string;
+  address?: {
+    street?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+    zipCode?: string;
+  };
+  roles: string[];
+  created_at: Date;
+}
+
 // 🆕 Tipos para el scanner
 interface AttendeeTicket {
   id: string;
@@ -84,6 +137,8 @@ interface CacheState {
   // Datos en cache
   courtesyOrders: CourtesyOrder[];
   events: Event[];
+  users: User[]; // 🆕 Nuevo: usuarios en cache
+  orphanTickets: OrphanTicket[]; // 🆕 Nuevo: boletos huérfanos
   ticketTypesByEvent: Record<string, TicketType[]>;
   
   // 🆕 Nuevos datos del scanner
@@ -95,6 +150,8 @@ interface CacheState {
   loading: {
     courtesyOrders: boolean;
     events: boolean;
+    users: boolean; // 🆕 Nuevo: loading de usuarios
+    orphanTickets: boolean; // 🆕 Nuevo: loading de boletos huérfanos
     ticketTypes: Record<string, boolean>;
     // 🆕 Estados de carga del scanner
     eventAttendees: Record<string, boolean>;
@@ -105,6 +162,8 @@ interface CacheState {
   lastUpdated: {
     courtesyOrders: number | null;
     events: number | null;
+    users: number | null; // 🆕 Nuevo: timestamp de usuarios
+    orphanTickets: number | null; // 🆕 Nuevo: timestamp de boletos huérfanos
     ticketTypes: Record<string, number>;
     // 🆕 Timestamps del scanner
     eventAttendees: Record<string, number>;
@@ -114,6 +173,8 @@ interface CacheState {
   // Acciones
   loadCourtesyOrders: (force?: boolean) => Promise<void>;
   loadEvents: (force?: boolean) => Promise<void>;
+  loadUsers: (force?: boolean) => Promise<void>; // 🆕 Nuevo: cargar usuarios
+  loadOrphanTickets: (force?: boolean) => Promise<void>; // 🆕 Nuevo: cargar boletos huérfanos
   loadTicketTypes: (eventId: string, force?: boolean) => Promise<void>;
   // 🆕 Nuevas acciones del scanner
   loadEventAttendees: (eventId: string, force?: boolean) => Promise<void>;
@@ -134,6 +195,8 @@ export function DataCacheProvider({ children }: { children: React.ReactNode }) {
   // Estados del cache
   const [courtesyOrders, setCourtesyOrders] = useState<CourtesyOrder[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
+  const [users, setUsers] = useState<User[]>([]); // 🆕 Nuevo: estado de usuarios
+  const [orphanTickets, setOrphanTickets] = useState<OrphanTicket[]>([]); // 🆕 Nuevo: boletos huérfanos
   const [ticketTypesByEvent, setTicketTypesByEvent] = useState<Record<string, TicketType[]>>({});
   
   // 🆕 Nuevos estados del scanner
@@ -145,6 +208,8 @@ export function DataCacheProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState({
     courtesyOrders: false,
     events: false,
+    users: false, // 🆕 Nuevo: loading de usuarios
+    orphanTickets: false, // 🆕 Nuevo: loading de boletos huérfanos
     ticketTypes: {} as Record<string, boolean>,
     // 🆕 Estados de carga del scanner
     eventAttendees: {} as Record<string, boolean>,
@@ -155,6 +220,8 @@ export function DataCacheProvider({ children }: { children: React.ReactNode }) {
   const [lastUpdated, setLastUpdated] = useState({
     courtesyOrders: null as number | null,
     events: null as number | null,
+    users: null as number | null, // 🆕 Nuevo: timestamp de usuarios
+    orphanTickets: null as number | null, // 🆕 Nuevo: timestamp de boletos huérfanos
     ticketTypes: {} as Record<string, number>,
     // 🆕 Timestamps del scanner
     eventAttendees: {} as Record<string, number>,
@@ -251,6 +318,106 @@ export function DataCacheProvider({ children }: { children: React.ReactNode }) {
       }
     }
   }, [isAuthenticated, user, lastUpdated.events, events.length]);
+
+  // 🆕 Cargar usuarios
+  const loadUsers = useCallback(async (force = false) => {
+    if (!isAuthenticated || !user) return;
+    
+    if (!force && isCacheValid(lastUpdated.users)) {
+      console.log('📦 Using cached users');
+      return;
+    }
+    
+    const inBackground = !force && users.length > 0;
+    
+    if (!inBackground) {
+      setLoading(prev => ({ ...prev, users: true }));
+    }
+    
+    try {
+      console.log(inBackground ? '🔄 Background loading users' : '📥 Loading users');
+      
+      // 🆕 Usar Firestore directamente en lugar de API REST
+      const { collection, onSnapshot, orderBy, query } = await import('firebase/firestore');
+      const { db } = await import('@/lib/firebase/client');
+      
+      const q = query(
+        collection(db, "users"),
+        orderBy("created_at", "desc")
+      );
+      
+      // Obtener snapshot una vez para cache
+      const { getDocs } = await import('firebase/firestore');
+      const snapshot = await getDocs(q);
+      
+      const usersData = snapshot.docs.map((doc) => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          uid: data.uid,
+          email: data.email,
+          name: data.name,
+          roles: data.roles || [],
+          phone: data.phone || "",
+          company: data.company || "",
+          address: data.address || { city: "", country: "México" },
+          marketing_consent: data.marketing_consent || false,
+          created_via: data.created_via || "unknown",
+          created_at: data.created_at?.toDate() || new Date(),
+          updated_at: data.updated_at?.toDate(),
+        } as User;
+      });
+      
+      setUsers(usersData);
+      setLastUpdated(prev => ({ ...prev, users: Date.now() }));
+      console.log('✅ Users loaded:', usersData.length);
+      
+    } catch (error) {
+      console.error('❌ Error loading users:', error);
+    } finally {
+      if (!inBackground) {
+        setLoading(prev => ({ ...prev, users: false }));
+      }
+    }
+  }, [isAuthenticated, user, lastUpdated.users, users.length]);
+
+  // 🆕 Cargar boletos huérfanos
+  const loadOrphanTickets = useCallback(async (force = false) => {
+    if (!isAuthenticated || !user) return;
+    
+    if (!force && isCacheValid(lastUpdated.orphanTickets)) {
+      console.log('📦 Using cached orphan tickets');
+      return;
+    }
+    
+    const inBackground = !force && orphanTickets.length > 0;
+    
+    if (!inBackground) {
+      setLoading(prev => ({ ...prev, orphanTickets: true }));
+    }
+    
+    try {
+      console.log(inBackground ? '🔄 Background loading orphan tickets' : '📥 Loading orphan tickets');
+      
+      const token = await user.getIdToken();
+      const response = await fetch('/api/admin/orphan-tickets', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setOrphanTickets(data.tickets || []);
+        setLastUpdated(prev => ({ ...prev, orphanTickets: Date.now() }));
+        console.log('✅ Orphan tickets loaded:', data.tickets?.length || 0);
+      }
+    } catch (error) {
+      console.error('❌ Error loading orphan tickets:', error);
+    } finally {
+      if (!inBackground) {
+        setLoading(prev => ({ ...prev, orphanTickets: false }));
+      }
+    }
+  }, [isAuthenticated, user, lastUpdated.orphanTickets, orphanTickets.length]);
 
   // Cargar tipos de boletos por evento
   const loadTicketTypes = useCallback(async (eventId: string, force = false) => {
@@ -379,6 +546,16 @@ export function DataCacheProvider({ children }: { children: React.ReactNode }) {
       setLastUpdated(prev => ({ ...prev, events: null }));
     }
     
+    // 🆕 Invalidar usuarios
+    if (!keys || keys.includes('users')) {
+      setLastUpdated(prev => ({ ...prev, users: null }));
+    }
+    
+    // 🆕 Invalidar boletos huérfanos
+    if (!keys || keys.includes('orphanTickets')) {
+      setLastUpdated(prev => ({ ...prev, orphanTickets: null }));
+    }
+    
     if (!keys || keys.includes('ticketTypes')) {
       setLastUpdated(prev => ({ ...prev, ticketTypes: {} }));
       setTicketTypesByEvent({});
@@ -413,7 +590,9 @@ export function DataCacheProvider({ children }: { children: React.ReactNode }) {
     console.log('🔄 Refreshing all data');
     await Promise.all([
       loadCourtesyOrders(true),
-      loadEvents(true)
+      loadEvents(true),
+      loadUsers(true), // 🆕 Incluir usuarios
+      loadOrphanTickets(true) // 🆕 Incluir boletos huérfanos
     ]);
   };
 
@@ -430,6 +609,16 @@ export function DataCacheProvider({ children }: { children: React.ReactNode }) {
       if (needsBackgroundRefresh(lastUpdated.events)) {
         loadEvents();
       }
+      
+      // 🆕 Auto-refresh usuarios en background
+      if (needsBackgroundRefresh(lastUpdated.users)) {
+        loadUsers();
+      }
+      
+      // 🆕 Auto-refresh boletos huérfanos en background
+      if (needsBackgroundRefresh(lastUpdated.orphanTickets)) {
+        loadOrphanTickets();
+      }
     }, 30000); // Verificar cada 30 segundos
     
     return () => clearInterval(interval);
@@ -441,6 +630,8 @@ export function DataCacheProvider({ children }: { children: React.ReactNode }) {
       console.log('🧹 Clearing cache - user logged out');
       setCourtesyOrders([]);
       setEvents([]);
+      setUsers([]); // 🆕 Limpiar usuarios
+      setOrphanTickets([]); // 🆕 Limpiar boletos huérfanos
       setTicketTypesByEvent({});
       // 🆕 Limpiar datos del scanner
       setEventAttendees({});
@@ -449,6 +640,8 @@ export function DataCacheProvider({ children }: { children: React.ReactNode }) {
       setLastUpdated({
         courtesyOrders: null,
         events: null,
+        users: null, // 🆕 Timestamp de usuarios
+        orphanTickets: null, // 🆕 Timestamp de boletos huérfanos
         ticketTypes: {},
         // 🆕 Limpiar timestamps del scanner
         eventAttendees: {},
@@ -461,6 +654,8 @@ export function DataCacheProvider({ children }: { children: React.ReactNode }) {
     // Datos
     courtesyOrders,
     events,
+    users, // 🆕 Usuarios
+    orphanTickets, // 🆕 Boletos huérfanos
     ticketTypesByEvent,
     // 🆕 Nuevos datos del scanner
     eventAttendees,
@@ -474,6 +669,8 @@ export function DataCacheProvider({ children }: { children: React.ReactNode }) {
     // Acciones
     loadCourtesyOrders,
     loadEvents,
+    loadUsers, // 🆕 Nueva acción
+    loadOrphanTickets, // 🆕 Nueva acción para boletos huérfanos
     loadTicketTypes,
     // 🆕 Nuevas acciones del scanner
     loadEventAttendees,
@@ -512,7 +709,7 @@ export function useCourtesyOrders() {
 }
 
 // 🆕 Exportar tipos para uso en componentes
-export type { AttendeeTicket, EventData, EventStats };
+export type { AttendeeTicket, EventData, EventStats, User, OrphanTicket, UserOption };
 
 // Hook específico para events
 export function useEvents() {
@@ -524,6 +721,128 @@ export function useEvents() {
     loadEvents,
     refresh: () => loadEvents(true),
     invalidate: () => invalidateCache(['events'])
+  };
+}
+
+// 🆕 Hook específico para usuarios
+export function useCachedUsers() {
+  const { users, loading, loadUsers, invalidateCache } = useDataCache();
+  
+  // 🆕 Auto-cargar usuarios al montar el hook
+  useEffect(() => {
+    console.log('📦 useCachedUsers: Auto-loading users on mount...');
+    loadUsers(); // Cargar desde cache o API si es necesario
+  }, [loadUsers]);
+  
+  // Funciones para mantener compatibilidad con useUsers actual
+  const deleteUser = async (userId: string): Promise<boolean> => {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error('No authenticated user');
+      
+      const token = await currentUser.getIdToken();
+      const response = await fetch(`/api/admin/users/${userId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        }
+      });
+      
+      if (response.ok) {
+        // Invalidar cache para recargar
+        invalidateCache(['users']);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      return false;
+    }
+  };
+  
+  const updateUser = async (userId: string, data: Partial<User>): Promise<boolean> => {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error('No authenticated user');
+      
+      const token = await currentUser.getIdToken();
+      const response = await fetch(`/api/admin/users/${userId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+      });
+      
+      if (response.ok) {
+        // Invalidar cache para recargar
+        invalidateCache(['users']);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Error updating user:', error);
+      return false;
+    }
+  };
+  
+  const addUser = (user: User) => {
+    // Invalidar cache para recargar con el nuevo usuario
+    invalidateCache(['users']);
+  };
+  
+  // 🆕 Función para crear usuario (mantener compatibilidad)
+  const createUser = async (userData: {
+    email: string;
+    name: string;
+    role: string;
+    phone?: string;
+    company?: string;
+    city?: string;
+    country?: string;
+    marketing_consent?: boolean;
+  }) => {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error('Usuario no autenticado');
+      
+      const token = await currentUser.getIdToken();
+      const response = await fetch('/api/admin/create-user', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(userData)
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al crear usuario');
+      }
+      
+      const result = await response.json();
+      
+      // Invalidar cache para recargar
+      invalidateCache(['users']);
+      
+      return result;
+    } catch (error) {
+      console.error('Error creating user:', error);
+      throw error;
+    }
+  };
+  
+  return {
+    users,
+    loading: loading.users,
+    error: null, // Por compatibilidad
+    refreshUsers: () => loadUsers(true),
+    deleteUser,
+    updateUser,
+    addUser,
+    createUser // 🆕 Añadir createUser para compatibilidad completa
   };
 }
 

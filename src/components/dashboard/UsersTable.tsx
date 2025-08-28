@@ -6,6 +6,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { UserFormDialog } from "./UserFormDialog";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { PaginationControls } from "@/components/shared/PaginationControls";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -42,6 +43,8 @@ export function UsersTable({
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [sendingReset, setSendingReset] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const { toast } = useToast();
 
   const handleDelete = async (userId: string) => {
@@ -117,6 +120,28 @@ export function UsersTable({
     return matchesSearch && matchesRole;
   });
 
+  // Paginación
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedUsers = filteredUsers.slice(startIndex, endIndex);
+
+  // Reset página cuando cambian los filtros
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+    setCurrentPage(1);
+  };
+
+  const handleRoleChange = (value: string) => {
+    setRoleFilter(value);
+    setCurrentPage(1);
+  };
+
+  const handleItemsPerPageChange = (newItemsPerPage: number) => {
+    setItemsPerPage(newItemsPerPage);
+    setCurrentPage(1);
+  };
+
   if (users.length === 0) {
     return (
       <div className="w-full p-8 text-center text-muted-foreground">
@@ -137,13 +162,13 @@ export function UsersTable({
             <Input
               placeholder="Buscar por nombre, email o empresa..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
               className="pl-10"
             />
           </div>
         </div>
         <div className="sm:w-48">
-          <Select value={roleFilter} onValueChange={setRoleFilter}>
+          <Select value={roleFilter} onValueChange={handleRoleChange}>
             <SelectTrigger>
               <SelectValue placeholder="Filtrar por rol" />
             </SelectTrigger>
@@ -164,28 +189,33 @@ export function UsersTable({
           <p className="text-gray-500">No se encontraron usuarios con los filtros aplicados</p>
           <Button 
             variant="outline" 
-            onClick={() => { setSearchTerm(""); setRoleFilter("all"); }}
+            onClick={() => { 
+              setSearchTerm(""); 
+              setRoleFilter("all");
+              setCurrentPage(1);
+            }}
             className="mt-2"
           >
             Limpiar filtros
           </Button>
         </div>
       ) : (
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Usuario</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Rol</TableHead>
-                <TableHead>Teléfono</TableHead>
-                <TableHead>Empresa</TableHead>
-                <TableHead>Creado</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredUsers.map((user) => {
+        <>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Usuario</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Rol</TableHead>
+                  <TableHead>Teléfono</TableHead>
+                  <TableHead>Empresa</TableHead>
+                  <TableHead>Creado</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paginatedUsers.map((user) => {
                 const isCurrentUser = currentUser?.uid === user.uid;
                 const canDelete = !isCurrentUser && currentUser?.roles.includes('admin');
                 const canEdit = currentUser?.roles.includes('admin');
@@ -311,14 +341,30 @@ export function UsersTable({
                   </TableRow>
                 );
               })}
-            </TableBody>
-          </Table>
-        </div>
+              </TableBody>
+              </Table>
+              </div>
+          
+          {/* Paginación */}
+          {totalPages > 1 && (
+            <div className="mt-4">
+              <PaginationControls
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={filteredUsers.length}
+                itemsPerPage={itemsPerPage}
+                onPageChange={setCurrentPage}
+                onItemsPerPageChange={handleItemsPerPageChange}
+                label="usuarios"
+              />
+            </div>
+          )}
+        </>
       )}
 
       {/* Información adicional */}
       <div className="text-xs text-gray-500 text-center pt-4 border-t">
-        Mostrando {filteredUsers.length} de {users.length} usuarios
+        Mostrando {paginatedUsers.length} de {filteredUsers.length} usuarios{filteredUsers.length !== users.length ? ` (filtrado de ${users.length} total)` : ''}
       </div>
     </div>
   );

@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useSalesPage } from '@/contexts/SalesPageContext';
 import { useToast } from '@/hooks/use-toast';
-import { getPreregistrationsByEvent, getPreregistrationStats, updatePreregistrationStatus, deleteMultiplePreregistrations } from '@/lib/api/preregistrations';
+import { usePreregistrations } from '@/hooks/use-preregistrations'; // 🆕 Hook con cache especializado
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -53,9 +53,16 @@ export function PreregistrosPageClient({ eventId }: PreregistrosPageClientProps)
   const { user, userData } = useAuth();
   const { toast } = useToast();
   
-  const [preregistros, setPreregistros] = useState<Preregistration[]>([]);
-  const [stats, setStats] = useState<PreregistroStats | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  // 🆕 Hook con cache especializado
+  const { 
+    preregistrations, 
+    loading: isLoading, 
+    stats, 
+    refreshPreregistrations,
+    updatePreregistrationStatus,
+    deletePreregistrations 
+  } = usePreregistrations();
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   // 🆕 Estados para paginación
@@ -67,37 +74,23 @@ export function PreregistrosPageClient({ eventId }: PreregistrosPageClientProps)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Función para cargar datos
-  const loadData = async () => {
-    setIsLoading(true);
-    try {
-      console.log('📋 Cargando preregistros para evento:', eventId);
-      
-      const [preregistrosData, statsData] = await Promise.all([
-        getPreregistrationsByEvent(eventId),
-        getPreregistrationStats(eventId)
-      ]);
-      
-      setPreregistros(preregistrosData);
-      setStats(statsData);
-      
-      console.log('✅ Datos cargados:', {
-        preregistros: preregistrosData.length,
-        stats: statsData
-      });
-      
-    } catch (error) {
-      console.error('❌ Error cargando preregistros:', error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "No se pudieron cargar los preregistros",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // Filtrar preregistros - MOVER ANTES de handleExport
+  const filteredPreregistros = preregistrations.filter(p => {
+    const matchesSearch = searchTerm === '' || 
+      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (p.company && p.company.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    const matchesStatus = filterStatus === 'all' || p.status === filterStatus;
+    
+    return matchesSearch && matchesStatus;
+  });
 
+  // 🆕 Paginación
+  const totalPages = Math.ceil(filteredPreregistros.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedPreregistros = filteredPreregistros.slice(startIndex, endIndex);
   // 🆕 Funciones para selección múltiple
   const handleSelectOne = (id: string, checked: boolean) => {
     setSelectedIds(prev => {
@@ -119,21 +112,20 @@ export function PreregistrosPageClient({ eventId }: PreregistrosPageClientProps)
     }
   };
 
-  const handleDeleteSelected = async (ids: string[]) => {
+  const handleDeleteSelected = useCallback(async (ids: string[]) => {
     setIsDeleting(true);
     try {
       console.log('🗑️ Eliminando preregistros:', ids);
       
-      await deleteMultiplePreregistrations(ids);
+      await deletePreregistrations(ids); // 🆕 Usar hook
       
       toast({
         title: "Preregistros eliminados",
         description: `Se han eliminado ${ids.length} preregistro${ids.length !== 1 ? 's' : ''} correctamente`,
       });
       
-      // Limpiar selección y recargar datos
+      // Limpiar selección (datos se recargan automáticamente por cache)
       setSelectedIds(new Set());
-      await loadData();
     } catch (error) {
       console.error('❌ Error eliminando preregistros:', error);
       toast({
@@ -144,10 +136,10 @@ export function PreregistrosPageClient({ eventId }: PreregistrosPageClientProps)
     } finally {
       setIsDeleting(false);
     }
-  };
+  }, [deletePreregistrations, toast]); // 🔧 Dependencias estables
 
-  // Función para cambiar estado de un preregistro
-  const handleChangeStatus = async (id: string, newStatus: string) => {
+  // 🆕 Función para cambiar estado de un preregistro usando cache
+  const handleChangeStatus = useCallback(async (id: string, newStatus: string) => {
     try {
       console.log('🔄 Cambiando estado:', { id, newStatus });
       
@@ -162,8 +154,7 @@ export function PreregistrosPageClient({ eventId }: PreregistrosPageClientProps)
         description: "El estado del preregistro se ha actualizado correctamente",
       });
       
-      // Recargar datos
-      await loadData();
+      // Los datos se actualizan automáticamente por el cache
     } catch (error) {
       console.error('❌ Error cambiando estado:', error);
       toast({
@@ -172,14 +163,14 @@ export function PreregistrosPageClient({ eventId }: PreregistrosPageClientProps)
         description: "No se pudo actualizar el estado",
       });
     }
-  };
+  }, [updatePreregistrationStatus, user, toast]); // 🔧 Dependencias estables
 
-  // Función para exportar CSV
-  const handleExport = () => {
+  // 🆕 Función para exportar CSV usando cache
+  const handleExport = useCallback(() => {
     try {
       console.log('📥 Exportando preregistros a CSV');
       
-      // Preparar datos para CSV
+      // 🆕 Usar datos del cache directamente
       const csvData = filteredPreregistros.map(p => {
         const interestedTicketsText = p.interested_tickets && p.interested_tickets.length > 0
           ? p.interested_tickets.map(t => `${t.quantity}x ${t.ticket_type_name} (${t.unit_price})`).join('; ')
@@ -229,12 +220,12 @@ export function PreregistrosPageClient({ eventId }: PreregistrosPageClientProps)
         description: "No se pudo exportar el archivo CSV",
       });
     }
-  };
+  }, [filteredPreregistros, eventId, toast]); // 🔧 Dependencias estables
 
-  // Configurar acciones del header
+  // 🆕 Configurar acciones del header usando cache
   useEffect(() => {
     setPreregistrosActions({
-      onRefresh: loadData,
+      onRefresh: refreshPreregistrations, // 🆕 Usar función del hook
       onExport: handleExport,
       onChangeStatus: handleChangeStatus,
       onDeleteSelected: handleDeleteSelected,
@@ -242,30 +233,9 @@ export function PreregistrosPageClient({ eventId }: PreregistrosPageClientProps)
     });
 
     return () => setPreregistrosActions(null);
-  }, [isLoading, setPreregistrosActions]);
+  }, [isLoading]); // Solo depender de isLoading
 
-  // Cargar datos inicial
-  useEffect(() => {
-    loadData();
-  }, [eventId]);
-
-  // Filtrar preregistros
-  const filteredPreregistros = preregistros.filter(p => {
-    const matchesSearch = searchTerm === '' || 
-      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (p.company && p.company.toLowerCase().includes(searchTerm.toLowerCase()));
-    
-    const matchesStatus = filterStatus === 'all' || p.status === filterStatus;
-    
-    return matchesSearch && matchesStatus;
-  });
-
-  // 🆕 Paginación
-  const totalPages = Math.ceil(filteredPreregistros.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedPreregistros = filteredPreregistros.slice(startIndex, endIndex);
+  // Los datos se cargan automáticamente por el hook - no necesita useEffect manual
 
   // Reset página cuando cambian filtros
   useEffect(() => {
@@ -305,7 +275,7 @@ export function PreregistrosPageClient({ eventId }: PreregistrosPageClientProps)
     }
   };
 
-  if (isLoading && preregistros.length === 0) {
+  if (isLoading && preregistrations.length === 0) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="text-center">

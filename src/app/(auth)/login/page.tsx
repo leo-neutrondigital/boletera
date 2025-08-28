@@ -28,7 +28,9 @@ export default function LoginPage() {
   // Redirigir si ya está autenticado - Lógica simple
   useEffect(() => {
     if (!authLoading && user && userData) {
-      const redirectPath = userData.roles.some(role => ['admin', 'gestor', 'comprobador'].includes(role))
+      const redirectPath = userData.roles.includes('comprobador') && !userData.roles.includes('admin') && !userData.roles.includes('gestor')
+        ? '/scanner'
+        : userData.roles.some(role => ['admin', 'gestor'].includes(role))
         ? '/dashboard'
         : '/my-tickets';
       console.log('🔄 Login: Redirecting authenticated user to:', redirectPath);

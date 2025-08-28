@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { AuthGuard } from '@/components/auth/AuthGuard';
-import { auth } from '@/lib/firebase/client';
+import { useOrphanTickets } from '@/hooks/use-orphan-tickets'; // 🆕 Hook con cache
+import { PageHeader } from '@/components/shared/PageHeader'; // 🆕 Header consistente
 import { 
   Card, 
   CardContent, 
@@ -70,12 +71,19 @@ interface UserOption {
 
 function SoportePageContent() {
   const { user, userData } = useAuth();
-  const [loading, setLoading] = useState(false);
+  const { 
+    orphanTickets, 
+    loading, 
+    refreshOrphanTickets, 
+    searchUsersForTicket, 
+    linkTicketToUser 
+  } = useOrphanTickets(); // 🆕 Hook con cache
+  
   const [selectedUsers, setSelectedUsers] = useState<Record<string, UserOption | null>>({});
-  const [orphanTickets, setOrphanTickets] = useState<OrphanTicket[]>([]);
   const [usersForTickets, setUsersForTickets] = useState<Record<string, UserOption[]>>({});
   const [linkingTicketId, setLinkingTicketId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [refreshing, setRefreshing] = useState(false); // 🆕 Estado para botón refresh
 
   // Funciones para manejar selección de usuarios por boleto
   const setSelectedUserForTicket = (ticketId: string, user: UserOption | null) => {
@@ -101,94 +109,30 @@ function SoportePageContent() {
     return usersForTickets[ticketId] || [];
   };
 
-  // Cargar boletos huérfanos
-  const loadOrphanTickets = async () => {
-    try {
-      setLoading(true);
-      console.log('🔄 Loading orphan tickets from API...');
-      
-      const currentUser = auth.currentUser;
-      if (!currentUser) {
-        console.error('No authenticated user found');
-        return;
-      }
-      
-      const token = await currentUser.getIdToken();
-      
-      const response = await fetch('/api/admin/orphan-tickets', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setOrphanTickets(data.tickets || []);
-      }
-    } catch (error) {
-      console.error('Error loading orphan tickets:', error);
-    } finally {
-      setLoading(false);
-    }
+  // 🆕 Función de refresh usando cache
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await refreshOrphanTickets(); // Forzar recarga desde API
+    setRefreshing(false);
+  };
+  
+  // Buscar usuarios para un boleto específico (usando hook)
+  const handleSearchUsersForTicket = async (ticketId: string, email: string) => {
+    const users = await searchUsersForTicket(ticketId, email);
+    setUsersForTicket(ticketId, users);
   };
 
-  // Buscar usuarios para un boleto específico
-  const searchUsersForTicket = async (ticketId: string, email: string) => {
-    if (!email || email.length < 3) {
-      setUsersForTicket(ticketId, []);
-      return;
-    }
-
+  // Vincular boleto a usuario (usando hook)
+  const handleLinkTicketToUser = async (ticketId: string, userId: string) => {
+    setLinkingTicketId(ticketId);
+    
     try {
-      const currentUser = auth.currentUser;
-      if (!currentUser) return;
-      
-      const token = await currentUser.getIdToken();
-      
-      const response = await fetch(`/api/admin/users/search?email=${encodeURIComponent(email)}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setUsersForTicket(ticketId, data.users || []);
-      }
-    } catch (error) {
-      console.error('Error searching users:', error);
-    }
-  };
-
-  // Vincular boleto a usuario
-  const linkTicketToUser = async (ticketId: string, userId: string) => {
-    try {
-      setLinkingTicketId(ticketId);
-      
-      const currentUser = auth.currentUser;
-      if (!currentUser) {
-        alert('No hay usuario autenticado');
-        return;
-      }
-      
-      const token = await currentUser.getIdToken();
-      
-      const response = await fetch('/api/admin/link-ticket', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ ticketId, userId })
-      });
-
-      if (response.ok) {
-        await loadOrphanTickets();
+      const success = await linkTicketToUser(ticketId, userId);
+      if (success) {
         setSelectedUserForTicket(ticketId, null);
         alert('Boleto vinculado exitosamente');
       } else {
-        const errorData = await response.json();
-        alert(`Error: ${errorData.error}`);
+        alert('Error al vincular boleto');
       }
     } catch (error) {
       console.error('Error linking ticket:', error);
@@ -197,11 +141,6 @@ function SoportePageContent() {
       setLinkingTicketId(null);
     }
   };
-
-  // Cargar al montar
-  useEffect(() => {
-    loadOrphanTickets();
-  }, []);
 
   // Estadísticas calculadas
   const stats = {
@@ -329,12 +268,12 @@ function SoportePageContent() {
           </div>
           
           <Button 
-            onClick={loadOrphanTickets}
-            disabled={loading}
+            onClick={handleRefresh}
+            disabled={refreshing}
             className="flex items-center gap-2"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            {loading ? 'Actualizando...' : 'Actualizar'}
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            {refreshing ? 'Actualizando...' : 'Actualizar'}
           </Button>
         </div>
 
@@ -485,7 +424,7 @@ function SoportePageContent() {
                           <Label className="text-sm">Buscar usuario por email:</Label>
                           <Input
                             placeholder="Buscar usuario por email..."
-                            onChange={(e) => searchUsersForTicket(ticket.id, e.target.value)}
+                            onChange={(e) => handleSearchUsersForTicket(ticket.id, e.target.value)}
                             className="mt-1"
                             size="sm"
                           />
@@ -515,7 +454,7 @@ function SoportePageContent() {
                               {getSelectedUserForTicket(ticket.id)!.name} ({getSelectedUserForTicket(ticket.id)!.email})
                             </div>
                             <Button
-                              onClick={() => linkTicketToUser(ticket.id, getSelectedUserForTicket(ticket.id)!.id)}
+                              onClick={() => handleLinkTicketToUser(ticket.id, getSelectedUserForTicket(ticket.id)!.id)}
                               disabled={linkingTicketId === ticket.id}
                               size="sm"
                               className="w-full"

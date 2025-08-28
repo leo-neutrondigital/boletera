@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { validateServerAuth } from '@/lib/auth/server-auth';
+import { getAuthFromRequest, requireRoles } from '@/lib/auth/server-auth';
 import { createPreregistrationWithUserData } from '@/lib/api/preregistrations';
 import { PreregistroEmailService } from '@/lib/email/preregistro-email-service';
 import { adminDb } from '@/lib/firebase/admin';
@@ -154,9 +154,13 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     // Validar autenticación para lectura de preregistros
-    const { user, hasPermission } = await validateServerAuth(request);
+    const user = await getAuthFromRequest(request);
     
-    if (!hasPermission('preregistros', 'read')) {
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    
+    if (!requireRoles(user.roles, ['admin', 'gestor', 'comprobador'])) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

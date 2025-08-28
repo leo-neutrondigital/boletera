@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { adminDb } from "@/lib/firebase/admin";
 import { EventTabsNavigation } from "@/components/dashboard/EventTabsNavigation";
 import { SalesPageProvider } from "@/contexts/SalesPageContext";
+import { EventCacheProvider } from "@/hooks/use-event-cache"; // 🆕 Nuevo provider
 import type { Event } from "@/types";
 
 async function getEvent(eventId: string): Promise<Event | null> {
@@ -44,12 +45,14 @@ export default async function EventLayout({ children, params }: EventLayoutProps
 
   return (
     <SalesPageProvider>
-      <div className="flex flex-col h-full">
-        <EventTabsNavigation event={event} />
-        <div className="flex-1">
-          {children}
+      <EventCacheProvider eventId={params.id}>
+        <div className="flex flex-col h-full">
+          <EventTabsNavigation event={event} />
+          <div className="flex-1">
+            {children}
+          </div>
         </div>
-      </div>
+      </EventCacheProvider>
     </SalesPageProvider>
   );
 }

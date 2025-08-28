@@ -6,45 +6,58 @@ import {
   Calendar,
   Users,
   Zap,
-  Clock
+  Clock,
+  LogOut
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { Can } from '@/components/auth/Can';
 import { useAuth } from '@/contexts/AuthContext';
+import { auth } from '@/lib/firebase/client';
 
 // Página principal del scanner - Solo para roles autorizados
 export default function ScannerDashboard() {
   const router = useRouter();
   const { userData } = useAuth();
 
+  const handleLogout = async () => {
+    try {
+      await auth.signOut();
+      router.push("/");
+    } catch (error) {
+      console.error("Error al cerrar sesión:", error);
+    }
+  };
+
+  // Solo comprobadores puros (sin otros roles) necesitan el botón de cerrar sesión
+  // porque admin/gestor ya tienen acceso al sidebar con logout
+  const isComprobadorPuro = userData?.roles?.includes('comprobador') && 
+                           !userData?.roles?.includes('admin') && 
+                           !userData?.roles?.includes('gestor');
+
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-3">
-              <div className="bg-blue-600 p-2 rounded-lg">
-                <QrCode className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-semibold text-gray-900">
-                  Event Scanner
-                </h1>
-                <p className="text-sm text-gray-500">
-                  Validación de boletos QR
-                </p>
-              </div>
-            </div>
-            
-            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300">
-              {userData?.roles?.includes('admin') ? 'Administrador' :
-               userData?.roles?.includes('gestor') ? 'Gestor' : 'Comprobador'}
-            </Badge>
-          </div>
-        </div>
-      </div>
+      {/* Header con PageHeader */}
+      <PageHeader
+        icon={QrCode}
+        title="Event Scanner"
+        description="Validación de boletos QR"
+        iconColor="blue"
+        actions={
+          isComprobadorPuro && (
+            <Button 
+              onClick={handleLogout}
+              variant="outline"
+              size="sm"
+              className="text-red-600 border-red-300 hover:bg-red-50"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Cerrar sesión
+            </Button>
+          )
+        }
+      />
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
