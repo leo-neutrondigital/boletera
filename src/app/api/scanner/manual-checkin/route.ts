@@ -272,7 +272,7 @@ export async function POST(
         ticket_id: ticketId,
         attendee_name: ticketData.attendee_name || 'Sin asignar',
         check_in_time: checkInTime.toISOString(),
-        day_checked: dayToCheck,
+  day_checked: dayToCheck || '',
         performed_by: authUser.email || authUser.uid,
         can_undo_until: canUndoUntil.toISOString()
       }

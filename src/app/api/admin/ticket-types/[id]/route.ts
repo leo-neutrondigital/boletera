@@ -71,7 +71,7 @@ export async function PUT(
       if (!Array.isArray(updateData.features)) {
         return NextResponse.json({ error: "Features must be an array" }, { status: 400 });
       }
-      updateData.features = updateData.features.filter(f => f && f.trim());
+  updateData.features = updateData.features.filter((f: string) => f && f.trim());
     }
 
     // Limpiar strings

@@ -437,7 +437,7 @@ export function PaymentStep() {
               <div>
                 <span className="text-gray-600">Total pagado:</span>
                 <p className="font-semibold text-green-600">
-                  {formatCurrency(totalAmount, currency)}
+                  {formatCurrency(totalAmount, currency as 'MXN' | 'USD' | 'EUR' | 'GBP' | undefined)}
                 </p>
               </div>
             </div>
@@ -636,7 +636,7 @@ export function PaymentStep() {
                     <Badge variant="outline">
                       {isPreregistration 
                         ? `${ticket.quantity} boleto${ticket.quantity !== 1 ? 's' : ''}`
-                        : formatCurrency(ticket.total_price, ticket.currency)
+                        : formatCurrency(ticket.total_price, ticket.currency as 'MXN' | 'USD' | 'EUR' | 'GBP' | undefined)
                       }
                     </Badge>
                   </div>
@@ -648,7 +648,7 @@ export function PaymentStep() {
                   <div className="flex justify-between items-center">
                     <span className="text-lg font-semibold">Total:</span>
                     <span className="text-xl font-bold text-green-600">
-                      {formatCurrency(totalAmount, currency)}
+                      {formatCurrency(totalAmount, currency as 'MXN' | 'USD' | 'EUR' | 'GBP' | undefined)}
                     </span>
                   </div>
                   <p className="text-sm text-gray-500 mt-1">

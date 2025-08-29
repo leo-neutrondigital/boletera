@@ -1,5 +1,5 @@
 import { adminDb } from '@/lib/firebase/admin';
-import type { Preregistration } from '@/types';
+// import type { Preregistration } from '@/types'; // ← No usado
 
 const COLLECTION_NAME = 'preregistrations';
 

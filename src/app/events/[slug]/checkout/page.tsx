@@ -165,12 +165,12 @@ export default function CheckoutPage() {
                     <div>
                       <h4 className="font-medium">{item.ticket_type_name}</h4>
                       <p className="text-sm text-gray-600">
-                        {formatCurrency(item.unit_price, item.currency)} × {item.quantity}
+                        {formatCurrency(item.unit_price, item.currency as 'MXN' | 'USD' | 'EUR' | 'GBP' | undefined)} × {item.quantity}
                       </p>
                     </div>
                     <div className="text-right">
                       <span className="font-semibold">
-                        {formatCurrency(item.total_price, item.currency)}
+                        {formatCurrency(item.total_price, item.currency as 'MXN' | 'USD' | 'EUR' | 'GBP' | undefined)}
                       </span>
                     </div>
                   </div>
@@ -180,7 +180,7 @@ export default function CheckoutPage() {
                   <div className="flex justify-between items-center text-lg font-bold">
                     <span>Total:</span>
                     <span className="text-green-600">
-                      {formatCurrency(totalAmount, currency)}
+                      {formatCurrency(totalAmount, currency as 'MXN' | 'USD' | 'EUR' | 'GBP' | undefined)}
                     </span>
                   </div>
                 </div>

@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/utils/currency';
 import { useState, useRef, useEffect, useCallback } from 'react';
 
+
 export function CustomerDetails() {
   const { 
     event, 
@@ -23,19 +24,20 @@ export function CustomerDetails() {
   } = useEventFlow();
   const { user, userData } = useAuth();
   const stepInfo = useCurrentStepInfo();
-  
+
   const [isFormValid, setIsFormValid] = useState(false);
   const [currentFormData, setCurrentFormData] = useState<CustomerFormData | null>(null);
   const isSettingRef = useRef(false); // 🔧 Flag para evitar dobles llamadas
   const latestCustomerDataRef = useRef(customerData); // 🔧 Ref para el customerData más actualizado
   const shouldNavigateRef = useRef(false); // 🔧 Flag para controlar navegación automática
 
-  if (!event) return null;
+  // Mover el return null al final de los hooks
 
   const totalItems = selectedTickets.reduce((sum, ticket) => sum + ticket.quantity, 0);
   const currency = selectedTickets[0]?.currency || 'MXN';
   const isPreregistration = method === 'preregister';
   const isLoggedIn = !!user;
+
 
   // 🔧 Mantener el ref actualizado
   useEffect(() => {
@@ -51,10 +53,8 @@ export function CustomerDetails() {
   useEffect(() => {
     if (shouldNavigateRef.current && customerData) {
       console.log('🚪 CustomerDetails - Auto-navigation triggered by customerData change');
-      
       const hasCustomerDataNow = !!customerData.name && !!customerData.email;
       const shouldProceed = isPreregistration ? hasCustomerDataNow : (hasCustomerDataNow && selectedTickets.length > 0);
-      
       console.log('🔍 CustomerDetails - Auto-navigation check:', {
         hasCustomerDataNow,
         shouldProceed,
@@ -62,7 +62,6 @@ export function CustomerDetails() {
         customerName: customerData.name,
         customerEmail: customerData.email
       });
-      
       if (shouldProceed) {
         console.log('✅ CustomerDetails - Auto-navigation: calling goNext');
         shouldNavigateRef.current = false; // Reset flag
@@ -98,7 +97,6 @@ export function CustomerDetails() {
         passwordProvided: !!data.password
       } : null
     });
-    
     setIsFormValid(isValid);
     if (isValid && data) {
       console.log('✅ CustomerDetails - Setting currentFormData');
@@ -108,6 +106,8 @@ export function CustomerDetails() {
       setCurrentFormData(null);
     }
   }, [isPreregistration]); // 🔧 Solo isPreregistration como dependencia
+
+  if (!event) return null;
 
   // Proceder al siguiente paso
   const handleContinue = () => {
@@ -233,7 +233,7 @@ export function CustomerDetails() {
                 <Badge variant="outline">
                   {isPreregistration 
                     ? `${ticket.quantity} boleto${ticket.quantity !== 1 ? 's' : ''}`
-                    : formatCurrency(ticket.total_price, ticket.currency)
+                    : formatCurrency(ticket.total_price, ticket.currency as 'MXN' | 'USD' | 'EUR' | 'GBP' | undefined)
                   }
                 </Badge>
               </div>
@@ -245,7 +245,7 @@ export function CustomerDetails() {
               <div className="flex justify-between items-center">
                 <span className="font-medium text-gray-900">Total:</span>
                 <span className="text-xl font-bold text-green-600">
-                  {formatCurrency(totalAmount, currency)}
+                  {formatCurrency(totalAmount, currency as 'MXN' | 'USD' | 'EUR' | 'GBP' | undefined)}
                 </span>
               </div>
             </div>

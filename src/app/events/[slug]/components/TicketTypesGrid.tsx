@@ -80,10 +80,7 @@ function TicketTypeCard({ ticketType, event }: TicketTypeCardProps) {
         quantity: localQuantity,
         unit_price: ticketType.price,
         currency: ticketType.currency,
-        // TODO: Manejar días específicos si es necesario
-        selected_days: ticketType.access_type === 'all_days' 
-          ? [event.start_date, event.end_date]
-          : undefined,
+        event_id: event.id,
       });
 
       // Reset cantidad local después de añadir
@@ -161,7 +158,7 @@ function TicketTypeCard({ ticketType, event }: TicketTypeCardProps) {
           </div>
           <div className="text-right ml-4">
             <div className="text-2xl font-bold text-gray-900">
-              {formatCurrency(ticketType.price, ticketType.currency)}
+              {formatCurrency(ticketType.price, ticketType.currency as 'MXN' | 'USD' | 'EUR' | 'GBP')}
             </div>
             {ticketType.currency === 'USD' && (
               <div className="text-xs text-gray-500">USD</div>

@@ -1,10 +1,11 @@
 import { adminDb } from '@/lib/firebase/admin';
-import type { Order, Cart } from '@/types';
+// import type { Order, Cart } from '@/types'; // ← Cart no usado
+// import type { Order } from '@/types'; // Eliminado porque no existe
 
 const COLLECTION_NAME = 'orders';
 
 // ✅ Obtener órdenes pagadas por evento (usando Admin SDK)
-export async function getPaidOrdersByEventAdmin(eventId: string): Promise<Order[]> {
+export async function getPaidOrdersByEventAdmin(eventId: string): Promise<any[]> {
   try {
     const snapshot = await adminDb
       .collection(COLLECTION_NAME)
@@ -27,7 +28,7 @@ export async function getPaidOrdersByEventAdmin(eventId: string): Promise<Order[
           created_at: data.cart_snapshot.created_at?.toDate() || new Date(),
           expires_at: data.cart_snapshot.expires_at?.toDate() || new Date(),
         },
-      } as Order;
+  };
     });
   } catch (error) {
     console.error('Error fetching paid orders (Admin SDK):', error);
@@ -36,7 +37,7 @@ export async function getPaidOrdersByEventAdmin(eventId: string): Promise<Order[
 }
 
 // ✅ Obtener todas las órdenes pagadas (para estadísticas globales)
-export async function getAllPaidOrdersAdmin(): Promise<Order[]> {
+export async function getAllPaidOrdersAdmin(): Promise<any[]> {
   try {
     const snapshot = await adminDb
       .collection(COLLECTION_NAME)
@@ -58,7 +59,7 @@ export async function getAllPaidOrdersAdmin(): Promise<Order[]> {
           created_at: data.cart_snapshot.created_at?.toDate() || new Date(),
           expires_at: data.cart_snapshot.expires_at?.toDate() || new Date(),
         },
-      } as Order;
+  };
     });
   } catch (error) {
     console.error('Error fetching all paid orders (Admin SDK):', error);
@@ -78,7 +79,7 @@ export async function getEventSalesStatsAdmin(eventId: string) {
     
     orders.forEach(order => {
       totalRevenue += order.total_amount;
-      totalTickets += order.cart_snapshot.items.reduce((sum, item) => sum + item.quantity, 0);
+  totalTickets += order.cart_snapshot.items.reduce((sum: number, item: any) => sum + item.quantity, 0);
       
       // Por día
       const day = order.paid_at?.toISOString().split('T')[0] || 'unknown';
@@ -86,7 +87,7 @@ export async function getEventSalesStatsAdmin(eventId: string) {
         salesByDay[day] = { amount: 0, tickets: 0 };
       }
       salesByDay[day].amount += order.total_amount;
-      salesByDay[day].tickets += order.cart_snapshot.items.reduce((sum, item) => sum + item.quantity, 0);
+  salesByDay[day].tickets += order.cart_snapshot.items.reduce((sum: number, item: any) => sum + item.quantity, 0);
       
       // Por moneda
       salesByCurrency[order.currency] = (salesByCurrency[order.currency] || 0) + order.total_amount;

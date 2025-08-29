@@ -11,7 +11,7 @@ import {
   serverTimestamp
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/client';
-import type { Order, Cart } from '@/types';
+// import type { Order, Cart } from '@/types'; // Eliminado porque no existen
 
 const COLLECTION_NAME = 'orders';
 
@@ -19,7 +19,7 @@ const COLLECTION_NAME = 'orders';
 export async function createOrderFromCart(data: {
   user_id: string;
   event_id: string;
-  cart_snapshot: Cart;
+  cart_snapshot: any;
   payment_provider: 'paypal';
   total_amount: number;
   currency: 'MXN' | 'USD';
@@ -39,7 +39,7 @@ export async function createOrderFromCart(data: {
 }
 
 // ✅ Obtener orden por ID
-export async function getOrderById(orderId: string): Promise<Order | null> {
+export async function getOrderById(orderId: string): Promise<any | null> {
   try {
     const docRef = doc(db, COLLECTION_NAME, orderId);
     const snapshot = await getDoc(docRef);
@@ -60,7 +60,7 @@ export async function getOrderById(orderId: string): Promise<Order | null> {
         created_at: data.cart_snapshot.created_at?.toDate() || new Date(),
         expires_at: data.cart_snapshot.expires_at?.toDate() || new Date(),
       },
-    } as Order;
+  };
   } catch (error) {
     console.error('Error fetching order:', error);
     throw error;
@@ -97,7 +97,7 @@ export async function updateOrderStatus(
 }
 
 // ✅ Obtener órdenes por usuario
-export async function getOrdersByUser(userId: string): Promise<Order[]> {
+export async function getOrdersByUser(userId: string): Promise<any[]> {
   try {
     const q = query(
       collection(db, COLLECTION_NAME),
@@ -118,7 +118,7 @@ export async function getOrdersByUser(userId: string): Promise<Order[]> {
           created_at: data.cart_snapshot.created_at?.toDate() || new Date(),
           expires_at: data.cart_snapshot.expires_at?.toDate() || new Date(),
         },
-      } as Order;
+  };
     });
   } catch (error) {
     console.error('Error fetching user orders:', error);
@@ -127,7 +127,7 @@ export async function getOrdersByUser(userId: string): Promise<Order[]> {
 }
 
 // ✅ Obtener órdenes por evento
-export async function getOrdersByEvent(eventId: string): Promise<Order[]> {
+export async function getOrdersByEvent(eventId: string): Promise<any[]> {
   try {
     const q = query(
       collection(db, COLLECTION_NAME),
@@ -148,7 +148,7 @@ export async function getOrdersByEvent(eventId: string): Promise<Order[]> {
           created_at: data.cart_snapshot.created_at?.toDate() || new Date(),
           expires_at: data.cart_snapshot.expires_at?.toDate() || new Date(),
         },
-      } as Order;
+  };
     });
   } catch (error) {
     console.error('Error fetching event orders:', error);
@@ -157,7 +157,7 @@ export async function getOrdersByEvent(eventId: string): Promise<Order[]> {
 }
 
 // ✅ Obtener órdenes pagadas por evento (para reportes)
-export async function getPaidOrdersByEvent(eventId: string): Promise<Order[]> {
+export async function getPaidOrdersByEvent(eventId: string): Promise<any[]> {
   try {
     const q = query(
       collection(db, COLLECTION_NAME),
@@ -179,7 +179,7 @@ export async function getPaidOrdersByEvent(eventId: string): Promise<Order[]> {
           created_at: data.cart_snapshot.created_at?.toDate() || new Date(),
           expires_at: data.cart_snapshot.expires_at?.toDate() || new Date(),
         },
-      } as Order;
+  };
     });
   } catch (error) {
     console.error('Error fetching paid orders:', error);
@@ -188,7 +188,7 @@ export async function getPaidOrdersByEvent(eventId: string): Promise<Order[]> {
 }
 
 // ✅ Buscar orden por payment_id de PayPal
-export async function getOrderByPaymentId(paymentId: string): Promise<Order | null> {
+export async function getOrderByPaymentId(paymentId: string): Promise<any | null> {
   try {
     const q = query(
       collection(db, COLLECTION_NAME),
@@ -214,7 +214,7 @@ export async function getOrderByPaymentId(paymentId: string): Promise<Order | nu
         created_at: data.cart_snapshot.created_at?.toDate() || new Date(),
         expires_at: data.cart_snapshot.expires_at?.toDate() || new Date(),
       },
-    } as Order;
+  };
   } catch (error) {
     console.error('Error fetching order by payment ID:', error);
     throw error;
@@ -233,7 +233,7 @@ export async function getEventSalesStats(eventId: string) {
     
     orders.forEach(order => {
       totalRevenue += order.total_amount;
-      totalTickets += order.cart_snapshot.items.reduce((sum, item) => sum + item.quantity, 0);
+  totalTickets += order.cart_snapshot.items.reduce((sum: number, item: any) => sum + item.quantity, 0);
       
       // Por día
       const day = order.paid_at?.toISOString().split('T')[0] || 'unknown';
@@ -241,7 +241,7 @@ export async function getEventSalesStats(eventId: string) {
         salesByDay[day] = { amount: 0, tickets: 0 };
       }
       salesByDay[day].amount += order.total_amount;
-      salesByDay[day].tickets += order.cart_snapshot.items.reduce((sum, item) => sum + item.quantity, 0);
+  salesByDay[day].tickets += order.cart_snapshot.items.reduce((sum: number, item: any) => sum + item.quantity, 0);
       
       // Por moneda
       salesByCurrency[order.currency] = (salesByCurrency[order.currency] || 0) + order.total_amount;

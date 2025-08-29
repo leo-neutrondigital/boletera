@@ -13,12 +13,12 @@ import {
   writeBatch
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/client';
-import type { Ticket, Order } from '@/types';
+// import type { Ticket, Order } from '@/types'; // Eliminado porque Order no existe
 
 const COLLECTION_NAME = 'tickets';
 
 // ✅ Crear boletos desde orden pagada
-export async function createTicketsFromOrder(order: Order): Promise<string[]> {
+export async function createTicketsFromOrder(order: any): Promise<string[]> {
   try {
     const batch = writeBatch(db);
     const ticketIds: string[] = [];
@@ -41,7 +41,7 @@ export async function createTicketsFromOrder(order: Order): Promise<string[]> {
           email: '', // Se llenará después
         };
         
-        const ticketData: Omit<Ticket, 'id'> = {
+  const ticketData = {
           order_id: order.id,
           user_id: order.user_id,
           event_id: order.event_id,
@@ -53,7 +53,7 @@ export async function createTicketsFromOrder(order: Order): Promise<string[]> {
           attendee_company: attendeeInfo.company,
           
           // Estado inicial
-          status: 'active',
+          status: 'purchased',
           
           // QR y PDF (PDF se generará después)
           qr_code: qrCode,
@@ -83,7 +83,7 @@ export async function createTicketsFromOrder(order: Order): Promise<string[]> {
 }
 
 // ✅ Obtener boleto por ID
-export async function getTicketById(ticketId: string): Promise<Ticket | null> {
+export async function getTicketById(ticketId: string): Promise<any | null> {
   try {
     const docRef = doc(db, COLLECTION_NAME, ticketId);
     const snapshot = await getDoc(docRef);
@@ -98,7 +98,7 @@ export async function getTicketById(ticketId: string): Promise<Ticket | null> {
       ...data,
       created_at: data.created_at?.toDate() || new Date(),
       last_validated_at: data.last_validated_at?.toDate(),
-    } as Ticket;
+    };
   } catch (error) {
     console.error('Error fetching ticket:', error);
     throw error;
@@ -106,7 +106,7 @@ export async function getTicketById(ticketId: string): Promise<Ticket | null> {
 }
 
 // ✅ Obtener boletos por usuario
-export async function getTicketsByUser(userId: string): Promise<Ticket[]> {
+export async function getTicketsByUser(userId: string): Promise<any[]> {
   try {
     const q = query(
       collection(db, COLLECTION_NAME),
@@ -122,7 +122,7 @@ export async function getTicketsByUser(userId: string): Promise<Ticket[]> {
         ...data,
         created_at: data.created_at?.toDate() || new Date(),
         last_validated_at: data.last_validated_at?.toDate(),
-      } as Ticket;
+      };
     });
   } catch (error) {
     console.error('Error fetching user tickets:', error);
@@ -131,7 +131,7 @@ export async function getTicketsByUser(userId: string): Promise<Ticket[]> {
 }
 
 // ✅ Obtener boletos por evento
-export async function getTicketsByEvent(eventId: string): Promise<Ticket[]> {
+export async function getTicketsByEvent(eventId: string): Promise<any[]> {
   try {
     const q = query(
       collection(db, COLLECTION_NAME),
@@ -147,7 +147,7 @@ export async function getTicketsByEvent(eventId: string): Promise<Ticket[]> {
         ...data,
         created_at: data.created_at?.toDate() || new Date(),
         last_validated_at: data.last_validated_at?.toDate(),
-      } as Ticket;
+  };
     });
   } catch (error) {
     console.error('Error fetching event tickets:', error);
@@ -156,7 +156,7 @@ export async function getTicketsByEvent(eventId: string): Promise<Ticket[]> {
 }
 
 // ✅ Obtener boletos por orden
-export async function getTicketsByOrder(orderId: string): Promise<Ticket[]> {
+export async function getTicketsByOrder(orderId: string): Promise<any[]> {
   try {
     const q = query(
       collection(db, COLLECTION_NAME),
@@ -172,7 +172,7 @@ export async function getTicketsByOrder(orderId: string): Promise<Ticket[]> {
         ...data,
         created_at: data.created_at?.toDate() || new Date(),
         last_validated_at: data.last_validated_at?.toDate(),
-      } as Ticket;
+  };
     });
   } catch (error) {
     console.error('Error fetching order tickets:', error);
@@ -181,7 +181,7 @@ export async function getTicketsByOrder(orderId: string): Promise<Ticket[]> {
 }
 
 // ✅ Buscar boleto por código QR
-export async function getTicketByQRCode(qrCode: string): Promise<Ticket | null> {
+export async function getTicketByQRCode(qrCode: string): Promise<any | null> {
   try {
     const q = query(
       collection(db, COLLECTION_NAME),
@@ -202,7 +202,7 @@ export async function getTicketByQRCode(qrCode: string): Promise<Ticket | null> 
       ...data,
       created_at: data.created_at?.toDate() || new Date(),
       last_validated_at: data.last_validated_at?.toDate(),
-    } as Ticket;
+  };
   } catch (error) {
     console.error('Error fetching ticket by QR code:', error);
     throw error;
@@ -221,20 +221,20 @@ export async function validateTicket(
       return { success: false, message: 'Boleto no encontrado' };
     }
     
-    if (ticket.status !== 'active') {
+  if (ticket.status !== 'purchased') {
       return { success: false, message: 'Boleto no válido' };
     }
     
     // Verificar si el día está autorizado
     const validationDay = validationDate.toISOString().split('T')[0];
-    const authorizedDays = ticket.access_days.map(d => d.toISOString().split('T')[0]);
+  const authorizedDays = (ticket.access_days as any[]).map((d: any) => d.toISOString().split('T')[0]);
     
     if (authorizedDays.length > 0 && !authorizedDays.includes(validationDay)) {
       return { success: false, message: 'Boleto no válido para este día' };
     }
     
     // Verificar si ya fue usado este día
-    const usedDays = ticket.used_days.map(d => d.toISOString().split('T')[0]);
+  const usedDays = (ticket.used_days as any[]).map((d: any) => d.toISOString().split('T')[0]);
     
     if (usedDays.includes(validationDay)) {
       return { success: false, message: 'Boleto ya utilizado para este día' };
@@ -311,9 +311,9 @@ export async function getTicketStatsForEvent(eventId: string) {
     
     const stats = {
       total: tickets.length,
-      active: tickets.filter(t => t.status === 'active').length,
+  active: tickets.filter((t: any) => t.status === 'purchased').length,
       used: tickets.filter(t => t.used_days.length > 0).length,
-      cancelled: tickets.filter(t => t.status === 'cancelled').length,
+  cancelled: tickets.filter((t: any) => t.status === 'cancelled').length,
       by_type: {} as Record<string, number>,
       usage_by_day: {} as Record<string, number>,
     };
@@ -323,7 +323,7 @@ export async function getTicketStatsForEvent(eventId: string) {
       stats.by_type[ticket.ticket_type_id] = (stats.by_type[ticket.ticket_type_id] || 0) + 1;
       
       // Por día de uso
-      ticket.used_days.forEach(usedDay => {
+  (ticket.used_days as any[]).forEach((usedDay: any) => {
         const day = usedDay.toISOString().split('T')[0];
         stats.usage_by_day[day] = (stats.usage_by_day[day] || 0) + 1;
       });

@@ -46,6 +46,15 @@ export async function GET(request: NextRequest) {
       created_at: doc.data().created_at?.toDate() || new Date(),
       purchase_date: doc.data().purchase_date?.toDate() || new Date(),
       updated_at: doc.data().updated_at?.toDate() || null,
+      order_id: doc.data().order_id || undefined,
+      currency: doc.data().currency || undefined,
+      courtesy_type: doc.data().courtesy_type || undefined,
+      event_id: doc.data().event_id || undefined,
+      customer_email: doc.data().customer_email || undefined,
+      customer_name: doc.data().customer_name || undefined,
+      attendee_name: doc.data().attendee_name || undefined,
+      attendee_email: doc.data().attendee_email || undefined,
+      status: doc.data().status || undefined,
     }));
 
     // Agrupar por order_id

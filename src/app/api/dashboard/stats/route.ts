@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthFromRequest, requireRoles } from '@/lib/auth/server-auth';
 import { getAllEventsAdmin } from '@/lib/api/events-admin';
-import { getPaidOrdersByEventAdmin, getAllPaidOrdersAdmin } from '@/lib/api/orders-admin';
+import { getPaidOrdersByEventAdmin } from '@/lib/api/orders-admin';
+// import { getAllPaidOrdersAdmin } from '@/lib/api/orders-admin'; // ← Comentado: no usado
 import { getPreregistrationStatsAdmin } from '@/lib/api/preregistrations-admin';
 
 export async function GET(request: NextRequest) {
@@ -58,7 +59,7 @@ export async function GET(request: NextRequest) {
         // Contar boletos y sumar ingresos
         monthOrders.forEach(order => {
           const ticketsInOrder = order.cart_snapshot.items.reduce(
-            (sum, item) => sum + item.quantity, 
+            (sum: number, item: any) => sum + item.quantity, 
             0
           );
           totalTicketsSold += ticketsInOrder;

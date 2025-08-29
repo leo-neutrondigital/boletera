@@ -34,7 +34,7 @@ export async function GET(
 
     const { orderId } = params;
 
-    console.log(`🔍 Loading courtesy order: ${orderId}`);
+    // console.log(`🔍 Loading courtesy order: ${orderId}`);
 
     // Buscar todos los tickets de esta orden
     const ticketsSnapshot = await adminDb
@@ -64,7 +64,7 @@ export async function GET(
       used_days: doc.data().used_days?.map((day: any) => 
         day.toDate ? day.toDate() : new Date(day)
       ) || [],
-    }));
+    } as any)); // ← Type assertion para TypeScript
 
     // Obtener información del evento
     const eventId = tickets[0].event_id;
@@ -84,8 +84,8 @@ export async function GET(
       end_date: eventDoc.data()?.end_date?.toDate() || new Date(),
     };
 
-    // Obtener tipos de boletos únicos
-    const ticketTypeIds = [...new Set(tickets.map(t => t.ticket_type_id))];
+    // Obtener tipos de boletos únicos usando sintaxis compatible
+    const ticketTypeIds = Array.from(new Set(tickets.map((t: any) => t.ticket_type_id)));
     const ticketTypesPromises = ticketTypeIds.map(id => 
       adminDb.collection('ticket_types').doc(id).get()
     );
@@ -104,20 +104,21 @@ export async function GET(
         ) || [],
       }));
 
-    // Estadísticas de la orden
+    // Estadísticas de la orden usando type assertion
+    const firstTicket = tickets[0] as any;
     const orderStats = {
       total_tickets: tickets.length,
-      configured_tickets: tickets.filter(t => t.attendee_name && t.attendee_email).length,
-      pending_tickets: tickets.filter(t => !t.attendee_name || !t.attendee_email).length,
-      generated_tickets: tickets.filter(t => t.pdf_url).length,
-      total_amount: tickets.reduce((sum, t) => sum + (t.amount_paid || 0), 0),
-      courtesy_type: tickets[0].courtesy_type,
-      created_at: tickets[0].created_at,
-      customer_name: tickets[0].customer_name,
-      customer_email: tickets[0].customer_email,
+      configured_tickets: tickets.filter((t: any) => t.attendee_name && t.attendee_email).length,
+      pending_tickets: tickets.filter((t: any) => !t.attendee_name || !t.attendee_email).length,
+      generated_tickets: tickets.filter((t: any) => t.pdf_url).length,
+      total_amount: tickets.reduce((sum: number, t: any) => sum + (t.amount_paid || 0), 0),
+      courtesy_type: firstTicket.courtesy_type,
+      created_at: firstTicket.created_at,
+      customer_name: firstTicket.customer_name,
+      customer_email: firstTicket.customer_email,
     };
 
-    console.log(`✅ Found order ${orderId} with ${tickets.length} tickets`);
+    // console.log(`✅ Found order ${orderId} with ${tickets.length} tickets`);
 
     return NextResponse.json({
       success: true,
@@ -172,7 +173,7 @@ export async function DELETE(
 
     const { orderId } = params;
 
-    console.log(`🗑️ Deleting courtesy order: ${orderId}`);
+    // console.log(`🗑️ Deleting courtesy order: ${orderId}`);
 
     // Buscar todos los tickets de esta orden
     const ticketsSnapshot = await adminDb
@@ -190,21 +191,22 @@ export async function DELETE(
 
     // Crear batch para eliminar todos los tickets
     const batch = adminDb.batch();
-    const ticketsToDelete = [];
+    const ticketsToDelete: any[] = []; // ← Tipo explícito para TypeScript
 
     ticketsSnapshot.docs.forEach(doc => {
       batch.delete(doc.ref);
+      const docData = doc.data();
       ticketsToDelete.push({
         id: doc.id,
-        attendee_name: doc.data().attendee_name || 'Sin configurar',
-        ticket_type_name: doc.data().ticket_type_name
+        attendee_name: docData.attendee_name || 'Sin configurar',
+        ticket_type_name: docData.ticket_type_name
       });
     });
 
     // Ejecutar eliminación en batch
     await batch.commit();
 
-    console.log(`✅ Deleted order ${orderId} with ${ticketsToDelete.length} tickets`);
+    // console.log(`✅ Deleted order ${orderId} with ${ticketsToDelete.length} tickets`);
 
     return NextResponse.json({
       success: true,

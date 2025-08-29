@@ -1,6 +1,7 @@
 // src/app/api/payments/paypal/capture/route.ts
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase/admin";
+import { FieldValue } from "firebase-admin/firestore";
 import { getAuthFromRequest } from "@/lib/auth/server-auth";
 import { getCartById, deleteCart } from "@/lib/api/carts";
 import { v4 as uuidv4 } from 'uuid';
@@ -84,7 +85,7 @@ export async function POST(req: Request) {
     console.log("📋 Order created:", orderId);
 
     // 4. Generar boletos individuales
-    const ticketPromises = cart.items.map(async (item) => {
+  const ticketPromises = cart.items.map(async (item: any) => {
       const ticketsForItem: any[] = [];
       
       for (let i = 0; i < item.quantity; i++) {
@@ -97,7 +98,7 @@ export async function POST(req: Request) {
           // Información del asistente (inicialmente igual al comprador)
           attendee_name: user.name,
           attendee_email: user.email,
-          attendee_company: user.company || "",
+          attendee_company: (typeof user === 'object' && 'company' in user && user.company) ? user.company : "",
           
           // Estado del boleto
           status: 'active',
@@ -127,7 +128,7 @@ export async function POST(req: Request) {
     for (const item of cart.items) {
       const ticketTypeRef = adminDb.collection("ticket_types").doc(item.ticket_type_id);
       await ticketTypeRef.update({
-        sold_count: adminDb.FieldValue.increment(item.quantity)
+        sold_count: FieldValue.increment(item.quantity)
       });
     }
 

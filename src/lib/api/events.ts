@@ -40,7 +40,11 @@ interface EventUpdatePayload {
   terms_and_conditions?: string;
   contact_email?: string;
   updated_at: Timestamp;
+
 }
+
+// Exportar generateUniqueEventSlug para uso externo
+export { generateUniqueEventSlug } from "@/lib/utils/slug-generator";
 
 export async function getAllEvents(): Promise<Event[]> {
   const snapshot = await adminDb.collection("events").orderBy("start_date", "desc").get();
@@ -130,7 +134,7 @@ export async function updateEvent(id: string, data: Partial<EventData>) {
     }
   }
   
-  await adminDb.collection("events").doc(id).update(updateData);
+  await adminDb.collection("events").doc(id).update(updateData as Record<string, any>);
 }
 
 // 🆕 Función auxiliar para obtener todos los slugs existentes

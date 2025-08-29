@@ -1,17 +1,17 @@
 'use client';
 
-import { useEffect } from 'react';
+// import { useEffect } from 'react'; // ← Comentado: no usado
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, ShoppingBag, Trash2, Plus, Minus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CartProvider, useCart } from '@/contexts/CartContext';
-import { useAuthContext } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext'; // ← Corregir import
 import { formatCurrency } from '@/lib/utils/currency';
 
 function CartPageContent() {
   const router = useRouter();
-  const { user } = useAuthContext();
+  const { userData: user } = useAuth(); // ← Corregir uso de useAuth
   const { 
     items, 
     totalAmount, 

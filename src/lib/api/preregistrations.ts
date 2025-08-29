@@ -1,8 +1,7 @@
 import { 
   collection, 
-  doc, 
-  addDoc, 
-  getDoc, 
+  doc,
+  addDoc,
   getDocs, 
   updateDoc, 
   deleteDoc,
@@ -10,7 +9,6 @@ import {
   where, 
   orderBy,
   serverTimestamp,
-  Timestamp
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/client';
 import type { Preregistration } from '@/types';
@@ -72,7 +70,7 @@ export async function createPreregistration(data: {
 }
 
 // ✅ Obtener prerregistros por evento
-export async function getPreregistrationsByEvent(eventId: string): Promise<Preregistration[]> {
+export async function getPreregistrationsByEvent(eventId: string): Promise<any[]> {
   try {
     const q = query(
       collection(db, COLLECTION_NAME),
@@ -86,7 +84,7 @@ export async function getPreregistrationsByEvent(eventId: string): Promise<Prere
       ...doc.data(),
       created_at: doc.data().created_at?.toDate() || new Date(),
       converted_at: doc.data().converted_at?.toDate(),
-    } as Preregistration));
+    }));
   } catch (error) {
     console.error('Error fetching preregistrations:', error);
     throw error;
@@ -94,7 +92,7 @@ export async function getPreregistrationsByEvent(eventId: string): Promise<Prere
 }
 
 // ✅ Obtener prerregistros por usuario (solo para usuarios registrados)
-export async function getPreregistrationsByUser(userId: string): Promise<Preregistration[]> {
+export async function getPreregistrationsByUser(userId: string): Promise<any[]> {
   try {
     const q = query(
       collection(db, COLLECTION_NAME),
@@ -108,7 +106,7 @@ export async function getPreregistrationsByUser(userId: string): Promise<Preregi
       ...doc.data(),
       created_at: doc.data().created_at?.toDate() || new Date(),
       converted_at: doc.data().converted_at?.toDate(),
-    } as Preregistration));
+    }));
   } catch (error) {
     console.error('Error fetching user preregistrations:', error);
     throw error;

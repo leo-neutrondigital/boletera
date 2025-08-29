@@ -44,45 +44,45 @@ export async function GET(request: NextRequest) {
       .map(doc => ({
         id: doc.id,
         ...doc.data()
-      }))
-      .filter(ticket => {
-        // Excluir cortesías independientes (que están bien así)
-        return ticket.created_via !== 'admin_courtesy_standalone';
-      });
+      })) as Array<any>;
+    const filteredOrphanTickets = orphanTickets.filter(ticket => {
+      // Excluir cortesías independientes (que están bien así)
+      return ticket.created_via !== 'admin_courtesy_standalone';
+    });
     
     // Ordenar manualmente por purchase_date
-    orphanTickets.sort((a, b) => {
+    filteredOrphanTickets.sort((a, b) => {
       const dateA = a.purchase_date?.toDate?.() || new Date(a.purchase_date);
       const dateB = b.purchase_date?.toDate?.() || new Date(b.purchase_date);
       return dateB.getTime() - dateA.getTime(); // Más recientes primero
     });
 
-    console.log(`✅ Found ${orphanTickets.length} orphan tickets`);
+    console.log(`✅ Found ${filteredOrphanTickets.length} orphan tickets`);
     
     // Log de algunos detalles para debugging
-    if (orphanTickets.length > 0) {
+    if (filteredOrphanTickets.length > 0) {
       console.log('Sample orphan ticket:', {
-        id: orphanTickets[0].id,
-        user_id: orphanTickets[0].user_id,
-        customer_email: orphanTickets[0].customer_email,
-        order_id: orphanTickets[0].order_id,
-        has_recovery_data: !!orphanTickets[0].orphan_recovery_data
+        id: filteredOrphanTickets[0].id,
+        user_id: filteredOrphanTickets[0].user_id,
+        customer_email: filteredOrphanTickets[0].customer_email,
+        order_id: filteredOrphanTickets[0].order_id,
+        has_recovery_data: !!filteredOrphanTickets[0].orphan_recovery_data
       });
     }
 
     // Estadísticas básicas
     const stats = {
-      total: orphanTickets.length,
-      pending: orphanTickets.filter(t => t.orphan_recovery_data?.recovery_status === 'pending').length,
-      recovered: orphanTickets.filter(t => t.orphan_recovery_data?.recovery_status === 'recovered').length,
-      expired: orphanTickets.filter(t => t.orphan_recovery_data?.recovery_status === 'expired').length,
+      total: filteredOrphanTickets.length,
+      pending: filteredOrphanTickets.filter(t => t.orphan_recovery_data?.recovery_status === 'pending').length,
+      recovered: filteredOrphanTickets.filter(t => t.orphan_recovery_data?.recovery_status === 'recovered').length,
+      expired: filteredOrphanTickets.filter(t => t.orphan_recovery_data?.recovery_status === 'expired').length,
     };
 
     return NextResponse.json({
       success: true,
-      tickets: orphanTickets,
+      tickets: filteredOrphanTickets,
       stats,
-      message: `Found ${orphanTickets.length} orphan tickets`
+      message: `Found ${filteredOrphanTickets.length} orphan tickets`
     });
 
   } catch (error) {

@@ -134,7 +134,7 @@ export function TicketTypeCard({ ticketType }: TicketTypeCardProps) {
             <Badge variant="destructive">Agotado</Badge>
           </div>
           <p className="text-sm text-gray-500">
-            {formatCurrency(ticketType.price, ticketType.currency)}
+            {formatCurrency(ticketType.price, ticketType.currency as 'MXN' | 'USD' | 'EUR' | 'GBP')}
           </p>
         </CardContent>
       </Card>
@@ -157,7 +157,7 @@ export function TicketTypeCard({ ticketType }: TicketTypeCardProps) {
           </div>
           <div className="text-right ml-4">
             <div className="text-xl font-bold text-gray-900">
-              {formatCurrency(ticketType.price, ticketType.currency)}
+              {formatCurrency(ticketType.price, ticketType.currency as 'MXN' | 'USD' | 'EUR' | 'GBP')}
             </div>
             {isLowStock && (
               <Badge variant="outline" className="text-xs border-orange-300 text-orange-700">
@@ -247,7 +247,7 @@ export function TicketTypeCard({ ticketType }: TicketTypeCardProps) {
           <div className="flex justify-between items-center pt-3 border-t">
             <span className="font-medium text-gray-900">Subtotal:</span>
             <span className="text-lg font-bold text-green-600">
-              {formatCurrency(ticketType.price * quantity, ticketType.currency)}
+              {formatCurrency(ticketType.price * quantity, ticketType.currency as 'MXN' | 'USD' | 'EUR' | 'GBP')}
             </span>
           </div>
         )}

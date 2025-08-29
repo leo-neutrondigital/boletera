@@ -565,7 +565,7 @@ export async function POST(request: NextRequest) {
           event_date: formatEventDates(eventStartDate, eventEndDate),
           event_location: eventData.location,
           order_id: orderID,
-          total_amount: formatCurrency(totalAmount, tickets[0]?.currency || 'MXN'),
+          total_amount: formatCurrency(totalAmount, (tickets[0]?.currency as 'MXN' | 'USD' | 'EUR' | 'GBP' | undefined) || 'MXN'),
           tickets_count: ticketsCount,
           app_url: process.env.NEXT_PUBLIC_APP_URL!
         };
@@ -587,7 +587,7 @@ export async function POST(request: NextRequest) {
           event_date: formatEventDates(eventStartDate, eventEndDate),
           event_location: eventData.location,
           order_id: orderID,
-          total_amount: formatCurrency(totalAmount, tickets[0]?.currency || 'MXN'),
+          total_amount: formatCurrency(totalAmount, (tickets[0]?.currency as 'MXN' | 'USD' | 'EUR' | 'GBP' | undefined) || 'MXN'),
           tickets_count: ticketsCount,
           account_created: !!customToken && !accountCreationFailed,
           app_url: process.env.NEXT_PUBLIC_APP_URL!

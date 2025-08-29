@@ -101,8 +101,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+
     const eventData = eventDoc.data();
+    if (!eventData) {
+      return NextResponse.json(
+        { error: 'Event data not found' },
+        { status: 404 }
+      );
+    }
     const ticketTypeData = ticketTypeDoc.data();
+    if (!ticketTypeData) {
+      return NextResponse.json(
+        { error: 'Ticket type data not found' },
+        { status: 404 }
+      );
+    }
 
     // 🆕 Status unificado - siempre 'purchased' para usar flujo normal
     const ticketStatus = 'purchased';
@@ -141,7 +154,7 @@ export async function POST(request: NextRequest) {
       // Calcular días autorizados basado en el tipo de boleto
       let authorizedDays: Date[] = [];
       
-      if (ticketTypeData.access_type === 'all_days') {
+  if (ticketTypeData && ticketTypeData.access_type === 'all_days') {
         // Generar todos los días entre start_date y end_date
         const startDate = eventData.start_date.toDate();
         const endDate = eventData.end_date.toDate();
@@ -149,9 +162,9 @@ export async function POST(request: NextRequest) {
         for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
           authorizedDays.push(new Date(d));
         }
-      } else if (ticketTypeData.access_type === 'specific_days' && ticketTypeData.available_days) {
-        authorizedDays = ticketTypeData.available_days.map((day: any) => day.toDate());
-      } else {
+  } else if (ticketTypeData && ticketTypeData.access_type === 'specific_days' && ticketTypeData.available_days) {
+  authorizedDays = ticketTypeData.available_days.map((day: any) => day.toDate());
+  } else {
         // 'any_single_day' - usuario elegirá en el evento
         authorizedDays = [eventData.start_date.toDate()];
       }
@@ -160,29 +173,29 @@ export async function POST(request: NextRequest) {
         // Información básica
         event_id: eventId,
         ticket_type_id: ticketTypeId,
-        ticket_type_name: ticketTypeData.name,
-        
+        ticket_type_name: ticketTypeData?.name || '',
+
         // 🆕 Estado principal (ya no usar 'courtesy')
         status: ticketStatus, // 'generated' o 'purchased'
         is_courtesy: true, // Identificador de cortesía
         courtesy_type: courtesyType,
         courtesy_notes: notes || null,
-        
+
         // 🆕 Información del asistente (VACÍO para que el usuario configure)
         attendee_name: '', // 🚫 VACÍO - usuario debe llenar
         attendee_email: '', // 🚫 VACÍO - usuario debe llenar
         attendee_phone: '', // 🚫 VACÍO - usuario debe llenar
-        
+
         // 🆕 Información de compra/orden (datos del solicitante)
         customer_name: attendeeName, // Quien solicita la cortesía
         customer_email: attendeeEmail, // Email del solicitante
         customer_phone: attendeePhone || null, // Teléfono del solicitante
         amount_paid: 0, // Cortesía = gratis
-        currency: ticketTypeData.currency || 'MXN',
-        
+        currency: ticketTypeData?.currency || 'MXN',
+
         // Información de usuario
         user_id: existingUserId, // 🆕 Vincular inmediatamente si usuario existe
-        
+
         // 🆕 Datos para autovinculación (solo si autoLink está habilitado Y no encontramos usuario existente)
         ...(autoLink && !existingUserId && {
           orphan_recovery_data: {
@@ -194,15 +207,15 @@ export async function POST(request: NextRequest) {
             created_at: FieldValue.serverTimestamp()
           }
         }),
-        
+
         // Días y uso
         authorized_days: authorizedDays,
         used_days: [],
-        
+
         // QR y PDF
         qr_id: qrId,
         pdf_url: null, // Se generará después
-        
+
         // Metadatos
         created_at: FieldValue.serverTimestamp(),
         updated_at: FieldValue.serverTimestamp(),
@@ -210,11 +223,11 @@ export async function POST(request: NextRequest) {
         created_via: autoLink ? 
           (existingUserId ? 'admin_courtesy_linked_immediate' : 'admin_courtesy_linked') : 
           'admin_courtesy_standalone',
-        
+
         // 🆕 Orden compartida para todo el lote
         order_id: orderId,
         purchase_date: FieldValue.serverTimestamp(),
-        
+
         // Campos adicionales para compatibilidad
         special_requirements: notes || null,
       };
@@ -269,8 +282,8 @@ export async function POST(request: NextRequest) {
         created: quantity,
         courtesyType,
         totalValue: 0, // Cortesías son gratis
-        event: eventData.name,
-        ticketType: ticketTypeData.name,
+        event: eventData?.name || '',
+        ticketType: ticketTypeData?.name || '',
         orderId: orderId // 🆕 ID de orden en stats también
       }
     });
@@ -324,7 +337,7 @@ export async function GET(request: NextRequest) {
     const courtesyTickets = courtesyTicketsSnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
-    }));
+    })) as Array<any>;
 
     // Ordenar manualmente por created_at si es necesario
     courtesyTickets.sort((a, b) => {

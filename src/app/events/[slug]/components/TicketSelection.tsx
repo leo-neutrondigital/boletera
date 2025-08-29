@@ -160,7 +160,7 @@ export function TicketSelection() {
                 <div className="text-2xl font-bold text-green-800">
                   {method === 'preregister' 
                     ? `${totalItems} boleto${totalItems !== 1 ? 's' : ''}`
-                    : formatCurrency(totalAmount, currency)
+                    : formatCurrency(totalAmount, currency as 'MXN' | 'USD' | 'EUR' | 'GBP')
                   }
                 </div>
               </div>

@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { getAuthFromRequest } from "@/lib/auth/server-auth";
-import type { TicketType } from "@/types";
+// import type { TicketType } from "@/types"; // ← Comentado: no usado
 
 // GET: Obtener tipos de boletos (con filtro opcional por evento)
 export async function GET(req: NextRequest) {
@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const eventId = searchParams.get('eventId');
     
-    let query = adminDb.collection("ticket_types");
+  let query: FirebaseFirestore.Query<FirebaseFirestore.DocumentData> = adminDb.collection("ticket_types");
     
     // Filtrar por evento si se proporciona
     if (eventId) {

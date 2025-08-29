@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useAuthContext } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { createPreregistration, isUserPreregistered } from '@/lib/api/preregistrations';
 import type { Event } from '@/types';
 
@@ -16,7 +16,7 @@ interface PreregisterSectionProps {
 }
 
 export function PreregisterSection({ event }: PreregisterSectionProps) {
-  const { user } = useAuthContext();
+  const { user } = useAuth();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -137,8 +137,8 @@ export function PreregisterSection({ event }: PreregisterSectionProps) {
               <p className="text-sm text-gray-600 mb-2">
                 Te has identificado como:
               </p>
-              <p className="font-medium text-gray-900">{user.name}</p>
-              <p className="text-sm text-gray-600">{user.email}</p>
+              <p className="font-medium text-gray-900">{String((user && (user as any).name) || (user && (user as any).email) || '')}</p>
+              <p className="text-sm text-gray-600">{user?.email || ''}</p>
             </div>
 
             {error && (

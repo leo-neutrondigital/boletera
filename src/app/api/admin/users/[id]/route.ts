@@ -38,7 +38,7 @@ export async function PUT(
     // Validar roles si se proporcionan
     if (body.roles) {
       const validRoles = ['admin', 'gestor', 'comprobador', 'usuario'];
-      if (!Array.isArray(body.roles) || !body.roles.every(role => validRoles.includes(role))) {
+  if (!Array.isArray(body.roles) || !body.roles.every((role: string) => validRoles.includes(role))) {
         return NextResponse.json({ 
           error: `Roles inválidos. Debe ser uno de: ${validRoles.join(', ')}` 
         }, { status: 400 });
