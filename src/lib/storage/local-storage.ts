@@ -41,7 +41,7 @@ export class LocalStorageService {
       
     } catch (error) {
       console.error('❌ Error saving PDF locally:', error);
-      throw new Error(`Failed to save PDF to local storage: ${error.message}`);
+      throw new Error(`Failed to save PDF to local storage: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -134,7 +134,7 @@ Header always set X-Content-Type-Options "nosniff"
     } catch (error) {
       return {
         success: false,
-        message: `Local storage configuration error: ${error.message}`
+        message: `Local storage configuration error: ${error instanceof Error ? error.message : 'Unknown error'}`
       };
     }
   }

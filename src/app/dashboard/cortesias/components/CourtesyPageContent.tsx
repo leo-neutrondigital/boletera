@@ -62,7 +62,6 @@ export function CourtesyPageContent() {
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const {
     ticketTypes: rawTicketTypes,
-    loading: loadingTicketTypes,
     loadTicketTypes
   } = useTicketTypes(); // No argumento
 
@@ -94,7 +93,7 @@ export function CourtesyPageContent() {
     console.log('🚀 Initial load: loading courtesy orders and events...');
     loadCourtesyOrders();
     loadEvents();
-  }, []);
+  }, [loadCourtesyOrders, loadEvents]);
 
   // 🆕 Función para cargar tipos de boletos cuando se selecciona un evento
   const handleEventChange = (eventId: string) => {
@@ -106,7 +105,7 @@ export function CourtesyPageContent() {
     if (selectedEventId) {
       loadTicketTypes();
     }
-  }, [selectedEventId]);
+  }, [selectedEventId, loadTicketTypes]);
 
   // 🆕 Crear cortesy (invalidar cache después)
   const createCourtesyTickets = async (formData: any) => {
@@ -148,35 +147,6 @@ export function CourtesyPageContent() {
       throw error;
     } finally {
       setCreating(false);
-    }
-  };
-
-  // Eliminar cortesía
-  const deleteCourtesyTicket = async (ticketId: string) => {
-    try {
-      const currentUser = auth.currentUser;
-      if (!currentUser) return;
-      
-      const token = await currentUser.getIdToken();
-      
-      const response = await fetch(`/api/tickets/${ticketId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        }
-      });
-
-      if (response.ok) {
-        // 🆕 Recargar sin alert - usar toast en el lugar donde se llame
-        await loadCourtesyOrders(); // 🆕 Cambio de nombre
-        return true; // Indicar éxito
-      } else {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Error al eliminar cortesía');
-      }
-    } catch (error) {
-      console.error('Error deleting courtesy ticket:', error);
-      throw error;
     }
   };
 

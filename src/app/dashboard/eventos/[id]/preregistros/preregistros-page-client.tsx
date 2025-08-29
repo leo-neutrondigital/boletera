@@ -24,17 +24,6 @@ interface PreregistrosPageClientProps {
   eventId: string;
 }
 
-interface PreregistroStats {
-  total: number;
-  activos: number;
-  nuevo: number;
-  contactado: number;
-  interesado: number;
-  no_interesado: number;
-  convertido: number;
-  conversion_rate: number;
-}
-
 const statusColors = {
   nuevo: 'bg-green-100 text-green-800 border-green-300',
   contactado: 'bg-yellow-100 text-yellow-800 border-yellow-300',
@@ -53,7 +42,7 @@ const statusLabels = {
 
 export function PreregistrosPageClient({ eventId }: PreregistrosPageClientProps) {
   const { setPreregistrosActions } = useSalesPage();
-  const { user, userData } = useAuth();
+  const { userData } = useAuth();
   const { toast } = useToast();
   
   // 🆕 Hook con cache especializado

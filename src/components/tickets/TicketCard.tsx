@@ -150,10 +150,6 @@ export function TicketCard({
     }
   };
 
-  const formatDate = (date: Date) => {
-    return format(date, "d 'de' MMMM, yyyy", { locale: es });
-  };
-
   const formatDateTime = (date: Date) => {
     return format(date, "d 'de' MMMM, yyyy 'a las' HH:mm", { locale: es });
   };

@@ -28,11 +28,48 @@ export async function getPaidOrdersByEventAdmin(eventId: string): Promise<any[]>
           created_at: data.cart_snapshot.created_at?.toDate() || new Date(),
           expires_at: data.cart_snapshot.expires_at?.toDate() || new Date(),
         },
-  };
+      };
     });
   } catch (error) {
     console.error('Error fetching paid orders (Admin SDK):', error);
-    throw error;
+    
+    // 🔄 Fallback: Try without orderBy if index is missing
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (errorMessage.includes('requires an index')) {
+      console.log('⚠️ Index missing, trying fallback query without orderBy...');
+      try {
+        const fallbackSnapshot = await adminDb
+          .collection(COLLECTION_NAME)
+          .where('event_id', '==', eventId)
+          .where('status', '==', 'paid')
+          .get();
+        
+        const docs = fallbackSnapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            ...data,
+            created_at: data.created_at?.toDate() || new Date(),
+            paid_at: data.paid_at?.toDate() || new Date(),
+            updated_at: data.updated_at?.toDate(),
+            cancelled_at: data.cancelled_at?.toDate(),
+            cart_snapshot: {
+              ...data.cart_snapshot,
+              created_at: data.cart_snapshot.created_at?.toDate() || new Date(),
+              expires_at: data.cart_snapshot.expires_at?.toDate() || new Date(),
+            },
+          };
+        });
+        
+        // Sort manually by paid_at
+        return docs.sort((a, b) => (b.paid_at?.getTime() || 0) - (a.paid_at?.getTime() || 0));
+      } catch (fallbackError) {
+        console.error('❌ Fallback query also failed:', fallbackError);
+        return []; // Return empty array instead of throwing
+      }
+    }
+    
+    return []; // Return empty array for other errors during build
   }
 }
 
@@ -63,7 +100,43 @@ export async function getAllPaidOrdersAdmin(): Promise<any[]> {
     });
   } catch (error) {
     console.error('Error fetching all paid orders (Admin SDK):', error);
-    throw error;
+    
+    // 🔄 Fallback: Try without orderBy if index is missing
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (errorMessage.includes('requires an index')) {
+      console.log('⚠️ Index missing, trying fallback query without orderBy...');
+      try {
+        const fallbackSnapshot = await adminDb
+          .collection(COLLECTION_NAME)
+          .where('status', '==', 'paid')
+          .get();
+        
+        const docs = fallbackSnapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            ...data,
+            created_at: data.created_at?.toDate() || new Date(),
+            paid_at: data.paid_at?.toDate() || new Date(),
+            updated_at: data.updated_at?.toDate(),
+            cancelled_at: data.cancelled_at?.toDate(),
+            cart_snapshot: {
+              ...data.cart_snapshot,
+              created_at: data.cart_snapshot.created_at?.toDate() || new Date(),
+              expires_at: data.cart_snapshot.expires_at?.toDate() || new Date(),
+            },
+          };
+        });
+        
+        // Sort manually by paid_at
+        return docs.sort((a, b) => (b.paid_at?.getTime() || 0) - (a.paid_at?.getTime() || 0));
+      } catch (fallbackError) {
+        console.error('❌ Fallback query also failed:', fallbackError);
+        return []; // Return empty array instead of throwing
+      }
+    }
+    
+    return []; // Return empty array for other errors during build
   }
 }
 

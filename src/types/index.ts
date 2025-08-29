@@ -297,4 +297,23 @@ export interface CartItem {
   currency: string;
 }
 
+export interface Cart {
+  id: string;
+  user_id: string;
+  event_id: string;
+  items: CartItem[];
+  total_amount: number;
+  currency: string;
+  created_at: Date;
+  expires_at: Date;
+  status?: 'active' | 'expired' | 'completed';
+}
+
 export type SessionCart = CartItem[];
+
+// 🆕 Tipo para información de fechas de eventos
+export interface EventDateInfo {
+  isMultiDay: boolean;
+  duration: number;
+  dateRange: string;
+}

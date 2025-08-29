@@ -5,7 +5,6 @@ import { TicketTypesList } from "@/components/dashboard/TicketTypesList";
 import { TicketTypeFormDialog } from "@/components/dashboard/TicketTypeFormDialog";
 import { useSalesPage } from "@/contexts/SalesPageContext";
 import { useTicketTypes } from "@/hooks/use-ticket-types";
-import { getEventDateInfo } from "@/lib/utils/event-dates";
 import { useState, useEffect } from "react";
 import type { Event, TicketType } from "@/types";
 
@@ -26,8 +25,6 @@ export function TicketTypesPageClient({ event, initialTicketTypes }: TicketTypes
     updateTicketTypeLocally,
     addTicketTypeLocally,
   } = useTicketTypes(event.id, initialTicketTypes);
-
-  const eventDateInfo = getEventDateInfo(event);
 
   const handleTicketTypeSuccess = (ticketType?: TicketType) => {
     if (ticketType) {

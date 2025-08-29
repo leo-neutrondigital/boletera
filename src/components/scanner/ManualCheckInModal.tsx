@@ -22,7 +22,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { authenticatedPost } from '@/lib/utils/api';
-import { formatCurrency } from '@/lib/utils/currency';
+import { formatCurrency, Currency } from '@/lib/utils/currency';
 // 🆕 Importar invalidación de cache
 import { useDataCache } from '@/contexts/DataCacheContext';
 
@@ -42,7 +42,7 @@ interface AttendeeTicket {
   can_undo_until?: string;
   qr_id?: string;
   amount_paid: number;
-  currency: string;
+  currency: Currency;
 }
 
 interface ManualCheckInModalProps {

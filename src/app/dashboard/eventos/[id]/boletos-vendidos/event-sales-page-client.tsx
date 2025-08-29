@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { useAuth } from "@/contexts/AuthContext";
 import { useSoldTickets } from "@/hooks/use-sold-tickets";
 import { useCourtesyTickets } from "@/hooks/use-courtesy-tickets"; // 🆕 Hook unificado
 import {
@@ -29,92 +28,11 @@ import { useSalesPage } from "@/contexts/SalesPageContext";
 import { formatCurrency } from "@/lib/utils/currency";
 import type { Event } from "@/types";
 
-// Tipos específicos para esta página
-interface SalesStats {
-  total_revenue: number;
-  total_tickets: number;
-  configured_tickets: number;
-  pending_tickets: number;
-  used_tickets: number;
-  avg_order_value: number;
-  total_orders: number;
-  currency: string;
-  by_ticket_type: Record<string, {
-    sold: number;
-    revenue: number;
-    avg_price: number;
-  }>;
-}
-
-interface CourtesyStats {
-  total_courtesy_tickets: number;
-  configured_courtesy: number;
-  pending_courtesy: number;
-  by_courtesy_type: Record<string, number>;
-}
-
-interface PaginationInfo {
-  currentPage: number;
-  totalPages: number;
-  totalItems: number;
-  itemsPerPage: number;
-  hasNextPage: boolean;
-  hasPrevPage: boolean;
-}
-
-interface EventSalesData {
-  // Datos de ventas
-  sales: {
-    orders: Array<{
-      id: string;
-      customer_name: string;
-      customer_email: string;
-      total_tickets: number;
-      configured_tickets: number;
-      pending_tickets: number;
-      used_tickets: number;
-      total_amount: number;
-      currency: string;
-      created_at: Date;
-      tickets: Array<{
-        id: string;
-        ticket_type_name: string;
-        attendee_name?: string;
-        status: string;
-      }>;
-    }>;
-    stats: SalesStats;
-    pagination: PaginationInfo;
-  };
-  
-  // Datos de cortesías (resumen)
-  courtesies: {
-    orders: Array<{
-      id: string;
-      customer_name: string;
-      customer_email: string;
-      total_tickets: number;
-      configured_tickets: number;
-      pending_tickets: number;
-      courtesy_type: string;
-      created_at: Date;
-      tickets: Array<{
-        id: string;
-        ticket_type_name: string;
-        attendee_name?: string;
-      }>;
-    }>;
-    stats: CourtesyStats;
-    pagination: PaginationInfo;
-  };
-}
-
 interface EventSalesPageClientProps {
   event: Event;
 }
 
 export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
-  const { user } = useAuth();
   const { toast } = useToast();
   const { setSalesActions } = useSalesPage();
   

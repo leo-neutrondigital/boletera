@@ -35,7 +35,7 @@ export function DeleteOrderDialog({
       setIsDeleting(true);
       await onConfirm();
       onClose();
-    } catch (error) {
+    } catch {
       // Error será manejado por el parent con toast
     } finally {
       setIsDeleting(false);

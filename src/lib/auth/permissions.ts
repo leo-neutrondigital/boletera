@@ -67,7 +67,7 @@ export function hasPermission(
   const resourcePermissions = PERMISSIONS_MATRIX[resource];
   if (!resourcePermissions) return false;
 
-  const allowedRoles = resourcePermissions[action as keyof typeof resourcePermissions];
+  const allowedRoles = (resourcePermissions as Record<string, UserRole[]>)[action];
   if (!allowedRoles) return false;
 
   return userRoles.some(role => allowedRoles.includes(role));

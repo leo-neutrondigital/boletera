@@ -22,7 +22,6 @@ export function PaymentStep() {
   const { 
     event, 
     method,
-    currentStep,
     selectedTickets, 
     customerData, 
     totalAmount,

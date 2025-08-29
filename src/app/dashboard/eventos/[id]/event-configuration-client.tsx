@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Calendar, MapPin, Save, Eye, EyeOff, Trash2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -31,7 +31,6 @@ export function EventConfigurationClient({ event: initialEvent }: EventConfigura
   const [internalNotes, setInternalNotes] = useState(event.internal_notes || "");
   const [savingNotes, setSavingNotes] = useState(false);
   const [updating, setUpdating] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
 
   const eventDateInfo = getEventDateInfo(event);
@@ -52,7 +51,7 @@ export function EventConfigurationClient({ event: initialEvent }: EventConfigura
       } else {
         throw new Error("Error al guardar notas");
       }
-    } catch (error) {
+    } catch {
       toast({
         variant: "destructive",
         title: "Error al guardar notas",
@@ -64,7 +63,7 @@ export function EventConfigurationClient({ event: initialEvent }: EventConfigura
   };
 
   // Cambiar estado de publicación
-  const handleTogglePublished = async () => {
+  const handleTogglePublished = useCallback(async () => {
     setUpdating(true);
     try {
       const newPublished = !event.published;
@@ -85,7 +84,7 @@ export function EventConfigurationClient({ event: initialEvent }: EventConfigura
       } else {
         throw new Error("Error al cambiar estado");
       }
-    } catch (error) {
+    } catch {
       toast({
         variant: "destructive",
         title: "Error",
@@ -94,11 +93,10 @@ export function EventConfigurationClient({ event: initialEvent }: EventConfigura
     } finally {
       setUpdating(false);
     }
-  };
+  }, [event, toast]);
 
   // Eliminar evento
   const handleDelete = async () => {
-    setDeleting(true);
     try {
       const response = await fetch(`/api/admin/events/${event.id}`, {
         method: "DELETE",
@@ -117,8 +115,6 @@ export function EventConfigurationClient({ event: initialEvent }: EventConfigura
         title: "Error al eliminar evento",
         description: error instanceof Error ? error.message : "Error desconocido",
       });
-    } finally {
-      setDeleting(false);
     }
   };
 
@@ -139,7 +135,7 @@ export function EventConfigurationClient({ event: initialEvent }: EventConfigura
 
     // Cleanup: quitar acciones cuando el componente se desmonta
     return () => setConfigActions(null);
-  }, [updating, setConfigActions]);
+  }, [updating, setConfigActions, handleTogglePublished]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">

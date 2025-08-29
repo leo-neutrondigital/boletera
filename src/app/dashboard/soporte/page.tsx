@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { useOrphanTickets } from '@/hooks/use-orphan-tickets'; // 🆕 Hook con cache
-import { PageHeader } from '@/components/shared/PageHeader'; // 🆕 Header consistente
 import { 
   Card, 
   CardContent, 
@@ -22,10 +21,6 @@ import {
   AlertTriangle,
   Ticket,
   Clock,
-  ArrowLeft,
-  X,
-  Download,
-  Trash2,
   CheckCircle,
   ShieldAlert,
   DollarSign,
@@ -38,32 +33,6 @@ import {
 } from 'lucide-react';
 
 // Tipos
-interface OrphanTicket {
-  id: string;
-  user_id: null;
-  customer_email: string;
-  customer_name: string;
-  customer_phone: string;
-  order_id: string;
-  ticket_type_name: string;
-  amount_paid: number;
-  currency: string;
-  event_id: string;
-  authorized_days: Date[];
-  orphan_recovery_data: {
-    recovery_status: 'pending' | 'recovered' | 'expired';
-    customer_email: string;
-    customer_name: string;
-    customer_phone: string;
-    order_id: string;
-    failure_timestamp: Date;
-    account_requested: boolean;
-    password_provided: boolean;
-  };
-  purchase_date: Date;
-  qr_id: string;
-}
-
 interface UserOption {
   id: string;
   email: string;
@@ -71,7 +40,7 @@ interface UserOption {
 }
 
 function SoportePageContent() {
-  const { user, userData } = useAuth();
+  const { userData } = useAuth();
   const { 
     orphanTickets, 
     loading, 
@@ -515,7 +484,7 @@ function SoportePageContent() {
                   <ol className="text-gray-600 space-y-1 list-decimal list-inside">
                     <li>Buscar usuario por email en el campo de búsqueda</li>
                     <li>Seleccionar el usuario correcto de la lista</li>
-                    <li>Hacer clic en "Vincular Boleto"</li>
+                    <li>Hacer clic en &quot;Vincular Boleto&quot;</li>
                     <li>El boleto desaparecerá de esta lista</li>
                   </ol>
                   

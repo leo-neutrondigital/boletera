@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { CheckCircle, Loader2, AlertCircle, ArrowRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,7 +24,7 @@ interface PaymentResult {
   };
 }
 
-export default function PaymentSuccessPage() {
+function PaymentSuccessForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
@@ -392,5 +392,25 @@ export default function PaymentSuccessPage() {
 
       </div>
     </div>
+  );
+}
+
+export default function PaymentSuccessPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center p-4">
+        <Card className="w-full max-w-2xl shadow-xl">
+          <CardContent className="p-8 text-center space-y-6">
+            <div className="w-16 h-16 bg-gradient-to-r from-green-600 to-emerald-600 rounded-full flex items-center justify-center mx-auto">
+              <Loader2 className="h-8 w-8 text-white animate-spin" />
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900">Cargando...</h1>
+            <p className="text-gray-600">Preparando la información de pago</p>
+          </CardContent>
+        </Card>
+      </div>
+    }>
+      <PaymentSuccessForm />
+    </Suspense>
   );
 }

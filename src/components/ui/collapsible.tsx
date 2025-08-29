@@ -27,10 +27,10 @@ const Collapsible = ({ open = false, onOpenChange, children }: CollapsibleProps)
       {React.Children.map(children, (child) => {
         if (React.isValidElement(child)) {
           if (child.type === CollapsibleTrigger) {
-            return React.cloneElement(child, { onClick: handleToggle })
+            return React.cloneElement(child as React.ReactElement<CollapsibleTriggerProps>, { onClick: handleToggle })
           }
           if (child.type === CollapsibleContent) {
-            return React.cloneElement(child, { isOpen })
+            return React.cloneElement(child as React.ReactElement<CollapsibleContentProps>, { isOpen })
           }
         }
         return child
@@ -47,7 +47,7 @@ interface CollapsibleTriggerProps extends React.ButtonHTMLAttributes<HTMLButtonE
 const CollapsibleTrigger = React.forwardRef<HTMLButtonElement, CollapsibleTriggerProps>(
   ({ children, asChild = false, onClick, ...props }, ref) => {
     if (asChild && React.isValidElement(children)) {
-      return React.cloneElement(children, {
+      return React.cloneElement(children as React.ReactElement<any>, {
         ...props,
         ref,
         onClick: (e: React.MouseEvent<HTMLButtonElement>) => {

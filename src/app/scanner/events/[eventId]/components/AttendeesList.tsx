@@ -99,8 +99,6 @@ export function AttendeesList({
 
   // 🆕 Calcular estadísticas del día actual
   const todayStats = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0];
-    
     const todayCheckedIn = attendees.filter(attendee => {
       const status = getTodayCheckInStatus(attendee);
       return status === 'checked_in';

@@ -4,7 +4,7 @@
 import { useState, useCallback } from 'react'
 import { auth } from '@/lib/firebase/client'
 import { useToast } from '@/hooks/use-toast'
-import type { Event, Order } from '@/types'
+import type { Event, OrderSummary } from '@/types'
 
 interface DashboardStats {
   totalEvents: number;
@@ -12,7 +12,7 @@ interface DashboardStats {
   totalRevenue: number;
   totalPreregistrations: number;
   recentEvents: Event[];
-  recentOrders: Order[];
+  recentOrders: OrderSummary[];
 }
 
 export function useDashboardStats(initialStats: DashboardStats) {

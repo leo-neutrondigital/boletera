@@ -220,7 +220,7 @@ export default function DashboardPageClient({ initialStats }: DashboardPageClien
             <CardContent>
               {stats.recentOrders.length > 0 ? (
                 <div className="space-y-4">
-                  {stats.recentOrders.slice(0, 5).map((order, index) => (
+                  {stats.recentOrders.slice(0, 5).map((order) => (
                     <div key={order.id} className="flex items-center justify-between p-3 border rounded-lg">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
@@ -231,16 +231,16 @@ export default function DashboardPageClient({ initialStats }: DashboardPageClien
                             Venta realizada
                           </p>
                           <p className="text-xs text-gray-500">
-                            {order.cart_snapshot.items.reduce((sum: number, item: { quantity: number }) => sum + item.quantity, 0)} boletos vendidos
+                            {order.ticketCount} boletos vendidos
                           </p>
                         </div>
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-medium text-gray-900">
-                          {formatCurrency(order.total_amount)}
+                          {formatCurrency(order.totalAmount)}
                         </p>
                         <p className="text-xs text-gray-500">
-                          {formatDate(order.paid_at || order.created_at)}
+                          {formatDate(order.createdAt)}
                         </p>
                       </div>
                     </div>

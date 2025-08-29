@@ -22,7 +22,7 @@ import { auth } from "@/lib/firebase/client";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import type { Event } from "@/types";
-import { Calendar, Clock, Globe, Bell, Mail, Image, FileText, AlertCircle } from "lucide-react";
+import { Calendar, Clock, Globe, Bell, Mail, Image as ImageIcon, FileText, AlertCircle } from "lucide-react";
 
 const eventSchema = z.object({
   name: z.string().min(1, "Nombre requerido"),
@@ -215,17 +215,6 @@ export function EventFormDialog({
         description: err?.message || "No se pudo guardar el evento",
       });
     }
-  };
-
-  const validateImageUrl = async (url: string) => {
-    if (!url) return true;
-    
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => resolve(true);
-      img.onerror = () => resolve(false);
-      img.src = url;
-    });
   };
 
   const isMultiDay = watchStartDate && watchEndDate && watchStartDate !== watchEndDate;
@@ -430,7 +419,7 @@ export function EventFormDialog({
 
               <div>
                 <Label className="flex items-center gap-2">
-                  <Image className="w-4 h-4" />
+                  <ImageIcon className="w-4 h-4" />
                   Imagen destacada (URL)
                 </Label>
                 <Input 

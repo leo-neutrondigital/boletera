@@ -62,10 +62,10 @@ async function generateQRCode(ticket: Ticket): Promise<Buffer> {
 }
 
 async function designTicketPDF(pdf: jsPDF, ticket: Ticket, qrCodeBuffer: Buffer) {
-  // Configuración de colores
-  const primaryColor = [102, 126, 234]; // #667eea
-  const grayColor = [100, 116, 139];    // #64748b
-  const darkColor = [30, 41, 59];       // #1e293b
+  // Configuración de colores como tuplas constantes
+  const primaryColor = [102, 126, 234] as const; // #667eea
+  const grayColor = [100, 116, 139] as const;    // #64748b
+  const darkColor = [30, 41, 59] as const;       // #1e293b
   
   // Header con gradiente simulado
   pdf.setFillColor(...primaryColor);
@@ -138,7 +138,7 @@ async function designTicketPDF(pdf: jsPDF, ticket: Ticket, qrCodeBuffer: Buffer)
   pdf.setFontSize(12);
   pdf.setFont('helvetica', 'normal');
   pdf.setTextColor(...darkColor);
-  pdf.text(formatCurrency(ticket.amount_paid, ticket.currency), 110, yPos + 8);
+  pdf.text(formatCurrency(ticket.amount_paid, (ticket.currency || 'MXN') as 'MXN' | 'USD' | 'EUR' | 'GBP'), 110, yPos + 8);
   
   yPos += 25;
   
@@ -165,7 +165,7 @@ async function designTicketPDF(pdf: jsPDF, ticket: Ticket, qrCodeBuffer: Buffer)
   pdf.setDrawColor(...grayColor);
   pdf.setLineDashPattern([2, 2], 0);
   pdf.line(20, yPos, 190, yPos);
-  pdf.setLineDashPattern([]);
+  pdf.setLineDashPattern([], 0);
   
   yPos += 20;
   

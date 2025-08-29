@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
 import { auth } from '@/lib/firebase/client';
+import { Currency } from '@/lib/utils/currency';
 
 // Tipos para el cache
 interface CourtesyOrder {
@@ -94,7 +95,7 @@ interface AttendeeTicket {
   can_undo_until?: string;
   qr_id?: string;
   amount_paid: number;
-  currency: string;
+  currency: Currency;
 }
 
 interface EventData {
@@ -338,7 +339,7 @@ export function DataCacheProvider({ children }: { children: React.ReactNode }) {
       console.log(inBackground ? '🔄 Background loading users' : '📥 Loading users');
       
       // 🆕 Usar Firestore directamente en lugar de API REST
-      const { collection, onSnapshot, orderBy, query } = await import('firebase/firestore');
+      const { collection, orderBy, query } = await import('firebase/firestore');
       const { db } = await import('@/lib/firebase/client');
       
       const q = query(
@@ -787,6 +788,7 @@ export function useCachedUsers() {
     }
   };
   
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const addUser = (user: User) => {
     // Invalidar cache para recargar con el nuevo usuario
     invalidateCache(['users']);
@@ -924,10 +926,10 @@ export function useEventSales(eventId: string) {
   const { user } = useAuth();
   const [salesData, setSalesData] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState(null);
+  const [lastUpdated, setLastUpdated] = useState<number | null>(null);
   
   const loadEventSales = useCallback(async (force = false) => {
-    if (!user || (!force && salesData && Date.now() - lastUpdated < CACHE_DURATION)) {
+    if (!user || (!force && salesData && lastUpdated && Date.now() - lastUpdated < CACHE_DURATION)) {
       return;
     }
     

@@ -32,7 +32,7 @@ export function GroupedCourtesyCard({
   eventDate, 
   eventLocation,
   customerName,
-  customerEmail,
+ // customerEmail,
   orders,
   onViewOrder, 
   onDeleteOrder 
