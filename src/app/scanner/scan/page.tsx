@@ -133,7 +133,7 @@ export default function ScanPage() {
   }, [router]);
 
   return (
-    <AuthGuard requiredRole={['admin', 'gestor', 'comprobador']}>
+  <AuthGuard allowedRoles={['admin', 'gestor', 'comprobador']}>
       <QRCamera 
         onQRDetected={handleQRDetected}
         onClose={handleClose}

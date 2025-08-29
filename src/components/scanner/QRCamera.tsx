@@ -224,9 +224,9 @@ export function QRCamera({ onQRDetected, onClose, isProcessing = false }: QRCame
       const videoTrack = stream.getVideoTracks()[0];
       const capabilities = videoTrack.getCapabilities();
 
-      if (capabilities.torch) {
+      if ((capabilities as any).torch) {
         await videoTrack.applyConstraints({
-          advanced: [{ torch: !isFlashOn }]
+          advanced: [{ torch: !isFlashOn } as any]
         });
         setIsFlashOn(!isFlashOn);
         console.log('🔦 Flash toggled:', !isFlashOn);

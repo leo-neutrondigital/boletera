@@ -588,7 +588,7 @@ export default function MyTicketsOrderPage() {
                     </div>
                     <div className="text-center p-3 bg-purple-50 rounded-lg">
                       <div className="text-lg font-bold text-purple-600">
-                        {formatCurrency(summary.totalAmount, summary.currency)}
+                        {formatCurrency(summary.totalAmount, summary.currency as 'MXN' | 'USD' | 'EUR' | 'GBP')}
                       </div>
                       <div className="text-xs text-gray-600">Total</div>
                     </div>

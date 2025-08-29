@@ -20,6 +20,13 @@ async function getEvent(eventId: string): Promise<Event | null> {
       published: eventData!.published,
       created_at: eventData!.created_at?.toDate() ?? new Date(eventData!.created_at),
       updated_at: eventData!.updated_at?.toDate() ?? (eventData!.updated_at ? new Date(eventData!.updated_at) : undefined),
+      slug: eventData!.slug || eventDoc.id, // fallback to id if slug missing
+      allow_preregistration: eventData!.allow_preregistration,
+      preregistration_message: eventData!.preregistration_message,
+      public_description: eventData!.public_description,
+      featured_image_url: eventData!.featured_image_url,
+      terms_and_conditions: eventData!.terms_and_conditions,
+      contact_email: eventData!.contact_email,
     };
 
     return event;

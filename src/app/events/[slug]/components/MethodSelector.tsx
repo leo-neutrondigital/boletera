@@ -178,7 +178,7 @@ export function MethodSelector() {
                   </div>
                   <div className="flex items-center gap-1 text-blue-600">
                     <CheckCircle className="w-4 h-4" />
-                    <span>Desde {formatCurrency(minPrice, availableTicketTypes[0]?.currency || 'MXN')}</span>
+                    <span>Desde {formatCurrency(minPrice, (availableTicketTypes[0]?.currency || 'MXN') as 'MXN' | 'USD' | 'EUR' | 'GBP')}</span>
                   </div>
                 </div>
               </div>

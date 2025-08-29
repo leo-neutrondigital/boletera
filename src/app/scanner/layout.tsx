@@ -14,7 +14,7 @@ export default function ScannerLayout({ children }: { children: React.ReactNode 
 
   return (
     <AuthGuard 
-      requiredRole={['admin', 'gestor', 'comprobador']}
+      allowedRoles={['admin', 'gestor', 'comprobador']}
       fallback={(
         <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
           <div className="text-center">

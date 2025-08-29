@@ -75,12 +75,26 @@ export function CourtesyCard({ ticket, courtesyTypes, onDelete }: CourtesyCardPr
                   <Calendar className="w-3 h-3 text-gray-500" />
                   <span className="text-gray-600">
                     {ticket.created_at ? (
-                      new Date(ticket.created_at.seconds ? ticket.created_at.seconds * 1000 : ticket.created_at)
-                        .toLocaleDateString('es-ES', { 
-                          day: '2-digit', 
-                          month: 'short', 
-                          year: 'numeric' 
-                        })
+                      (() => {
+                        // Soportar Firestore Timestamp y Date
+                        let dateObj: Date;
+                        if (typeof ticket.created_at === 'object' && ticket.created_at !== null) {
+                          if ('toDate' in ticket.created_at && typeof ticket.created_at.toDate === 'function') {
+                            dateObj = ticket.created_at.toDate();
+                          } else if ('seconds' in ticket.created_at && typeof ticket.created_at.seconds === 'number') {
+                            dateObj = new Date(ticket.created_at.seconds * 1000);
+                          } else {
+                            dateObj = new Date(ticket.created_at as any);
+                          }
+                        } else {
+                          dateObj = new Date(ticket.created_at as any);
+                        }
+                        return dateObj.toLocaleDateString('es-ES', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric',
+                        });
+                      })()
                     ) : 'N/A'}
                   </span>
                 </div>

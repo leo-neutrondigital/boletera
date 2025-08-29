@@ -37,7 +37,7 @@ export default async function DashboardPage() {
         // Contar boletos y sumar ingresos
         monthOrders.forEach(order => {
           const ticketsInOrder = order.cart_snapshot.items.reduce(
-            (sum, item) => sum + item.quantity, 
+            (sum: number, item: { quantity: number }) => sum + item.quantity,
             0
           );
           totalTicketsSold += ticketsInOrder;

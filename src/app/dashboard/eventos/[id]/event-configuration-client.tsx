@@ -182,7 +182,6 @@ export function EventConfigurationClient({ event: initialEvent }: EventConfigura
                   <Trash2 className="w-4 h-4" />
                 </Button>
               }
-              isLoading={deleting}
             />
           </Can>
         </div>
@@ -316,10 +315,12 @@ export function EventConfigurationClient({ event: initialEvent }: EventConfigura
 
       {/* Dialog para editar evento (controlado desde el header) */}
       <EventFormDialog
-        event={event}
+        eventToEdit={event}
         open={showEditDialog}
         onOpenChange={setShowEditDialog}
-        onSuccess={handleEventUpdate}
+        onSuccess={(updatedEvent) => {
+          if (updatedEvent) handleEventUpdate(updatedEvent);
+        }}
       />
     </div>
   );

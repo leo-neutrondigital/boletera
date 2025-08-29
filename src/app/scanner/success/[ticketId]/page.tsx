@@ -201,7 +201,7 @@ export default function SuccessPage() {
 
   if (isLoading) {
     return (
-      <AuthGuard requiredRole={['admin', 'gestor', 'comprobador']}>
+  <AuthGuard allowedRoles={['admin', 'gestor', 'comprobador']}>
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">
           <div className="text-center">
             <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
@@ -214,7 +214,7 @@ export default function SuccessPage() {
 
   if (error || !ticketData) {
     return (
-      <AuthGuard requiredRole={['admin', 'gestor', 'comprobador']}>
+  <AuthGuard allowedRoles={['admin', 'gestor', 'comprobador']}>
         <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
           <Card className="max-w-md w-full">
             <CardHeader>
@@ -241,7 +241,7 @@ export default function SuccessPage() {
   }
 
   return (
-    <AuthGuard requiredRole={['admin', 'gestor', 'comprobador']}>
+  <AuthGuard allowedRoles={['admin', 'gestor', 'comprobador']}>
       <div className="min-h-screen bg-gray-50 py-8">
         <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
           

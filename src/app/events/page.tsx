@@ -6,8 +6,10 @@ export const metadata = {
   description: 'Descubre todos los eventos disponibles y compra tus boletos fácilmente.',
 };
 
+import type { Event } from '@/types';
+
 export default async function EventsPage() {
-  let events = [];
+  let events: Event[] = [];
   let error = null;
 
   try {

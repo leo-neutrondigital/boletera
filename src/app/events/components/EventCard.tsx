@@ -188,9 +188,9 @@ export function EventCard({ event, featured = false }: EventCardProps) {
                 {pricingSummary.freeEvent ? (
                   'Gratis'
                 ) : pricingSummary.hasVariedPricing ? (
-                  `Desde ${formatCurrency(pricingSummary.minPrice, pricingSummary.currency)}`
+                  `Desde ${formatCurrency(pricingSummary.minPrice, pricingSummary.currency as 'MXN' | 'USD' | 'EUR' | 'GBP')}`
                 ) : (
-                  formatCurrency(pricingSummary.minPrice, pricingSummary.currency)
+                  formatCurrency(pricingSummary.minPrice, pricingSummary.currency as 'MXN' | 'USD' | 'EUR' | 'GBP')
                 )}
               </div>
             </div>

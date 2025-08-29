@@ -57,14 +57,32 @@ export function PreregistrosPageClient({ eventId }: PreregistrosPageClientProps)
   const { toast } = useToast();
   
   // 🆕 Hook con cache especializado
-  const { 
-    preregistrations, 
-    loading: isLoading, 
-    stats, 
+  const {
+    preregistrations: rawPreregistrations,
+    loading: isLoading,
+    stats,
     refreshPreregistrations,
     updatePreregistrationStatus,
-    deletePreregistrations 
+    deletePreregistrations
   } = usePreregistrations();
+
+  // Adaptar preregistrations para compatibilidad con el tipo global
+  const preregistrations = rawPreregistrations.map((p: any) => ({
+    ...p,
+    name: p.customer_data?.name || '',
+    email: p.customer_data?.email || '',
+    phone: p.customer_data?.phone || '',
+    company: p.customer_data?.company || '',
+    email_sent: p.email_sent ?? false,
+    interested_tickets: (p.interested_tickets || []).map((t: any) => ({
+      ticket_type_id: t.ticket_type_id,
+      ticket_type_name: t.ticket_type_name || '',
+      quantity: t.quantity,
+      unit_price: t.unit_price,
+      currency: t.currency || 'MXN',
+      total_price: t.total_price || (t.unit_price * t.quantity) || 0,
+    })),
+  }));
   
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -145,18 +163,14 @@ export function PreregistrosPageClient({ eventId }: PreregistrosPageClientProps)
   const handleChangeStatus = useCallback(async (id: string, newStatus: string) => {
     try {
       console.log('🔄 Cambiando estado:', { id, newStatus });
-      
       await updatePreregistrationStatus(
-        id, 
-        newStatus as 'nuevo' | 'contactado' | 'interesado' | 'no_interesado' | 'convertido',
-        user?.uid // Para trackear quién hizo el cambio
+        id,
+        newStatus as 'nuevo' | 'contactado' | 'interesado' | 'no_interesado' | 'convertido'
       );
-      
       toast({
         title: "Estado actualizado",
         description: "El estado del preregistro se ha actualizado correctamente",
       });
-      
       // Los datos se actualizan automáticamente por el cache
     } catch (error) {
       console.error('❌ Error cambiando estado:', error);
@@ -166,7 +180,7 @@ export function PreregistrosPageClient({ eventId }: PreregistrosPageClientProps)
         description: "No se pudo actualizar el estado",
       });
     }
-  }, [updatePreregistrationStatus, user, toast]); // 🔧 Dependencias estables
+  }, [updatePreregistrationStatus, toast]);
 
   // 🆕 Función para exportar CSV usando cache
   const handleExport = useCallback(() => {
@@ -176,7 +190,7 @@ export function PreregistrosPageClient({ eventId }: PreregistrosPageClientProps)
       // 🆕 Usar datos del cache directamente
       const csvData = filteredPreregistros.map(p => {
         const interestedTicketsText = p.interested_tickets && p.interested_tickets.length > 0
-          ? p.interested_tickets.map(t => `${t.quantity}x ${t.ticket_type_name} (${t.unit_price})`).join('; ')
+          ? p.interested_tickets.map((t: any) => `${t.quantity}x ${t.ticket_type_name} (${t.unit_price})`).join('; ')
           : '';
           
         return {
@@ -184,7 +198,7 @@ export function PreregistrosPageClient({ eventId }: PreregistrosPageClientProps)
           Email: p.email,
           Teléfono: p.phone,
           Empresa: p.company || '',
-          Estado: statusLabels[p.status],
+          Estado: statusLabels[p.status as keyof typeof statusLabels],
           'Boletos de interés': interestedTicketsText,
           Origen: p.source === 'landing_page' ? 'Página web' : 'Importado',
           'Fecha registro': p.created_at.toLocaleDateString('es-ES'),
@@ -469,8 +483,8 @@ export function PreregistrosPageClient({ eventId }: PreregistrosPageClientProps)
                               </div>
                               <div>
                                 <h3 className="text-lg font-semibold text-gray-900">{preregistro.name}</h3>
-                                <Badge className={statusColors[preregistro.status]}>
-                                  {statusLabels[preregistro.status]}
+                                <Badge className={statusColors[preregistro.status as keyof typeof statusColors]}>
+                                  {statusLabels[preregistro.status as keyof typeof statusLabels]}
                                 </Badge>
                               </div>
                             </div>

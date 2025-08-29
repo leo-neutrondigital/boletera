@@ -65,7 +65,7 @@ export default function UsersPage() {
               </Button>
               
               <UserFormDialog
-                onSuccess={addUser}
+                onSuccess={(user) => { if (user) addUser(user as any); }}
                 trigger={
                   <Button className="flex items-center gap-2">
                     <UserPlus className="w-4 h-4" />
@@ -86,7 +86,7 @@ export default function UsersPage() {
               onRefresh={refreshUsers}
               onDeleteUser={deleteUser}
               onUpdateUser={updateUser}
-              onAddUser={addUser}
+              onAddUser={(user) => { if (user) addUser(user as any); }}
             />
           </div>
         </div>

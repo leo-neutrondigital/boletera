@@ -72,7 +72,7 @@ export function UserFormDialog({
     defaultValues: {
       email: userToEdit?.email ?? "",
       name: userToEdit?.name ?? "",
-      role: userToEdit?.roles?.[0] ?? "usuario",
+      role: (userToEdit?.roles?.[0] as "admin" | "gestor" | "comprobador" | "usuario") ?? "usuario",
       phone: userToEdit?.phone ?? "",
       company: userToEdit?.company ?? "",
       street: userToEdit?.address?.street ?? "",
@@ -205,7 +205,7 @@ export function UserFormDialog({
           </button>
         </div>
         
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+  <form onSubmit={handleSubmit(onSubmit as any)} className="space-y-6">
           
           {/* Tab: Información Básica */}
           {activeTab === 'basic' && (

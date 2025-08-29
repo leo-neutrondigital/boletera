@@ -348,7 +348,7 @@ function MyTicketsPageContent() {
                   </div>
                   <div className="ml-4">
                     <p className="text-2xl font-bold text-gray-900">
-                      {formatCurrency(summary.totalAmount, summary.currency)}
+                      {formatCurrency(summary.totalAmount, summary.currency as 'MXN' | 'USD' | 'EUR' | 'GBP')}
                     </p>
                     <p className="text-sm text-gray-600">Total gastado</p>
                   </div>
@@ -430,7 +430,7 @@ function MyTicketsPageContent() {
                       mode="user"
                       onOrderAction={(orderId) => router.push(`/my-tickets/${orderId}`)}
                       onEventAction={(eventId) => router.push(`/events/${eventId}`)}
-                      headerColor="gray"
+                      headerColor={"gray" as 'blue' | 'green' | undefined}
                       showEventAction={true}
                       eventActionText="Ver página del evento"
                     />

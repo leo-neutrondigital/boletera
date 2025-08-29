@@ -83,7 +83,7 @@ export function TicketCard({
       setIsSaving(true);
       
       // 1. Verificar si está completamente configurado
-      isFullyConfigured = formData.attendee_name.trim() && formData.attendee_email.trim();
+  isFullyConfigured = Boolean(formData.attendee_name.trim() && formData.attendee_email.trim());
       
       if (isFullyConfigured) {
         // ✨ UX OPTIMISTA: Actualizar UI inmediatamente
@@ -177,7 +177,7 @@ export function TicketCard({
               <div className="flex items-center gap-2 mt-1">
                 {getStatusBadge()}
                 <span className="text-sm text-gray-500">
-                  {formatCurrency(ticket.amount_paid, ticket.currency)}
+                  {formatCurrency(ticket.amount_paid, ticket.currency as 'MXN' | 'USD' | 'EUR' | 'GBP')}
                 </span>
               </div>
             </div>
@@ -481,7 +481,7 @@ export function TicketCard({
               </Button>
               
               {/* Botones Admin/Gestor */}
-              <Can resource="ticketTypes" action="update">
+              <Can on="ticketTypes" do="update">
                 {/* Botón Regenerar PDF */}
                 <Button
                   variant="outline"

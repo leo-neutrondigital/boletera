@@ -452,7 +452,7 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
                 </div>
                 <div className="ml-4">
                   <p className="text-2xl font-bold text-gray-900">
-                    {formatCurrency(salesStats?.total_revenue || 0, salesStats?.currency || 'MXN')}
+                    {formatCurrency(salesStats?.total_revenue || 0, (salesStats?.currency || 'MXN') as 'MXN' | 'USD' | 'EUR' | 'GBP')}
                   </p>
                   <p className="text-sm text-gray-600">Ingresos totales</p>
                 </div>
@@ -484,7 +484,7 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
                 </div>
                 <div className="ml-4">
                   <p className="text-2xl font-bold text-gray-900">
-                    {formatCurrency(salesStats?.avg_order_value || 0, salesStats?.currency || 'MXN')}
+                    {formatCurrency(salesStats?.avg_order_value || 0, (salesStats?.currency || 'MXN') as 'MXN' | 'USD' | 'EUR' | 'GBP')}
                   </p>
                   <p className="text-sm text-gray-600">Orden promedio</p>
                 </div>

@@ -427,7 +427,7 @@ function SoportePageContent() {
                             placeholder="Buscar usuario por email..."
                             onChange={(e) => handleSearchUsersForTicket(ticket.id, e.target.value)}
                             className="mt-1"
-                            size="sm"
+                            size={20}
                           />
                         </div>
                         

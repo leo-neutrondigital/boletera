@@ -217,7 +217,7 @@ export function TicketTypesList({
                 <div className={`text-2xl font-bold mb-2 ${
                   isCourtesy ? 'text-amber-600' : 'text-green-600'
                 }`}>
-                  {isCourtesy ? "GRATIS" : formatCurrency(ticketType.price, ticketType.currency)}
+                  {isCourtesy ? "GRATIS" : formatCurrency(ticketType.price, ticketType.currency as 'MXN' | 'USD' | 'EUR' | 'GBP')}
                 </div>
 
                 {/* Información detallada */}

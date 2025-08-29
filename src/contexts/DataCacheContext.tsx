@@ -369,7 +369,7 @@ export function DataCacheProvider({ children }: { children: React.ReactNode }) {
       });
       
       setUsers(usersData);
-      setLastUpdated(prev => ({ ...prev, users: Date.now() }));
+  setLastUpdated(prev => ({ ...prev, users: Date.now() }));
       console.log('✅ Users loaded:', usersData.length);
       
     } catch (error) {
@@ -407,7 +407,7 @@ export function DataCacheProvider({ children }: { children: React.ReactNode }) {
       if (response.ok) {
         const data = await response.json();
         setOrphanTickets(data.tickets || []);
-        setLastUpdated(prev => ({ ...prev, orphanTickets: Date.now() }));
+    setLastUpdated(prev => ({ ...prev, orphanTickets: Date.now() }));
         console.log('✅ Orphan tickets loaded:', data.tickets?.length || 0);
       }
     } catch (error) {
@@ -423,7 +423,7 @@ export function DataCacheProvider({ children }: { children: React.ReactNode }) {
   const loadTicketTypes = useCallback(async (eventId: string, force = false) => {
     if (!isAuthenticated || !user) return;
     
-    if (!force && isCacheValid(lastUpdated.ticketTypes[eventId])) {
+    if (!force && lastUpdated.ticketTypes[eventId] !== null && isCacheValid(lastUpdated.ticketTypes[eventId])) {
       console.log(`📦 Using cached ticket types for event ${eventId}`);
       return;
     }

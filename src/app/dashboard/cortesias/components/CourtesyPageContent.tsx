@@ -60,11 +60,23 @@ export function CourtesyPageContent() {
   
   // Estado para tipo de boletos selecionado (no cacheamos esto porque es dinámico)
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
-  const { 
-    ticketTypes, 
-    loading: loadingTicketTypes, 
-    loadTicketTypes 
-  } = useTicketTypes(selectedEventId || undefined);
+  const {
+    ticketTypes: rawTicketTypes,
+    loading: loadingTicketTypes,
+    loadTicketTypes
+  } = useTicketTypes(); // No argumento
+
+  // Adaptar ticketTypes para asegurar que tengan 'currency' (por compatibilidad)
+  const ticketTypes = useMemo(() => {
+    if (!selectedEventId) return [];
+    // Buscar ticketTypes del evento seleccionado
+    const filtered = rawTicketTypes.filter(tt => tt.event_id === selectedEventId);
+    // Agregar currency si falta (puedes ajustar la lógica según tu fuente de datos)
+    return filtered.map(tt => ({
+      currency: 'MXN', // Valor por defecto o ajusta según tu lógica
+      ...tt,
+    }));
+  }, [rawTicketTypes, selectedEventId]);
   
   // Estados para filtros y paginación
   const [searchTerm, setSearchTerm] = useState('');
@@ -92,9 +104,9 @@ export function CourtesyPageContent() {
   // 🆕 Effect para cargar tipos cuando cambia el evento seleccionado
   useEffect(() => {
     if (selectedEventId) {
-      loadTicketTypes(selectedEventId);
+      loadTicketTypes();
     }
-  }, [selectedEventId]); // 🆕 Quitar loadTicketTypes de dependencias
+  }, [selectedEventId]);
 
   // 🆕 Crear cortesy (invalidar cache después)
   const createCourtesyTickets = async (formData: any) => {

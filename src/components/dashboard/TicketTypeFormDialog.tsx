@@ -109,12 +109,12 @@ export function TicketTypeFormDialog({
     reset,
     formState: { errors, isSubmitting },
   } = useForm<TicketTypeFormData>({
-    resolver: zodResolver(ticketTypeSchema),
+    resolver: zodResolver(ticketTypeSchema) as any,
     defaultValues: {
       name: ticketTypeToEdit?.name ?? "",
       description: ticketTypeToEdit?.description ?? "",
       price: ticketTypeToEdit?.price ?? 0,
-      currency: ticketTypeToEdit?.currency ?? "MXN",
+      currency: (ticketTypeToEdit?.currency ?? "MXN") as "MXN" | "USD",
       access_type: ticketTypeToEdit?.access_type ?? "all_days",
       available_days: ticketTypeToEdit?.available_days?.map(d => format(d, "yyyy-MM-dd")) ?? [],
       limit_per_user: ticketTypeToEdit?.limit_per_user ?? null,
@@ -123,7 +123,6 @@ export function TicketTypeFormDialog({
       sale_end: ticketTypeToEdit?.sale_end ? format(ticketTypeToEdit.sale_end, "yyyy-MM-dd'T'HH:mm") : "",
       is_active: ticketTypeToEdit?.is_active ?? true,
       is_courtesy: ticketTypeToEdit?.is_courtesy ?? false,
-      
       // 🆕 Nuevos campos
       public_description: ticketTypeToEdit?.public_description ?? "",
       features: ticketTypeToEdit?.features ?? [],
@@ -315,7 +314,7 @@ export function TicketTypeFormDialog({
           </button>
         </div>
         
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+  <form onSubmit={handleSubmit(onSubmit as any)} className="space-y-6">
           
           {/* Tab: Información Básica */}
           {activeTab === 'basic' && (

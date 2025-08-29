@@ -23,7 +23,7 @@ export default function AlreadyUsedPage() {
   const details = searchParams.get('details');
 
   return (
-    <AuthGuard requiredRole={['admin', 'gestor', 'comprobador']}>
+  <AuthGuard allowedRoles={['admin', 'gestor', 'comprobador']}>
       <div className="min-h-screen bg-gray-50 py-8">
         <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
           

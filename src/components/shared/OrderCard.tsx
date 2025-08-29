@@ -76,7 +76,7 @@ export function OrderCard({
             </div>
             <div>
               <p className="text-gray-600">Total</p>
-              <p className="font-semibold">{formatCurrency(order.totalAmount, order.currency)}</p>
+              <p className="font-semibold">{formatCurrency(order.totalAmount, order.currency as 'MXN' | 'USD' | 'EUR' | 'GBP')}</p>
             </div>
           </div>
           

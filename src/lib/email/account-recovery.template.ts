@@ -22,7 +22,7 @@ export interface AccountRecoveryEmailData {
 export function generateAccountRecoveryEmailHTML(data: AccountRecoveryEmailData): string {
   const { customer_name, event, order_id, payment_amount, currency, tickets_count, support_email, app_url } = data;
   const eventDatesText = formatEventDates(event.start_date, event.end_date);
-  const amountFormatted = formatCurrency(payment_amount, currency);
+    const amountFormatted = formatCurrency(payment_amount, currency as 'MXN' | 'USD' | 'EUR' | 'GBP');
   
   return `<!DOCTYPE html>
 <html>
@@ -129,7 +129,7 @@ export function generateAccountRecoveryEmailHTML(data: AccountRecoveryEmailData)
 export function generateAccountRecoveryEmailText(data: AccountRecoveryEmailData): string {
   const { customer_name, event, order_id, payment_amount, currency, tickets_count, support_email, app_url } = data;
   const eventDatesText = formatEventDates(event.start_date, event.end_date);
-  const amountFormatted = formatCurrency(payment_amount, currency);
+    const amountFormatted = formatCurrency(payment_amount, currency as 'MXN' | 'USD' | 'EUR' | 'GBP');
   
   return `Acceso a tus boletos - ${event.name}
 

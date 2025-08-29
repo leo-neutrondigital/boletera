@@ -8,7 +8,7 @@ import { PageHeader } from '@/components/shared/PageHeader';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useDashboardStats } from '@/hooks/use-dashboard-stats';
-import type { Event, Order } from '@/types';
+import type { Event } from '@/types';
 
 interface DashboardStats {
   totalEvents: number;
@@ -16,7 +16,7 @@ interface DashboardStats {
   totalRevenue: number;
   totalPreregistrations: number;
   recentEvents: Event[];
-  recentOrders: Order[];
+  recentOrders: any[];
 }
 
 interface DashboardPageClientProps {
@@ -231,7 +231,7 @@ export default function DashboardPageClient({ initialStats }: DashboardPageClien
                             Venta realizada
                           </p>
                           <p className="text-xs text-gray-500">
-                            {order.cart_snapshot.items.reduce((sum, item) => sum + item.quantity, 0)} boletos vendidos
+                            {order.cart_snapshot.items.reduce((sum: number, item: { quantity: number }) => sum + item.quantity, 0)} boletos vendidos
                           </p>
                         </div>
                       </div>
