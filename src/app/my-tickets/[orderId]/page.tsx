@@ -24,7 +24,7 @@ import { TicketCard } from '@/components/tickets/TicketCard';
 import { useToast } from '@/hooks/use-toast';
 import { useOrderAccess } from '@/components/auth/ClientAuthGuard';
 import { useAuth } from '@/contexts/AuthContext';
-import type { Ticket, TicketsOrderResponse } from '@/types';
+import type { TicketsOrderResponse } from '@/types';
 import { formatCurrency } from '@/lib/utils/currency';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';

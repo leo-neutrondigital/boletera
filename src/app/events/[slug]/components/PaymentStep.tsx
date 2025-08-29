@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { CreditCard, User, Mail, Phone, Building, ShoppingCart, CheckCircle, ArrowLeft, UserPlus, Send } from 'lucide-react';
+import { CreditCard, User, Mail, Phone, Building, ShoppingCart, CheckCircle, UserPlus, Send } from 'lucide-react';
 import { useEventFlow, useCurrentStepInfo } from '@/components/event/EventFlowProvider';
 import { useAuth } from '@/contexts/AuthContext';
 import { PayPalButton } from './PayPalButton';

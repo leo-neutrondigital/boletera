@@ -1,4 +1,3 @@
-import { ReactNode } from 'react';
 import { Calendar, MapPin, Gift, TicketIcon, ArrowRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { formatCurrency } from '@/lib/utils/currency';
+import type { Currency } from '@/lib/utils/currency';
 import { OrderCard, getOrderButtonText, getOrderButtonVariant } from './OrderCard';
 
 // Tipos base flexibles
@@ -125,7 +125,7 @@ export function EventGroupCard({
           </div>
           <div className="text-center">
             <p className="text-lg font-semibold text-purple-600">
-              {mode === 'admin' ? 'GRATIS' : formatCurrency(event.totalAmount, event.currency)}
+              {mode === 'admin' ? 'GRATIS' : (() => { const allowed = ['MXN','USD','EUR','GBP'] as const; const cur = allowed.includes(event.currency as any) ? event.currency as Currency : undefined; return formatCurrency(event.totalAmount, cur); })()}
             </p>
             <p className="text-xs text-gray-600">
               {mode === 'admin' ? 'Cortesías' : 'Total'}

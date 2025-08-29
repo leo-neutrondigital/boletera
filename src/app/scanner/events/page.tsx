@@ -4,11 +4,10 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { 
+import {
   ArrowLeft,
   Calendar,
   MapPin,
-  Users,
   Clock,
   Play,
   ChevronRight,
@@ -16,7 +15,7 @@ import {
   RefreshCw,
   Zap
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent/*, CardHeader, CardTitle */} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -46,7 +45,7 @@ interface ScannerEventsData {
 export default function ScannerEventsPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const { user, isLoading: isAuthLoading } = useAuth();
+  const { user, loading: isAuthLoading } = useAuth();
   
   const [data, setData] = useState<ScannerEventsData | null>(null);
   const [isLoading, setIsLoading] = useState(true);

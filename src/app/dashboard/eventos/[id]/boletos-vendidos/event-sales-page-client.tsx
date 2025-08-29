@@ -4,20 +4,18 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSoldTickets } from "@/hooks/use-sold-tickets";
 import { useCourtesyTickets } from "@/hooks/use-courtesy-tickets"; // 🆕 Hook unificado
-import { 
-  DollarSign, 
-  TrendingUp, 
-  Users, 
-  RefreshCw,
-  Download,
+import {
+  
   Search,
-  Gift,
-  TicketIcon,
-  AlertCircle,
   Plus,
-  ArrowRight,
-  ShoppingCart
-} from "lucide-react";
+  
+  DollarSign,
+  TicketIcon,
+  TrendingUp,
+  Gift,
+  AlertCircle,
+  ArrowRight
+} from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,7 +27,6 @@ import { OrderCard } from "@/components/shared/OrderCard";
 import { PaginationControls } from "@/components/shared/PaginationControls";
 import { useSalesPage } from "@/contexts/SalesPageContext";
 import { formatCurrency } from "@/lib/utils/currency";
-import { authenticatedGet } from "@/lib/utils/api";
 import type { Event } from "@/types";
 
 // Tipos específicos para esta página
@@ -775,7 +772,7 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
                 Sin resultados
               </h3>
               <p className="text-gray-600">
-                No se encontraron órdenes que coincidan con "{searchTerm}"
+                No se encontraron órdenes que coincidan con &quot;{searchTerm}&quot;
               </p>
               <Button
                 variant="outline"

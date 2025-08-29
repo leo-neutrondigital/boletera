@@ -1,5 +1,3 @@
-import { generateTicketPDF } from '@/lib/pdf/pdf-generator';
-
 export class MockStorageService {
   constructor() {
     console.log('🧪 Using MOCK Storage Service for testing');
@@ -33,7 +31,7 @@ export class MockStorageService {
     return `https://storage.googleapis.com/mock-bucket/${path}`;
   }
 
-  async fileExists(path: string): Promise<boolean> {
+  async fileExists(): Promise<boolean> {
     return true; // Mock: always exists
   }
 }

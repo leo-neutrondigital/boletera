@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { createContext, useContext, useState, useEffect, useRef } from 'react';
 import type { Event, TicketType } from '@/types';
 
 // Estados del flujo

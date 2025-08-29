@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/select";
 import { useState } from "react";
 import { z } from "zod";
-import { useToast } from "@/hooks/use-toast";
+//import { useToast } from "@/hooks/use-toast";
 import { UserPlus, User, Mail, Phone, Building, MapPin, Shield } from "lucide-react";
 import { useUsers } from "@/hooks/use-users";
 import type { User as UserType } from "@/types";
@@ -42,7 +42,7 @@ const userSchema = z.object({
   marketing_consent: z.boolean().default(false),
 });
 
-type UserFormData = z.infer<typeof userSchema>;
+type UserFormData = z.input<typeof userSchema>;
 
 interface UserFormDialogProps {
   userToEdit?: UserType;
@@ -57,7 +57,7 @@ export function UserFormDialog({
 }: UserFormDialogProps) {
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'basic' | 'contact' | 'permissions'>('basic');
-  const { toast } = useToast();
+  //const { toast } = useToast();
   const { createUser, updateUser } = useUsers();
 
   const {
@@ -416,7 +416,7 @@ export function UserFormDialog({
               {watchedRole && (
                 <div className={`p-4 rounded-lg border ${getRoleColor(watchedRole)}`}>
                   <h4 className="font-medium mb-2">
-                    Permisos del rol "{watchedRole.charAt(0).toUpperCase() + watchedRole.slice(1)}"
+                    Permisos del rol &quot;{watchedRole.charAt(0).toUpperCase() + watchedRole.slice(1)}&quot;
                   </h4>
                   <p className="text-sm">{getRoleDescription(watchedRole)}</p>
                   

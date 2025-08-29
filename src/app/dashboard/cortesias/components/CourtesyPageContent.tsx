@@ -2,10 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCourtesyOrders, useEvents, useTicketTypes } from '@/contexts/DataCacheContext'; // 🆕 Hooks de cache
 import { auth } from '@/lib/firebase/client'; // 🆕 Para operaciones manuales
-import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Gift, ShieldAlert } from 'lucide-react';
+import { Gift } from 'lucide-react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { PageContent } from '@/components/shared/PageContent';
 import { useToast } from '@/hooks/use-toast';
@@ -20,15 +17,11 @@ import { CourtesyGuide } from './CourtesyGuide';
 import { CourtesyPageSkeleton } from '@/components/shared/CourtesySkeletons'; // 🆕 Skeletons mejorados
 import { 
   groupCourtesyOrdersByUserAndEvent, 
-  adaptCourtesyGroupToEventGroup,
-  type GroupedCourtesyData
+  adaptCourtesyGroupToEventGroup
 } from '@/components/shared/courtesyAdapters'; // 🆕 Adaptadores
 
 // Importar tipos
 import { 
-  CourtesyOrder, // 🆕 Nuevo tipo
-  Event, 
-  TicketType, 
   CourtesyStats as StatsType,
   COURTESY_TYPES
 } from './types';

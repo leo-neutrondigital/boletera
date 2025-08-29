@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { 
@@ -10,7 +10,6 @@ import {
   Circle,
   Minus,
   ChevronRight,
-  Filter,
   Zap
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';

@@ -12,7 +12,6 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/shared/PageHeader';
-import { Can } from '@/components/auth/Can';
 import { useAuth } from '@/contexts/AuthContext';
 import { auth } from '@/lib/firebase/client';
 
@@ -183,7 +182,7 @@ export default function ScannerDashboard() {
                   </div>
                   <div>
                     <p className="font-medium text-gray-900">Validación automática</p>
-                    <p className="text-gray-600">El check-in se realiza automáticamente. Usa "Deshacer" si hay errores.</p>
+                    <p className="text-gray-600">El check-in se realiza automáticamente. Usa &quot;Deshacer&quot; si hay errores.</p>
                   </div>
                 </div>
                 

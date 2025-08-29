@@ -28,7 +28,7 @@ export default function EventAttendeesPage() {
   const params = useParams();
   const router = useRouter();
   const { toast } = useToast();
-  const { user, isLoading: isAuthLoading } = useAuth();
+  const { user, loading: isAuthLoading } = useAuth();
   const eventId = params.eventId as string;
   
   // 🆕 Usar el nuevo hook de cache

@@ -20,20 +20,21 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   LifeBuoy,
   AlertTriangle,
-  Users,
+  Ticket,
   Clock,
+  ArrowLeft,
+  X,
+  Download,
+  Trash2,
   CheckCircle,
+  ShieldAlert,
+  DollarSign,
   Search,
   RefreshCw,
-  Link,
-  ShieldAlert,
-  Ticket,
-  DollarSign,
-  Calendar,
   Mail,
-  Phone,
   User,
-  ExternalLink
+  ExternalLink,
+  Link
 } from 'lucide-react';
 
 // Tipos

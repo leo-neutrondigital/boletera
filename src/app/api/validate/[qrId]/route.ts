@@ -156,7 +156,6 @@ async function handleCheckIn({
   eventData,
   eventStartDate,
   eventEndDate,
-  today,
   todayStr,
   authUser,
   qrId

@@ -1,14 +1,12 @@
 "use client"
 
-import { Plus, RefreshCw } from "lucide-react";
-import { Button } from "@/components/ui/button";
+
 import { TicketTypesList } from "@/components/dashboard/TicketTypesList";
 import { TicketTypeFormDialog } from "@/components/dashboard/TicketTypeFormDialog";
-import { Can } from "@/components/auth/Can";
 import { useSalesPage } from "@/contexts/SalesPageContext";
 import { useTicketTypes } from "@/hooks/use-ticket-types";
 import { getEventDateInfo } from "@/lib/utils/event-dates";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import type { Event, TicketType } from "@/types";
 
 interface TicketTypesPageClientProps {

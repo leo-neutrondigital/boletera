@@ -3,7 +3,12 @@
 
 import Link from "next/link";
 import { ChevronRight, Home } from "lucide-react";
-import type { BreadcrumbItem } from "@/types";
+
+type BreadcrumbItem = {
+  label: string;
+  href?: string;
+  current?: boolean;
+};
 
 interface BreadcrumbProps {
   items: BreadcrumbItem[];

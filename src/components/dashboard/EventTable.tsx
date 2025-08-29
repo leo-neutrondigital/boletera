@@ -1,7 +1,6 @@
 "use client"
 
 import { Edit, Trash2, Calendar, MapPin, Users, Settings, Globe, Bell, ExternalLink } from "lucide-react"
-import { format } from "date-fns"
 import { EventFormDialog } from "./EventFormDialog"
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog"
 import { Can } from "@/components/auth/Can"

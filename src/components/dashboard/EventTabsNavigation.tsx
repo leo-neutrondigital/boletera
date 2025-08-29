@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { Settings, Ticket, ShoppingCart, BarChart3, RefreshCw, Download, Plus, Edit, Eye, EyeOff, Users } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Breadcrumb } from "@/components/shared/Breadcrumb";
@@ -17,12 +18,22 @@ interface EventTabsNavigationProps {
   event: Event;
 }
 
+interface TabItem {
+  id: string;
+  name: string;
+  href: string;
+  icon: LucideIcon;
+  description: string;
+  permission: { do: string; on: string };
+  badge?: React.ReactNode; // opcional
+}
+
 export function EventTabsNavigation({ event }: EventTabsNavigationProps) {
   const pathname = usePathname();
   const { salesActions, ticketTypesActions, configActions, preregistrosActions } = useSalesPage();
   const eventDateInfo = getEventDateInfo(event);
 
-  const tabs = [
+  const tabs: TabItem[] = [
     {
       id: "config",
       name: "Configuración",

@@ -2,11 +2,7 @@ import {
   Package,
   Calendar,
   MapPin,
-  Users,
-  CheckCircle,
-  Clock,
   Gift,
-  Settings,
   Eye,
   Trash2 // 🆕 Para botón eliminar
 } from 'lucide-react';
@@ -15,7 +11,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { formatCurrency } from '@/lib/utils/currency';
 import { DeleteOrderDialog } from './DeleteOrderDialog'; // 🆕 Dialog de confirmación
 import { useState } from 'react'; // 🆕 Para estado del dialog
 import type { CourtesyOrder } from './types';

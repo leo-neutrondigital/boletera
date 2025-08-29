@@ -42,9 +42,9 @@ service cloud.firestore {
     match /preregistrations/{preregistrationId} {
       // 🆕 PERMITIR creación sin user_id (para preregistros de invitados)
       allow create: if 
-        // Caso 1: Usuario loggeado creando preregistro
+        // Caso 1: Usuario loggeado creando preregistro con su user_id
         (request.auth != null && request.auth.uid == request.resource.data.user_id) ||
-        // Caso 2: Preregistro de invitado (user_id: null) - NUEVO
+        // Caso 2: Cualquier usuario puede crear preregistro como invitado (user_id: null)
         (request.resource.data.user_id == null && validateGuestPreregistration());
       
       // El propietario puede leer/escribir sus propios preregistros

@@ -4,27 +4,21 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   Ticket as TicketIcon,
-  Calendar,
-  MapPin,
   Clock,
   CheckCircle,
   Plus,
   Search,
-  ArrowRight,
-  Settings,
-  Receipt,
-  Package
+  Receipt
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatCurrency } from '@/lib/utils/currency';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+//import { format } from 'date-fns';
+//import { es } from 'date-fns/locale';
 import { ClientAuthGuard } from '@/components/auth/ClientAuthGuard';
 import { authenticatedGet } from '@/lib/utils/api';
 import { EventGroupCard } from '@/components/shared/EventGroupCard'; // 🆕 Componente reutilizable
@@ -43,7 +37,7 @@ function MyTicketsPageContent() {
   const { user, userData, loading: authLoading, isAuthenticated } = useAuth();
   const [data, setData] = useState<UserTicketsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 

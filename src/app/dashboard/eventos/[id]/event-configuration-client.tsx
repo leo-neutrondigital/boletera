@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { Edit, Trash2, Save, Calendar, MapPin, Eye, EyeOff } from "lucide-react";
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Calendar, MapPin, Save, Eye, EyeOff, Trash2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +14,6 @@ import { Can } from "@/components/auth/Can";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import { EventFormDialog } from "@/components/dashboard/EventFormDialog";
 import { useSalesPage } from "@/contexts/SalesPageContext";
-import { formatCurrency } from "@/lib/utils/currency";
 import { getEventDateInfo } from "@/lib/utils/event-dates";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";

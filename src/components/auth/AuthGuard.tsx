@@ -227,7 +227,7 @@ export function AuthGuard({
           {isUsuario && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm">
               <p className="text-blue-800">
-                <strong>Para usuarios:</strong> Puedes gestionar tus boletos desde "Mis Boletos" 
+                <strong>Para usuarios:</strong> Puedes gestionar tus boletos desde &quot;Mis Boletos&quot; 
                 o contactar al administrador si necesitas acceso a otras secciones.
               </p>
             </div>

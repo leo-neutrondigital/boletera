@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthFromRequest, requireRoles } from '@/lib/auth/server-auth';
-import { createPreregistrationWithUserData } from '@/lib/api/preregistrations';
 import { PreregistroEmailService } from '@/lib/email/preregistro-email-service';
 import { adminDb } from '@/lib/firebase/admin';
 
@@ -70,18 +69,24 @@ export async function POST(request: NextRequest) {
     const eventStartDate = eventData.start_date.toDate();
     const eventEndDate = eventData.end_date.toDate();
 
-    // Crear preregistro en la base de datos
+    // Crear preregistro en la base de datos usando adminDb
     console.log('💾 Creating preregistration record...');
-    const preregistrationId = await createPreregistrationWithUserData({
-      user_id: customer_data.user_id || null, // null para usuarios no registrados
+    const preregistrationRef = adminDb.collection('preregistrations').doc();
+    await preregistrationRef.set({
+      user_id: customer_data.user_id || null,
       event_id,
       name: customer_data.name,
       email: customer_data.email,
       phone: customer_data.phone,
       company: customer_data.company,
-      interested_tickets,
-      source: 'landing_page'
+      interested_tickets: interested_tickets || [],
+      source: 'landing_page',
+      status: 'nuevo',
+      email_sent: false,
+      created_at: new Date(),
     });
+    
+    const preregistrationId = preregistrationRef.id;
 
     console.log('✅ Preregistration created with ID:', preregistrationId, 'for request:', requestId);
 

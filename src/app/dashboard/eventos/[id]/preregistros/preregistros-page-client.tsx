@@ -5,13 +5,16 @@ import { useSalesPage } from '@/contexts/SalesPageContext';
 import { useToast } from '@/hooks/use-toast';
 import { usePreregistrations } from '@/hooks/use-preregistrations'; // 🆕 Hook con cache especializado
 import { useAuth } from '@/contexts/AuthContext';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent
+} from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { User, Mail, Phone, Building, Calendar, Search, Filter, Download, MessageCircle, Copy, CheckCircle, Trash2, AlertTriangle } from 'lucide-react';
+import { User, Mail, Phone, Building, Calendar, Search, MessageCircle, Copy, CheckCircle, Trash2, AlertTriangle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { openWhatsApp, copyEmailToClipboard, formatInterestedTickets, generateWhatsAppMessage } from '@/lib/utils/preregistros-utils';

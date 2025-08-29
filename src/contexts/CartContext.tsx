@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import type { CartItem, SessionCart } from '@/types';
+import type { CartItem } from '@/types';
 import { 
   getSessionCart, 
   saveSessionCart, 

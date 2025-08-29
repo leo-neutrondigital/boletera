@@ -3,9 +3,6 @@ import {
   Package,
   Calendar,
   MapPin,
-  Users,
-  CheckCircle,
-  Clock,
   Gift,
   Eye,
   Trash2

@@ -48,7 +48,7 @@ export function EventsFilters({ dateFilter, onDateFilterChange }: EventsFiltersP
             <div className="text-sm">
               <p className="font-medium text-blue-900 mb-1">💡 Consejos de búsqueda:</p>
               <ul className="text-blue-700 space-y-1">
-                <li>• Usa palabras clave como "música", "teatro", "festival"</li>
+                <li>• Usa palabras clave como &quot;música&quot;, &quot;teatro&quot;, &quot;festival&quot;</li>
                 <li>• Busca por ciudad o lugar específico</li>
                 <li>• Combina filtros para resultados más precisos</li>
               </ul>

@@ -368,7 +368,7 @@ export async function POST(request: NextRequest) {
           userResult = await createUserAccount(customerData);
         }
         
-        const { userId: newUserId, firebaseUid, customToken: token } = userResult;
+        const { userId: newUserId, customToken: token } = userResult;
         
         if (newUserId) {
           userId = newUserId;

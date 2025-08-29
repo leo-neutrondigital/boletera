@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { Package, Settings, Eye, Trash2 } from 'lucide-react';
+import { Package, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';

@@ -214,9 +214,13 @@ function generateUniqueQRCode(): string {
 
 // Generar PDFs y enviar por email (función placeholder)
 async function generateAndSendTickets(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   orderId: string, 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   tickets: any[], 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   eventId: string, 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   user: any
 ) {
   try {

@@ -6,13 +6,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import { getPublicEventBySlug } from '@/lib/api/public-events';
 import { PayPalButtons, PayPalScriptProvider } from '@paypal/react-paypal-js';
-import { ArrowLeft, CreditCard, Shield, Clock, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Clock, CreditCard, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { formatCurrency } from '@/lib/utils/currency';
 import Link from 'next/link';
-import type { Event, PayPalOrderResponse } from '@/types';
+import type { Event } from '@/types';
 
 export default function CheckoutPage() {
   const params = useParams();
@@ -63,7 +62,7 @@ export default function CheckoutPage() {
     }
   }, [items.length, loading, router, params.slug]);
 
-  const handlePayPalApprove = async (data: PayPalOrderResponse) => {
+  const handlePayPalApprove = async (data: any) => {
     setProcessing(true);
     try {
       // Guardar carrito y procesar pago
@@ -77,7 +76,7 @@ export default function CheckoutPage() {
           'Authorization': `Bearer ${await user?.getIdToken()}`,
         },
         body: JSON.stringify({
-          orderID: data.id,
+          orderID: data.orderID || data.id,
           cartId,
           eventId,
         }),
@@ -246,6 +245,7 @@ export default function CheckoutPage() {
                       }}
                       createOrder={(data, actions) => {
                         return actions.order.create({
+                          intent: 'CAPTURE',
                           purchase_units: [
                             {
                               amount: {

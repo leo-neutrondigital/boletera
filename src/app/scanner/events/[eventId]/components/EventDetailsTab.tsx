@@ -7,7 +7,6 @@ import {
   Calendar,
   MapPin,
   Clock,
-  Users,
   Search,
   UserCheck,
   Zap

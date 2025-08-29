@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { authenticatedGet } from '@/lib/utils/api';
@@ -8,7 +8,7 @@ import type { EventData, AttendeeTicket, EventStats } from '../types';
 
 export function useEventAttendees(eventId: string) {
   const { toast } = useToast();
-  const { user, isLoading: isAuthLoading } = useAuth();
+  const { user, loading: isAuthLoading } = useAuth();
   
   const [event, setEvent] = useState<EventData | null>(null);
   const [attendees, setAttendees] = useState<AttendeeTicket[]>([]);
@@ -17,7 +17,7 @@ export function useEventAttendees(eventId: string) {
   const [error, setError] = useState<string | null>(null);
 
   // Cargar asistentes del evento
-  const loadAttendees = async () => {
+  const loadAttendees = useCallback(async () => {
     try {
       setIsLoading(true);
       console.log('👥 Loading attendees for event:', eventId);
@@ -38,17 +38,18 @@ export function useEventAttendees(eventId: string) {
     } catch (error) {
       console.error('❌ Error loading attendees:', error);
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+
       setError(errorMessage);
-      
+
       toast({
-        variant: "destructive",
-        title: "Error cargando asistentes",
+        variant: 'destructive',
+        title: 'Error cargando asistentes',
         description: errorMessage,
       });
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [eventId, toast]);
 
   useEffect(() => {
     if (!isAuthLoading && user && eventId) {
@@ -59,7 +60,7 @@ export function useEventAttendees(eventId: string) {
       setError('Usuario no autenticado');
       setIsLoading(false);
     }
-  }, [isAuthLoading, user, eventId]);
+  }, [isAuthLoading, user, eventId, loadAttendees]);
 
   return {
     event,

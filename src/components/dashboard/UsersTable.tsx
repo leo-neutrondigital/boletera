@@ -37,7 +37,7 @@ export function UsersTable({
   currentUser,
   onRefresh,
   onDeleteUser,
-  onUpdateUser,
+  //onUpdateUser,
   onAddUser,
 }: UsersTableProps) {
   const [searchTerm, setSearchTerm] = useState("");
@@ -216,7 +216,7 @@ export function UsersTable({
               </TableHeader>
               <TableBody>
                 {paginatedUsers.map((user) => {
-                const isCurrentUser = currentUser?.uid === user.uid;
+                const isCurrentUser = currentUser?.uid === user.id;
                 const canDelete = !isCurrentUser && currentUser?.roles.includes('admin');
                 const canEdit = currentUser?.roles.includes('admin');
 

@@ -285,3 +285,16 @@ export interface TicketTypeData {
   features?: string[];
   terms?: string;
 }
+
+// 🆕 Tipos para carrito de compras
+export interface CartItem {
+  ticket_type_id: string;
+  ticket_type_name: string;
+  event_id: string;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+  currency: string;
+}
+
+export type SessionCart = CartItem[];
