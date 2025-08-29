@@ -9,11 +9,12 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { authenticatedGet } from '@/lib/utils/api';
 import { useCan } from '@/components/auth/Can';
+import type { UserRole } from '@/lib/auth/permissions';
 
 interface ClientAuthGuardProps {
   children: React.ReactNode;
   requireAuth?: boolean; // Si es true, requiere login
-  allowedRoles?: string[]; // Roles permitidos (default: ['usuario'])
+  allowedRoles?: UserRole[]; // Roles permitidos (default: ['usuario'])
   fallbackUrl?: string; // A dónde redirigir si no tiene acceso
 }
 
@@ -59,7 +60,7 @@ export function ClientAuthGuard({
       // Verificar roles si se especifican
       if (userData && allowedRoles.length > 0) {
         const userRoles = userData.roles || [];
-        const hasValidRole = allowedRoles.some(role => userRoles.includes(role));
+        const hasValidRole = allowedRoles.some(role => (userRoles as string[]).includes(role));
         
         if (!hasValidRole) {
           console.log('❌ User does not have required role', {
