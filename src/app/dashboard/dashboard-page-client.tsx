@@ -1,6 +1,5 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { Calendar, TrendingUp, Users, DollarSign, Plus, Eye, Scan, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
+import { useDashboardStats } from '@/hooks/use-dashboard-stats';
 import type { Event, Order } from '@/types';
 
 interface DashboardStats {
@@ -24,26 +24,9 @@ interface DashboardPageClientProps {
 }
 
 export default function DashboardPageClient({ initialStats }: DashboardPageClientProps) {
-  const [stats, setStats] = useState<DashboardStats>(initialStats);
-  const [loading, setLoading] = useState(false);
+  const { stats, isLoading, refreshStats } = useDashboardStats(initialStats);
   const { userData } = useAuth();
   const router = useRouter();
-
-  // Función para refrescar estadísticas
-  const refreshStats = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch('/api/dashboard/stats');
-      if (response.ok) {
-        const newStats = await response.json();
-        setStats(newStats);
-      }
-    } catch (error) {
-      console.error('Error refreshing stats:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-MX', {
@@ -84,16 +67,16 @@ export default function DashboardPageClient({ initialStats }: DashboardPageClien
         iconColor="blue"
         actions={
           <Button 
-            onClick={refreshStats}
-            variant="outline"
-            disabled={loading}
+          onClick={refreshStats}
+          variant="outline"
+          disabled={isLoading}
           >
-            {loading ? (
-              <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mr-2" />
-            ) : (
-              <TrendingUp className="w-4 h-4 mr-2" />
-            )}
-            Actualizar
+          {isLoading ? (
+          <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mr-2" />
+          ) : (
+          <TrendingUp className="w-4 h-4 mr-2" />
+          )}
+          {isLoading ? "Actualizando..." : "Actualizar"}
           </Button>
         }
       />

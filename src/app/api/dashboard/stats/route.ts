@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthFromRequest, requireRoles } from '@/lib/auth/server-auth';
-import { getAllEvents } from '@/lib/api/events';
-import { getPaidOrdersByEvent } from '@/lib/api/orders';
-import { getPreregistrationStats } from '@/lib/api/preregistrations';
+import { getAllEventsAdmin } from '@/lib/api/events-admin';
+import { getPaidOrdersByEventAdmin, getAllPaidOrdersAdmin } from '@/lib/api/orders-admin';
+import { getPreregistrationStatsAdmin } from '@/lib/api/preregistrations-admin';
 
 export async function GET(request: NextRequest) {
   try {
@@ -30,9 +30,9 @@ export async function GET(request: NextRequest) {
       email: user.email
     });
 
-    // Obtener todos los eventos publicados
-    const allEvents = await getAllEvents();
-    const publishedEvents = allEvents.filter(event => event.published);
+    // Obtener todos los eventos publicados usando Admin SDK
+    const publishedEvents = await getAllEventsAdmin();
+    const filteredEvents = publishedEvents.filter(event => event.published);
 
     // Calcular estadísticas del mes actual
     const now = new Date();
@@ -44,10 +44,10 @@ export async function GET(request: NextRequest) {
     let totalRevenue = 0;
     const allOrders = [];
 
-    // Obtener órdenes pagadas de todos los eventos para el mes actual
-    for (const event of publishedEvents) {
+    // Obtener órdenes pagadas de todos los eventos para el mes actual usando Admin SDK
+    for (const event of filteredEvents) {
       try {
-        const eventOrders = await getPaidOrdersByEvent(event.id);
+        const eventOrders = await getPaidOrdersByEventAdmin(event.id);
         const monthOrders = eventOrders.filter(order => {
           const orderDate = order.paid_at || order.created_at;
           return orderDate >= startOfMonth && orderDate <= endOfMonth;
@@ -69,11 +69,11 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Contar preregistros activos
+    // Contar preregistros activos usando Admin SDK
     let totalPreregistrations = 0;
-    for (const event of publishedEvents) {
+    for (const event of filteredEvents) {
       try {
-        const preregStats = await getPreregistrationStats(event.id);
+        const preregStats = await getPreregistrationStatsAdmin(event.id);
         totalPreregistrations += preregStats.nuevo + preregStats.contactado + preregStats.interesado;
       } catch (error) {
         console.error(`Error fetching preregistration stats for event ${event.id}:`, error);
@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Obtener eventos próximos
-    const upcomingEvents = publishedEvents
+    const upcomingEvents = filteredEvents
       .filter(event => new Date(event.start_date) >= now)
       .sort((a, b) => new Date(a.start_date).getTime() - new Date(b.start_date).getTime())
       .slice(0, 5);
@@ -96,7 +96,7 @@ export async function GET(request: NextRequest) {
       .slice(0, 10);
 
     const stats = {
-      totalEvents: publishedEvents.length,
+      totalEvents: filteredEvents.length,
       totalTicketsSold,
       totalRevenue,
       totalPreregistrations,

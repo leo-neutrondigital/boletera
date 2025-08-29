@@ -38,6 +38,28 @@ service cloud.firestore {
       allow create: if request.auth != null;
     }
     
+    // 💳 Orders - solo el propietario o admins pueden leer/escribir
+    match /orders/{orderId} {
+      // El propietario puede leer sus propias órdenes
+      allow read: if request.auth != null && 
+                     request.auth.uid == resource.data.user_id;
+      
+      // Los admins y gestores pueden leer/escribir todas las órdenes
+      allow read, write: if request.auth != null && 
+                          hasRole(['admin', 'gestor']);
+      
+      // Los comprobadores pueden leer todas las órdenes (para validación)
+      allow read: if request.auth != null && hasRole(['comprobador']);
+      
+      // 🆕 PERMITIR creación de órdenes para usuarios autenticados (para compras)
+      allow create: if request.auth != null;
+      
+      // 🆕 PERMITIR actualización de estado por webhooks/APIs (usando admin SDK)
+      allow update: if request.auth != null && 
+                    hasRole(['admin', 'gestor']) &&
+                    onlyAllowedFieldsChanged(['status', 'payment_id', 'payment_details', 'paid_at', 'updated_at']);
+    }
+    
     // 📋 Preregistrations - REGLAS ACTUALIZADAS para permitir user_id: null
     match /preregistrations/{preregistrationId} {
       // 🆕 PERMITIR creación sin user_id (para preregistros de invitados)
