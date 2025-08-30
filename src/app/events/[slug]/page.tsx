@@ -4,6 +4,9 @@ import { getPublicEventBySlug } from '@/lib/api/events';
 import { EventLandingClient } from './event-landing-client';
 import { EventStatusPage } from './components/EventStatusPage';
 
+// 🆕 Configuración de ISR - revalidar cada 60 segundos
+export const revalidate = 60;
+
 interface EventPageProps {
   params: {
     slug: string;

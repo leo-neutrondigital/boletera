@@ -2,6 +2,7 @@ import { adminDb } from "@/lib/firebase/admin"
 import { NextResponse } from "next/server"
 import { getAuthFromRequest } from "@/lib/auth/server-auth"
 import { isSlugAvailable } from "@/lib/api/events"
+import { revalidatePath } from 'next/cache'
 
 // ✅ Forzar modo dinámico para usar request.headers
 export const dynamic = 'force-dynamic';
@@ -128,6 +129,32 @@ export async function PUT(req: Request) {
     console.log("📝 Updating event with payload:", updatePayload);
     await adminDb.collection("events").doc(id).update(updatePayload);
     console.log("✅ Event updated successfully");
+
+    // 🆕 Revalidar páginas que dependen de este evento
+    try {
+      const eventData = eventDoc.data();
+      const currentSlug = updateData.slug || eventData?.slug;
+      
+      if (currentSlug) {
+        // Revalidar la página pública del evento
+        await revalidatePath(`/events/${currentSlug}`);
+        console.log(`✅ Revalidated public page: /events/${currentSlug}`);
+        
+        // Si el slug cambió, también revalidar el slug anterior
+        if (updateData.slug && eventData?.slug && updateData.slug !== eventData.slug) {
+          await revalidatePath(`/events/${eventData.slug}`);
+          console.log(`✅ Revalidated old slug: /events/${eventData.slug}`);
+        }
+      }
+      
+      // Revalidar páginas admin que muestren eventos
+      await revalidatePath('/dashboard/eventos');
+      console.log("✅ Revalidated admin events page");
+      
+    } catch (revalidationError) {
+      console.warn("⚠️ Error during revalidation (event still updated):", revalidationError);
+      // No fallar la respuesta por errores de revalidación
+    }
 
     return NextResponse.json({ 
       success: true, 

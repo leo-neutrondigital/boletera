@@ -2,6 +2,7 @@ import { getAuthFromRequest } from "@/lib/auth/server-auth";
 import { adminDb } from "@/lib/firebase/admin";
 import { generateUniqueEventSlug, isSlugAvailable } from "@/lib/api/events";
 import { NextResponse } from "next/server";
+import { revalidatePath } from 'next/cache';
 
 // ✅ Forzar modo dinámico para usar request.headers
 export const dynamic = 'force-dynamic';
@@ -110,6 +111,20 @@ export async function POST(req: Request) {
 
     console.log("📁 Event to be stored:", newEvent);
     const docRef = await adminDb.collection("events").add(newEvent);
+
+    // 🆕 Revalidar páginas después de crear el evento
+    try {
+      if (published && finalSlug) {
+        await revalidatePath(`/events/${finalSlug}`);
+        console.log(`✅ Revalidated new public page: /events/${finalSlug}`);
+      }
+      
+      await revalidatePath('/dashboard/eventos');
+      console.log("✅ Revalidated admin events page");
+      
+    } catch (revalidationError) {
+      console.warn("⚠️ Error during revalidation (event still created):", revalidationError);
+    }
 
     return NextResponse.json({ 
       message: "Event created successfully", 
