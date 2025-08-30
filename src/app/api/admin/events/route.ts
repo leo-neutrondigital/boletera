@@ -22,7 +22,16 @@ export async function GET(req: Request) {
     const events = await getAllEvents();
     console.log(`✅ Retrieved ${events.length} events`);
     
-    return NextResponse.json(events);
+    // 🔧 FIX: Serializar fechas correctamente para JSON
+    const serializedEvents = events.map(event => ({
+      ...event,
+      start_date: event.start_date.toISOString(),
+      end_date: event.end_date.toISOString(),
+      created_at: event.created_at?.toISOString() || null,
+      updated_at: event.updated_at?.toISOString() || null,
+    }));
+    
+    return NextResponse.json(serializedEvents);
   } catch (error) {
     console.error("❌ Error fetching events:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });

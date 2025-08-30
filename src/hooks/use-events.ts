@@ -6,6 +6,21 @@ import { auth } from '@/lib/firebase/client'
 import { useToast } from '@/hooks/use-toast'
 import type { Event } from '@/types'
 
+// 🔧 Helper function to deserialize events from API
+function deserializeEvent(event: any): Event {
+  return {
+    ...event,
+    start_date: new Date(event.start_date),
+    end_date: new Date(event.end_date),
+    created_at: event.created_at ? new Date(event.created_at) : undefined,
+    updated_at: event.updated_at ? new Date(event.updated_at) : undefined,
+  }
+}
+
+function deserializeEvents(events: any[]): Event[] {
+  return events.map(deserializeEvent)
+}
+
 export function useEvents(initialEvents: Event[]) {
   const [events, setEvents] = useState<Event[]>(initialEvents)
   const [isLoading, setIsLoading] = useState(false)
@@ -34,9 +49,14 @@ export function useEvents(initialEvents: Event[]) {
         throw new Error('Failed to fetch events')
       }
       
-      const updatedEvents = await response.json()
-      console.log(`✅ Refreshed ${updatedEvents.length} events`)
-      setEvents(updatedEvents)
+      const rawEvents = await response.json()
+      console.log(`✅ Received ${rawEvents.length} events from API`)
+      
+      // 🔧 FIX: Convert date strings back to Date objects
+      const deserializedEvents = deserializeEvents(rawEvents)
+      console.log(`✅ Deserialized ${deserializedEvents.length} events with proper dates`)
+      
+      setEvents(deserializedEvents)
     } catch (error) {
       console.error('Error refreshing events:', error)
       toast({
@@ -69,12 +89,15 @@ export function useEvents(initialEvents: Event[]) {
         throw new Error(errorData.error || 'Error al eliminar el evento')
       }
 
+      const result = await response.json()
+      console.log('✅ Event deletion result:', result)
+
       // Actualizar estado local inmediatamente para mejor UX
       setEvents(prev => prev.filter(event => event.id !== eventId))
       
       toast({
         title: "Evento eliminado",
-        description: "El evento se eliminó correctamente",
+        description: result.message || "El evento se eliminó correctamente",
       })
 
       return true

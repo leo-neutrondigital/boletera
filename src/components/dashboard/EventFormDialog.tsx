@@ -9,6 +9,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription, // 🔧 AGREGADO
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -88,8 +89,13 @@ export function EventFormDialog({
     defaultValues: {
       name: eventToEdit?.name ?? "",
       slug: eventToEdit?.slug ?? "",
-      start_date: eventToEdit?.start_date ? eventToEdit.start_date.toISOString().split('T')[0] : "",
-      end_date: eventToEdit?.end_date ? eventToEdit.end_date.toISOString().split('T')[0] : "",
+      // 🔧 FIX: Convertir fechas correctamente para datetime-local input
+      start_date: eventToEdit?.start_date ? 
+        new Date(eventToEdit.start_date.getTime() - eventToEdit.start_date.getTimezoneOffset() * 60000)
+          .toISOString().slice(0, 16) : "",
+      end_date: eventToEdit?.end_date ? 
+        new Date(eventToEdit.end_date.getTime() - eventToEdit.end_date.getTimezoneOffset() * 60000)
+          .toISOString().slice(0, 16) : "",
       location: eventToEdit?.location ?? "",
       description: eventToEdit?.description ?? "",
       internal_notes: eventToEdit?.internal_notes ?? "",
@@ -240,6 +246,12 @@ export function EventFormDialog({
               </Badge>
             )}
           </DialogTitle>
+          <DialogDescription>
+            {eventToEdit 
+              ? "Modifica la información del evento. Los cambios se aplicarán inmediatamente."
+              : "Completa la información para crear un nuevo evento. Puedes guardarlo como borrador o publicarlo directamente."
+            }
+          </DialogDescription>
         </DialogHeader>
 
         {/* Tabs de navegación */}

@@ -17,6 +17,7 @@ import { useSalesPage } from "@/contexts/SalesPageContext";
 import { getEventDateInfo } from "@/lib/utils/event-dates";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { auth } from "@/lib/firebase/client"; // 🔧 AGREGADO
 import type { Event } from "@/types";
 
 interface EventConfigurationClientProps {
@@ -66,11 +67,23 @@ export function EventConfigurationClient({ event: initialEvent }: EventConfigura
   const handleTogglePublished = useCallback(async () => {
     setUpdating(true);
     try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error('Usuario no autenticado');
+
+      const token = await currentUser.getIdToken();
       const newPublished = !event.published;
-      const response = await fetch(`/api/admin/events/${event.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ published: newPublished }),
+      
+      // 🔧 FIX: Usar la ruta correcta que funciona en EventFormDialog
+      const response = await fetch('/api/admin/update-event', {
+        method: "PUT",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({ 
+          id: event.id,
+          published: newPublished 
+        }),
       });
 
       if (response.ok) {
@@ -82,13 +95,15 @@ export function EventConfigurationClient({ event: initialEvent }: EventConfigura
             : "El evento ya no es visible públicamente",
         });
       } else {
-        throw new Error("Error al cambiar estado");
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Error al cambiar estado");
       }
-    } catch {
+    } catch (error) {
+      console.error('Toggle published error:', error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: "No se pudo cambiar el estado del evento",
+        description: error instanceof Error ? error.message : "No se pudo cambiar el estado del evento",
       });
     } finally {
       setUpdating(false);
@@ -98,18 +113,32 @@ export function EventConfigurationClient({ event: initialEvent }: EventConfigura
   // Eliminar evento
   const handleDelete = async () => {
     try {
-      const response = await fetch(`/api/admin/events/${event.id}`, {
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error('Usuario no autenticado');
+
+      const token = await currentUser.getIdToken();
+      
+      // 🔧 FIX: Usar la ruta correcta para eliminación
+      const response = await fetch(`/api/admin/delete-event?id=${event.id}`, {
         method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+        },
       });
 
       if (response.ok) {
-        toast({ title: "Evento eliminado exitosamente" });
+        const result = await response.json();
+        toast({ 
+          title: "Evento eliminado exitosamente",
+          description: result.message || `${event.name} y todos sus datos relacionados han sido eliminados`
+        });
         router.push("/dashboard/eventos");
       } else {
         const data = await response.json();
         throw new Error(data.error || "Error al eliminar evento");
       }
     } catch (error) {
+      console.error('Delete event error:', error);
       toast({
         variant: "destructive",
         title: "Error al eliminar evento",
