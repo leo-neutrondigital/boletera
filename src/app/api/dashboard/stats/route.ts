@@ -5,6 +5,10 @@ import { getPaidOrdersByEventAdmin } from '@/lib/api/orders-admin';
 // import { getAllPaidOrdersAdmin } from '@/lib/api/orders-admin'; // ← Comentado: no usado
 import { getPreregistrationStatsAdmin } from '@/lib/api/preregistrations-admin';
 
+// ✅ Forzar modo dinámico para usar request.headers
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export async function GET(request: NextRequest) {
   try {
     // Validar autenticación y permisos

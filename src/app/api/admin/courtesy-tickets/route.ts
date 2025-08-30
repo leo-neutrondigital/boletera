@@ -4,6 +4,10 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { getAuthFromRequest, requireRoles } from '@/lib/auth/server-auth';
 // 🆕 Ya no necesitamos TicketEmailService - usar flujo unificado
 
+// ✅ Forzar modo dinámico para usar request.headers
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 /**
  * 🎁 API para gestionar boletos de cortesía
  * Solo accesible por administradores

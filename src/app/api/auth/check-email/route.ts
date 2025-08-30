@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// ✅ Forzar modo dinámico para usar request.json()
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 // 🆕 API para verificar si un email existe (sin crear nada)
 export async function POST(request: NextRequest) {
   try {

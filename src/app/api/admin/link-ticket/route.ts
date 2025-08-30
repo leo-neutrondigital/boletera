@@ -3,6 +3,10 @@ import { adminDb } from '@/lib/firebase/admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { getAuthFromRequest, requireRoles } from '@/lib/auth/server-auth';
 
+// ✅ Forzar modo dinámico para usar request.headers y request.json()
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 interface LinkTicketRequest {
   ticketId: string;
   userId: string;

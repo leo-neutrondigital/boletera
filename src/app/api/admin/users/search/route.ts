@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase/admin';
 import { getAuthFromRequest, requireRoles } from '@/lib/auth/server-auth';
 
+// ✅ Forzar modo dinámico para usar request.headers
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 /**
  * 🔍 API para buscar usuarios por email
  * Solo accesible por administradores y gestores

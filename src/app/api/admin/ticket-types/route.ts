@@ -4,6 +4,10 @@ import { adminDb } from "@/lib/firebase/admin";
 import { getAuthFromRequest } from "@/lib/auth/server-auth";
 // import type { TicketType } from "@/types"; // ← Comentado: no usado
 
+// ✅ Forzar modo dinámico para usar request.headers
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 // GET: Obtener tipos de boletos (con filtro opcional por evento)
 export async function GET(req: NextRequest) {
   try {

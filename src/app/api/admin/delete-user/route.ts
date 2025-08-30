@@ -3,6 +3,10 @@ import { getFirestore } from "firebase-admin/firestore";
 import { initializeApp, getApps } from "firebase-admin/app";
 import { NextRequest, NextResponse } from "next/server";
 
+// ✅ Forzar modo dinámico para usar request.headers
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 if (getApps().length === 0) {
   initializeApp();
 }

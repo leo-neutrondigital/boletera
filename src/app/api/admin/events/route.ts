@@ -3,6 +3,10 @@ import { NextResponse } from "next/server";
 import { getAllEvents } from "@/lib/api/events";
 import { getAuthFromRequest } from "@/lib/auth/server-auth";
 
+// ✅ Forzar modo dinámico para usar request.headers
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export async function GET(req: Request) {
   try {
     console.log("📋 GET /api/admin/events triggered");

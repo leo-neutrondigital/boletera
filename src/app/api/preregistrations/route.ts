@@ -3,6 +3,10 @@ import { getAuthFromRequest, requireRoles } from '@/lib/auth/server-auth';
 import { PreregistroEmailService } from '@/lib/email/preregistro-email-service';
 import { adminDb } from '@/lib/firebase/admin';
 
+// ✅ Forzar modo dinámico para usar request.headers
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 interface CreatePreregistrationRequest {
   event_id: string;
   customer_data: {

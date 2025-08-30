@@ -3,6 +3,10 @@ import { NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase/admin";
 import { getAuthFromRequest } from "@/lib/auth/server-auth";
 
+// ✅ Forzar modo dinámico para usar request.headers
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export async function PUT(
   req: Request,
   { params }: { params: { id: string } }

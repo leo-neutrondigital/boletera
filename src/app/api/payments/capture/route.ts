@@ -3,6 +3,10 @@ import { adminDb } from '@/lib/firebase/admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { formatCurrency } from '@/lib/utils/currency';
 
+// ✅ Forzar modo dinámico para usar request.json() y headers
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 const PAYPAL_CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID!;
 const PAYPAL_CLIENT_SECRET = process.env.PAYPAL_CLIENT_SECRET!;
 const PAYPAL_BASE_URL = process.env.PAYPAL_SANDBOX_MODE === 'true' 

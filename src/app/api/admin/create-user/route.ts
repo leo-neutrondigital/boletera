@@ -5,6 +5,10 @@ import { adminAuth } from '@/lib/firebase/admin';
 import { adminDb } from '@/lib/firebase/admin';
 import { getAuthFromRequest } from '@/lib/auth/server-auth';
 
+// ✅ Forzar modo dinámico para usar request.headers
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export async function POST(req: Request) {
   try {
     // Verificar autorización

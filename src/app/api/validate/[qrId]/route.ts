@@ -3,6 +3,10 @@ import { adminDb } from '@/lib/firebase/admin';
 import { getAuthFromRequest } from '@/lib/auth/server-auth';
 import { FieldValue } from 'firebase-admin/firestore';
 
+// ✅ Forzar modo dinámico para usar request.headers y request.json()
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 interface ValidationRequest {
   action: 'checkin' | 'undo';
   timestamp?: string;

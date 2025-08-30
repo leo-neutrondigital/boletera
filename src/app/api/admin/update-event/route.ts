@@ -3,6 +3,10 @@ import { NextResponse } from "next/server"
 import { getAuthFromRequest } from "@/lib/auth/server-auth"
 import { isSlugAvailable } from "@/lib/api/events"
 
+// ✅ Forzar modo dinámico para usar request.headers
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 // Tipo para los datos de actualización de evento
 interface EventUpdateData {
   name?: string;

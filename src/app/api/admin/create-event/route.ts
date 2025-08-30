@@ -3,6 +3,10 @@ import { adminDb } from "@/lib/firebase/admin";
 import { generateUniqueEventSlug, isSlugAvailable } from "@/lib/api/events";
 import { NextResponse } from "next/server";
 
+// ✅ Forzar modo dinámico para usar request.headers
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 export async function POST(req: Request) {
   console.log("🟡 POST /api/admin/create-event triggered");
   try {
