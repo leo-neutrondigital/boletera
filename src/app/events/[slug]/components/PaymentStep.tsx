@@ -827,8 +827,8 @@ export function PaymentStep() {
 
       {/* Navegación - Mantener botón Atrás pero ocultar Next (duplicado) */}
       <FlowNavigation
-        showBack={true}                   // ✅ Mostrar botón Atrás
-        hideNext={true}                   // ❌ Ocultar botón Next (duplicado)
+        showBack={event.allow_preregistration}    // Solo mostrar atrás si vino del paso method
+        hideNext={true}                           // ❌ Ocultar botón Next (duplicado)
         nextLabel={isPreregistration ? "Confirmar Preregistros" : "Procesar Pago"}
         nextDisabled={isPreregistration ? isProcessing : true} // PayPal maneja su propio botón, preregistro debe estar habilitado
         customNextAction={isPreregistration ? handlePreregistro : undefined} // Preregistro usa botón de navegación

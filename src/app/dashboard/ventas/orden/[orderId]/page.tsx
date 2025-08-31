@@ -1,22 +1,13 @@
-import { CourtesyOrderPageContent } from "@/app/dashboard/cortesias/orden/[orderId]/components/CourtesyOrderPageContent";
+import { SalesOrderPageContent } from "./components/SalesOrderPageContent";
 
 interface SalesOrderPageProps {
   params: { orderId: string };
+  searchParams: { eventId?: string };
 }
 
-export default function SalesOrderPage({ params }: SalesOrderPageProps) {
+export default function SalesOrderPage({ params, searchParams }: SalesOrderPageProps) {
   const { orderId } = params;
+  const { eventId } = searchParams;
 
-  // 🔄 Reutilizar EXACTAMENTE el mismo componente que cortesías
-  // Solo cambiamos el contexto de navegación
-  return (
-    <CourtesyOrderPageContent 
-      orderId={orderId}
-      pageTitle="Detalle de Venta"
-      pageDescription="Gestión administrativa de orden de venta"
-      breadcrumbTitle="Ventas"
-      breadcrumbPath="/dashboard/ventas"
-      orderType="venta"
-    />
-  );
+  return <SalesOrderPageContent orderId={orderId} eventId={eventId} />;
 }

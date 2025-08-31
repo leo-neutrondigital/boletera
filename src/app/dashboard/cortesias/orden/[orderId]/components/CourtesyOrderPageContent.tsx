@@ -25,6 +25,7 @@ interface CourtesyOrderPageContentProps {
   breadcrumbTitle?: string;
   breadcrumbPath?: string;
   orderType?: 'cortesia' | 'venta';
+  eventId?: string;
 }
 
 interface OrderData {
@@ -51,7 +52,8 @@ export function CourtesyOrderPageContent({
   pageDescription = "Gestión de cortesías",
   breadcrumbTitle = "Cortesías",
   breadcrumbPath = "/dashboard/cortesias",
-  orderType = "cortesia"
+  orderType = "cortesia",
+  eventId
 }: CourtesyOrderPageContentProps) {
   const { user, userData } = useAuth();
   const { invalidateCache } = useDataCache(); // 🆕 Para invalidar cache
@@ -61,6 +63,15 @@ export function CourtesyOrderPageContent({
 
   // 🆕 Agregar estado para prevenir recargas innecesarias
   const [isUpdatingTicket, setIsUpdatingTicket] = useState(false);
+
+  // Determinar URLs de navegación temprano para uso en casos de error
+  const finalBackPath = eventId 
+    ? `/dashboard/eventos/${eventId}/boletos-vendidos`
+    : breadcrumbPath;
+    
+  const finalBackLabel = eventId 
+    ? 'Volver a boletos vendidos'
+    : `Volver a ${breadcrumbTitle.toLowerCase()}`;
 
   // Cargar datos de la orden
   useEffect(() => {
@@ -85,7 +96,14 @@ export function CourtesyOrderPageContent({
 
       const token = await currentUser.getIdToken();
 
-      const response = await fetch(`/api/admin/courtesy-orders/${orderId}`, {
+      // 🔄 Usar endpoint correcto según el tipo de orden
+      const endpoint = orderType === 'venta' 
+        ? `/api/admin/sales-orders/${orderId}`
+        : `/api/admin/courtesy-orders/${orderId}`;
+
+      console.log(`🔍 Loading ${orderType} order from:`, endpoint);
+
+      const response = await fetch(endpoint, {
         headers: {
           'Authorization': `Bearer ${token}`,
         }
@@ -94,12 +112,13 @@ export function CourtesyOrderPageContent({
       if (response.ok) {
         const data = await response.json();
         setOrderData(data);
+        console.log(`✅ ${orderType} order loaded:`, data.order_id);
       } else {
         const errorData = await response.json();
-        setError(errorData.error || 'Error al cargar la orden');
+        setError(errorData.error || `Error al cargar la orden de ${orderType}`);
       }
     } catch (error) {
-      console.error('Error loading order data:', error);
+      console.error(`❌ Error loading ${orderType} order:`, error);
       setError('Error al cargar los datos');
     } finally {
       setLoading(false);
@@ -149,7 +168,7 @@ export function CourtesyOrderPageContent({
             </AlertDescription>
           </Alert>
           <Button asChild className="mt-4">
-            <Link href="/dashboard/cortesias">Volver a cortesías</Link>
+            <Link href={finalBackPath}>{finalBackLabel}</Link>
           </Button>
         </div>
       </div>
@@ -165,9 +184,9 @@ export function CourtesyOrderPageContent({
         <div className="max-w-7xl mx-auto px-6 py-4"> {/* 🆕 Mismo ancho que cortesías */}
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="sm" asChild>
-              <Link href={breadcrumbPath} className="flex items-center gap-2">
+              <Link href={finalBackPath} className="flex items-center gap-2">
                 <ArrowLeft className="w-4 h-4" />
-                Volver a {breadcrumbTitle.toLowerCase()}
+                {finalBackLabel}
               </Link>
             </Button>
             <div className="h-6 border-l border-gray-300" />

@@ -204,6 +204,7 @@ export function TicketSelection() {
 
       {/* Navegación */}
       <FlowNavigation 
+        showBack={event.allow_preregistration} // Solo mostrar atrás si vino del paso method
         nextLabel={method === 'preregister' ? 'Continuar con Preregistro' : 'Continuar con Compra'}
         nextDisabled={method === 'purchase' ? selectedTickets.length === 0 : false}
       />

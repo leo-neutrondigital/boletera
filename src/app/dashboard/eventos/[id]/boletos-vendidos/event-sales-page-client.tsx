@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { useSoldTickets } from "@/hooks/use-sold-tickets";
+import { useSalesOrders } from "@/hooks/use-sales-orders"; // 🆕 Hook para órdenes agrupadas
 import { useCourtesyTickets } from "@/hooks/use-courtesy-tickets"; // 🆕 Hook unificado
 import {
   
@@ -38,11 +38,11 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
   
   // Hooks con cache especializado unificado
   const { 
-    soldTickets, 
+    salesOrders, 
     loading: salesLoading, 
-    stats: soldStats, 
-    refreshSoldTickets 
-  } = useSoldTickets();
+    stats: salesStats, 
+    refreshSalesOrders 
+  } = useSalesOrders(event.id); // 🆕 Pasar eventId como parámetro
   
   const {
     courtesyTickets,
@@ -63,27 +63,10 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
 
   // Los datos se cargan automÃ¡ticamente por los hooks con cache
 
-  // 📈 Datos unificados del cache
+  // 📈 Datos unificados del cache - Usando órdenes reales, no boletos individuales
   const data = useMemo(() => {
-    // Transformar boletos vendidos para compatibilidad con UI
-    const salesOrders = soldTickets.map(ticket => ({
-      id: ticket.id,
-      customer_name: ticket.customer_name,
-      customer_email: ticket.customer_email,
-      total_tickets: 1,
-      configured_tickets: ticket.status === 'generated' ? 1 : 0,
-      pending_tickets: ticket.status === 'purchased' ? 1 : 0,
-      used_tickets: ticket.status === 'used' ? 1 : 0,
-      total_amount: ticket.amount_paid || 0,
-      currency: ticket.currency || 'MXN',
-      created_at: ticket.purchase_date || new Date(),
-      tickets: [{
-        id: ticket.id,
-        ticket_type_name: ticket.ticket_type_name,
-        attendee_name: ticket.customer_name,
-        status: ticket.status
-      }]
-    }));
+    // Las órdenes de ventas ya vienen agrupadas correctamente del nuevo hook
+    const salesOrdersData = salesOrders;
 
     // Transformar cortesías para compatibilidad con UI
     const courtesyOrders = courtesyTickets.map(courtesy => ({
@@ -100,25 +83,23 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
 
     return {
       sales: {
-        orders: salesOrders,
+        orders: salesOrdersData,
         stats: {
-          total_revenue: soldStats?.totalAmount || 0,
-          total_tickets: soldStats?.total || 0,
-          configured_tickets: soldStats?.generated || 0,
-          pending_tickets: soldStats?.purchased || 0,
-          used_tickets: soldStats?.used || 0,
-          avg_order_value: soldStats?.totalAmount && soldStats?.total 
-            ? soldStats.totalAmount / soldStats.total 
-            : 0,
-          total_orders: soldStats?.total || 0,
+          total_revenue: salesStats?.total_revenue || 0,
+          total_tickets: salesStats?.total_tickets || 0,
+          configured_tickets: salesStats?.configured_tickets || 0,
+          pending_tickets: salesStats?.pending_tickets || 0,
+          used_tickets: salesStats?.used_tickets || 0,
+          avg_order_value: salesStats?.avg_order_value || 0,
+          total_orders: salesStats?.total_orders || 0,
           currency: 'MXN',
           by_ticket_type: {}
         },
         pagination: {
-          currentPage: 1,
-          totalPages: 1,
-          totalItems: soldStats?.total || 0,
-          itemsPerPage: soldStats?.total || 0,
+          currentPage: salesPage,
+          totalPages: Math.ceil((salesStats?.total_orders || 0) / salesLimit),
+          totalItems: salesStats?.total_orders || 0,
+          itemsPerPage: salesLimit,
           hasNextPage: false,
           hasPrevPage: false
         }
@@ -132,26 +113,26 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
           by_courtesy_type: courtesyStats?.byType || {}
         },
         pagination: {
-          currentPage: 1,
-          totalPages: 1,
+          currentPage: courtesyPage,
+          totalPages: Math.ceil((courtesyStats?.total || 0) / courtesyLimit),
           totalItems: courtesyStats?.total || 0,
-          itemsPerPage: courtesyStats?.total || 0,
+          itemsPerPage: courtesyLimit,
           hasNextPage: false,
           hasPrevPage: false
         }
       }
     };
-  }, [soldTickets, soldStats, courtesyTickets, courtesyStats]);
+  }, [salesOrders, salesStats, courtesyTickets, courtesyStats, salesPage, salesLimit, courtesyPage, courtesyLimit]);
 
   // Estado de carga combinado
   const isLoading = salesLoading || courtesyLoading;
   const handleViewOrder = (orderId: string, type: 'sales' | 'courtesies') => {
     // 👥 Usar vista administrativa apropiada para cada tipo
     if (type === 'sales') {
-      // Nueva vista administrativa para ventas
-      window.location.href = `/dashboard/ventas/orden/${orderId}`;
+      // Nueva vista administrativa para ventas con eventId para navegación correcta
+      window.location.href = `/dashboard/ventas/orden/${orderId}?eventId=${event.id}`;
     } else {
-      window.location.href = `/dashboard/cortesias/orden/${orderId}`;
+      window.location.href = `/dashboard/cortesias/orden/${orderId}?eventId=${event.id}`;
     }
   };
 
@@ -207,22 +188,24 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
         'Fecha Creación'
       ]);
       
-      // Ventas
-      soldTickets.forEach((ticket) => {
-        csvData.push([
-          'Venta',
-          ticket.id,
-          ticket.customer_name,
-          ticket.customer_email,
-          1, // Un boleto por fila
-          ticket.status === 'generated' ? 1 : 0,
-          ticket.status === 'purchased' ? 1 : 0,
-          ticket.status === 'used' ? 1 : 0,
-          ticket.amount_paid || 0,
-          ticket.currency || 'MXN',
-          '',
-          ticket.purchase_date ? new Date(ticket.purchase_date).toLocaleDateString() : ''
-        ]);
+      // Ventas - ahora iteramos sobre salesOrders y sus tickets
+      data.sales.orders.forEach((order) => {
+        order.tickets.forEach((ticket) => {
+          csvData.push([
+            'Venta',
+            order.id, // ID de la orden
+            order.customer_name,
+            order.customer_email,
+            1, // Un boleto por fila
+            ticket.status === 'generated' ? 1 : 0,
+            ticket.status === 'purchased' ? 1 : 0,
+            ticket.status === 'used' ? 1 : 0,
+            order.total_amount / order.total_tickets, // Prorrateamos el monto por boleto
+            order.currency || 'MXN',
+            '',
+            new Date(order.created_at).toLocaleDateString()
+          ]);
+        });
       });
       
       // Cortesías
@@ -269,14 +252,14 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
     } finally {
       setIsRefreshing(false);
     }
-  }, [soldTickets, courtesyTickets, event.name, toast]);
+  }, [data, courtesyTickets, event.name, toast]);
 
   // Configurar acciones para el header (DESPUÉS de handleExportCSV)
   useEffect(() => {
     setSalesActions({
       onRefresh: async () => {
         setIsRefreshing(true);
-        await refreshSoldTickets(); // Cache de ventas
+        await refreshSalesOrders(); // Cache de ventas
         await refreshCourtesyTickets(); // Cache de cortesías
         setIsRefreshing(false);
       },
@@ -336,20 +319,7 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
     );
   }
 
-  // Stats directos del cache unificado
-  const salesStats = {
-    total_revenue: soldStats?.totalAmount || 0,
-    total_tickets: soldStats?.total || 0,
-    configured_tickets: soldStats?.generated || 0,
-    pending_tickets: soldStats?.purchased || 0,
-    used_tickets: soldStats?.used || 0,
-    avg_order_value: soldStats?.totalAmount && soldStats?.total 
-      ? soldStats.totalAmount / soldStats.total 
-      : 0,
-    total_orders: soldStats?.total || 0,
-    currency: 'MXN'
-  };
-  
+  // Stats directos del cache unificado - usando data.sales.stats
   const courtesyStatsSummary = {
     total_courtesy_tickets: courtesyStats?.totalTickets || 0,
     configured_courtesy: courtesyStats?.configured || 0,
@@ -370,7 +340,7 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
                 </div>
                 <div className="ml-4">
                   <p className="text-2xl font-bold text-gray-900">
-                    {formatCurrency(salesStats?.total_revenue || 0, (salesStats?.currency || 'MXN') as 'MXN' | 'USD' | 'EUR' | 'GBP')}
+                    {formatCurrency(data.sales.stats?.total_revenue || 0, 'MXN')}
                   </p>
                   <p className="text-sm text-gray-600">Ingresos totales</p>
                 </div>
@@ -386,7 +356,7 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
                 </div>
                 <div className="ml-4">
                   <p className="text-2xl font-bold text-gray-900">
-                    {salesStats?.total_tickets || 0}
+                    {data.sales.stats?.total_tickets || 0}
                   </p>
                   <p className="text-sm text-gray-600">Boletos vendidos</p>
                 </div>
@@ -402,7 +372,7 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
                 </div>
                 <div className="ml-4">
                   <p className="text-2xl font-bold text-gray-900">
-                    {formatCurrency(salesStats?.avg_order_value || 0, (salesStats?.currency || 'MXN') as 'MXN' | 'USD' | 'EUR' | 'GBP')}
+                    {formatCurrency(data.sales.stats?.avg_order_value || 0, 'MXN')}
                   </p>
                   <p className="text-sm text-gray-600">Orden promedio</p>
                 </div>

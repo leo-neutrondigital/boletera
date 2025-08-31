@@ -283,14 +283,19 @@ export function CustomerDetails() {
 
       {/* Navegación */}
       <div className="flex items-center justify-between pt-6 border-t">
-        <Button
-          variant="outline"
-          onClick={goBack}
-          className="flex items-center gap-2"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Atrás
-        </Button>
+        {/* Solo mostrar botón atrás si hay preregistro (vino del paso method) */}
+        {event.allow_preregistration ? (
+          <Button
+            variant="outline"
+            onClick={goBack}
+            className="flex items-center gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Atrás
+          </Button>
+        ) : (
+          <div></div> // Espacio vacío para mantener el layout
+        )}
 
         <div className="flex items-center gap-4">
           {/* Debug info en desarrollo */}

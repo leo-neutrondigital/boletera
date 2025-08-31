@@ -422,13 +422,25 @@ export function useEventFlow() {
 
 // Hook para obtener información del paso actual
 export function useCurrentStepInfo() {
-  const { currentStep } = useEventFlow();
+  const { currentStep, event } = useEventFlow();
   
-  const stepInfo = {
+  // Determinar si el evento tiene preregistro habilitado
+  const hasPreregister = event?.allow_preregistration ?? false;
+  
+  // Definir pasos según si hay preregistro o no
+  const stepInfo = hasPreregister ? {
+    // Flujo completo con preregistro (4 pasos)
     method: { title: 'Elige tu método', step: 1, total: 4 },
     selection: { title: 'Selecciona boletos', step: 2, total: 4 },
     details: { title: 'Tus datos', step: 3, total: 4 },
     payment: { title: 'Pago', step: 4, total: 4 },
+    configure: { title: 'Configurar asistentes', step: 1, total: 1 },
+  } : {
+    // Flujo directo sin preregistro (3 pasos)
+    method: { title: 'Elige tu método', step: 1, total: 3 }, // No debería usarse, pero por seguridad
+    selection: { title: 'Selecciona boletos', step: 1, total: 3 },
+    details: { title: 'Tus datos', step: 2, total: 3 },
+    payment: { title: 'Pago', step: 3, total: 3 },
     configure: { title: 'Configurar asistentes', step: 1, total: 1 },
   };
   
