@@ -11,20 +11,43 @@ export class EmailApiClient {
   private apiUrl: string;
   private apiToken: string;
   private hmacSecret: string;
-  
+  private isConfigured: boolean = false;
+
   constructor() {
     this.apiUrl = process.env.EMAIL_API_URL!;
     this.apiToken = process.env.EMAIL_API_TOKEN!;
     this.hmacSecret = process.env.EMAIL_HMAC_SECRET!;
     
+    // Debug: Mostrar qué variables están disponibles
+    console.log('🔍 Email environment variables check:', {
+      EMAIL_API_URL: !!process.env.EMAIL_API_URL,
+      EMAIL_API_TOKEN: !!process.env.EMAIL_API_TOKEN,
+      EMAIL_HMAC_SECRET: !!process.env.EMAIL_HMAC_SECRET,
+      allEnvKeys: Object.keys(process.env).filter(key => key.startsWith('EMAIL')),
+    });
+    
     if (!this.apiUrl || !this.apiToken || !this.hmacSecret) {
-      throw new Error('EMAIL_API_URL, EMAIL_API_TOKEN, and EMAIL_HMAC_SECRET are required');
+      console.error('❌ Email API not configured - missing environment variables');
+      console.error('Missing vars:', {
+        EMAIL_API_URL: !this.apiUrl,
+        EMAIL_API_TOKEN: !this.apiToken,
+        EMAIL_HMAC_SECRET: !this.hmacSecret,
+      });
+      this.isConfigured = false;
+      // No lanzar error, solo marcar como no configurado
+      return;
     }
     
+    this.isConfigured = true;
     console.log('📧 Email API client initialized for:', this.apiUrl);
   }
 
   async sendEmail(payload: EmailPayload): Promise<void> {
+    if (!this.isConfigured) {
+      console.warn('⚠️ Email API not configured - skipping email send');
+      return;
+    }
+    
     try {
       console.log('📤 Sending email to:', payload.to);
       
@@ -83,6 +106,13 @@ export class EmailApiClient {
 
   // Método para verificar la conexión con tu API de email
   async testConnection(): Promise<{ success: boolean; message: string }> {
+    if (!this.isConfigured) {
+      return {
+        success: false,
+        message: 'Email API not configured - missing environment variables'
+      };
+    }
+    
     try {
       // Test con payload mínimo que debería fallar de manera controlada
       await this.sendEmail({

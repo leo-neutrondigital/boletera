@@ -64,7 +64,7 @@ export function EventTabsNavigation({ event }: EventTabsNavigationProps) {
       href: `/dashboard/eventos/${event.id}/preregistros`,
       icon: Users,
       description: "Gestión de prerregistros",
-      permission: { do: "read", on: "events" }, // 🔄 Usar permisos de eventos por ahora
+      permission: { do: "read", on: "events" },
     },
   ];
 
@@ -79,7 +79,7 @@ export function EventTabsNavigation({ event }: EventTabsNavigationProps) {
     if (pathname.includes("/boletos-vendidos")) return "vendidos";
     if (pathname.includes("/preregistros")) return "preregistros";
     if (pathname.includes("/boletos")) return "boletos";
-    return "config"; // Default
+    return "config";
   };
 
   const activeTab = getActiveTab();
@@ -192,7 +192,7 @@ export function EventTabsNavigation({ event }: EventTabsNavigationProps) {
     );
   }
 
-  // 🆕 Renderizar header personalizado para la página de preregistros
+  // Renderizar header personalizado para la página de preregistros
   if (isOnPreregistrosPage) {
     return (
       <div>

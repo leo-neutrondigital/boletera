@@ -256,6 +256,18 @@ function calculateAuthorizedDays(ticketTypeData: any, eventStartDate: Date, even
 export async function POST(request: NextRequest) {
   try {
     console.log('🔄 Capturing PayPal payment...');
+    
+    // Debug: Verificar variables de entorno al inicio
+    console.log('🔧 Environment variables status:', {
+      NODE_ENV: process.env.NODE_ENV,
+      VERCEL_ENV: process.env.VERCEL_ENV,
+      EMAIL_VARS: {
+        EMAIL_API_URL: !!process.env.EMAIL_API_URL,
+        EMAIL_API_TOKEN: !!process.env.EMAIL_API_TOKEN,
+        EMAIL_HMAC_SECRET: !!process.env.EMAIL_HMAC_SECRET,
+      },
+      EMAIL_KEYS_FOUND: Object.keys(process.env).filter(key => key.startsWith('EMAIL')),
+    });
 
     const body: CaptureRequest = await request.json();
     const { orderID, customerData, tickets, eventId } = body;

@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useSalesPage } from '@/contexts/SalesPageContext';
 import { useToast } from '@/hooks/use-toast';
-import { useEventCache } from '@/hooks/use-event-cache'; // 🔄 Usar EventCache en lugar de hook específico
+import { usePreregistrations } from '@/hooks/use-preregistrations'; // 🆕 Hook con cache especializado
 import { useAuth } from '@/contexts/AuthContext';
 import {
   Card,
@@ -18,11 +18,10 @@ import { User, Mail, Phone, Building, Calendar, Search, MessageCircle, Copy, Che
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { openWhatsApp, copyEmailToClipboard, formatInterestedTickets, generateWhatsAppMessage } from '@/lib/utils/preregistros-utils';
-import type { Event } from '@/types';
+import type { Preregistration } from '@/types';
 
 interface PreregistrosPageClientProps {
-  event: Event;
-  initialPreregistrations: any[];
+  eventId: string;
 }
 
 const statusColors = {
@@ -41,42 +40,28 @@ const statusLabels = {
   convertido: 'Convertido',
 };
 
-export function PreregistrosPageClient({ event, initialPreregistrations }: PreregistrosPageClientProps) {
+export function PreregistrosPageClient({ eventId }: PreregistrosPageClientProps) {
   const { setPreregistrosActions } = useSalesPage();
   const { userData } = useAuth();
   const { toast } = useToast();
   
-  // 🆕 Usar EventCache para preregistros
-  const { preregistrations, loading, loadPreregistrations } = useEventCache();
+  // 🆕 Hook con cache especializado
+  const {
+    preregistrations: rawPreregistrations,
+    loading: isLoading,
+    stats,
+    refreshPreregistrations,
+    updatePreregistrationStatus,
+    deletePreregistrations
+  } = usePreregistrations();
 
-  // Estados locales
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
-  const [copiedEmails, setCopiedEmails] = useState<Set<string>>(new Set());
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [isDeleting, setIsDeleting] = useState(false);
-
-  // Usar datos del cache o fallback a SSR
-  const currentPreregistrations = preregistrations.length > 0 ? preregistrations : initialPreregistrations;
-
-  // Debug: Ver estructura de datos
-  console.log('🔍 Debug preregistrations data:', {
-    cacheLength: preregistrations.length,
-    initialLength: initialPreregistrations.length,
-    usingCache: preregistrations.length > 0,
-    sampleData: currentPreregistrations[0],
-  });
-
-  // Adaptar preregistrations para compatibilidad
-  const adaptedPreregistrations = currentPreregistrations.map((p: any) => ({
+  // Adaptar preregistrations para compatibilidad con el tipo global
+  const preregistrations = rawPreregistrations.map((p: any) => ({
     ...p,
-    // Los datos están en el nivel raíz, no en customer_data
-    name: p.name || '',
-    email: p.email || '',
-    phone: p.phone || '',
-    company: p.company || '',
+    name: p.customer_data?.name || '',
+    email: p.customer_data?.email || '',
+    phone: p.customer_data?.phone || '',
+    company: p.customer_data?.company || '',
     email_sent: p.email_sent ?? false,
     interested_tickets: (p.interested_tickets || []).map((t: any) => ({
       ticket_type_id: t.ticket_type_id,
@@ -87,9 +72,20 @@ export function PreregistrosPageClient({ event, initialPreregistrations }: Prere
       total_price: t.total_price || (t.unit_price * t.quantity) || 0,
     })),
   }));
+  
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  // 🆕 Estados para paginación
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+  // 🆕 Estado para manejar copia de emails
+  const [copiedEmails, setCopiedEmails] = useState<Set<string>>(new Set());
+  // 🆕 Estados para selección múltiple
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  // Filtrar preregistros
-  const filteredPreregistros = adaptedPreregistrations.filter(p => {
+  // Filtrar preregistros - MOVER ANTES de handleExport
+  const filteredPreregistros = preregistrations.filter(p => {
     const matchesSearch = searchTerm === '' || 
       p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -100,22 +96,12 @@ export function PreregistrosPageClient({ event, initialPreregistrations }: Prere
     return matchesSearch && matchesStatus;
   });
 
-  // Paginación
+  // 🆕 Paginación
   const totalPages = Math.ceil(filteredPreregistros.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const paginatedPreregistros = filteredPreregistros.slice(startIndex, endIndex);
-
-  // Calcular estadísticas
-  const stats = {
-    total: adaptedPreregistrations.length,
-    nuevo: adaptedPreregistrations.filter(p => p.status === 'nuevo').length,
-    contactado: adaptedPreregistrations.filter(p => p.status === 'contactado').length,
-    interesado: adaptedPreregistrations.filter(p => p.status === 'interesado').length,
-    convertido: adaptedPreregistrations.filter(p => p.status === 'convertido').length,
-  };
-
-  // Funciones para selección múltiple
+  // 🆕 Funciones para selección múltiple
   const handleSelectOne = (id: string, checked: boolean) => {
     setSelectedIds(prev => {
       const newSet = new Set(prev);
@@ -139,12 +125,16 @@ export function PreregistrosPageClient({ event, initialPreregistrations }: Prere
   const handleDeleteSelected = useCallback(async (ids: string[]) => {
     setIsDeleting(true);
     try {
-      console.log('🗑️ [v2] Eliminando preregistros:', ids);
-      // TODO: Implementar eliminación usando EventCache
+      console.log('🗑️ Eliminando preregistros:', ids);
+      
+      await deletePreregistrations(ids); // 🆕 Usar hook
+      
       toast({
         title: "Preregistros eliminados",
         description: `Se han eliminado ${ids.length} preregistro${ids.length !== 1 ? 's' : ''} correctamente`,
       });
+      
+      // Limpiar selección (datos se recargan automáticamente por cache)
       setSelectedIds(new Set());
     } catch (error) {
       console.error('❌ Error eliminando preregistros:', error);
@@ -156,16 +146,21 @@ export function PreregistrosPageClient({ event, initialPreregistrations }: Prere
     } finally {
       setIsDeleting(false);
     }
-  }, [toast]);
+  }, [deletePreregistrations, toast]); // 🔧 Dependencias estables
 
+  // 🆕 Función para cambiar estado de un preregistro usando cache
   const handleChangeStatus = useCallback(async (id: string, newStatus: string) => {
     try {
-      console.log('🔄 [v2] Cambiando estado:', { id, newStatus });
-      // TODO: Implementar cambio de estado usando EventCache
+      console.log('🔄 Cambiando estado:', { id, newStatus });
+      await updatePreregistrationStatus(
+        id,
+        newStatus as 'nuevo' | 'contactado' | 'interesado' | 'no_interesado' | 'convertido'
+      );
       toast({
         title: "Estado actualizado",
         description: "El estado del preregistro se ha actualizado correctamente",
       });
+      // Los datos se actualizan automáticamente por el cache
     } catch (error) {
       console.error('❌ Error cambiando estado:', error);
       toast({
@@ -174,12 +169,14 @@ export function PreregistrosPageClient({ event, initialPreregistrations }: Prere
         description: "No se pudo actualizar el estado",
       });
     }
-  }, [toast]);
+  }, [updatePreregistrationStatus, toast]);
 
+  // 🆕 Función para exportar CSV usando cache
   const handleExport = useCallback(() => {
     try {
-      console.log('📥 [v2] Exportando preregistros a CSV');
+      console.log('📥 Exportando preregistros a CSV');
       
+      // 🆕 Usar datos del cache directamente
       const csvData = filteredPreregistros.map(p => {
         const interestedTicketsText = p.interested_tickets && p.interested_tickets.length > 0
           ? p.interested_tickets.map((t: any) => `${t.quantity}x ${t.ticket_type_name} (${t.unit_price})`).join('; ')
@@ -198,17 +195,19 @@ export function PreregistrosPageClient({ event, initialPreregistrations }: Prere
         };
       });
       
+      // Convertir a CSV
       const headers = Object.keys(csvData[0] || {});
       const csvContent = [
         headers.join(','),
         ...csvData.map(row => headers.map(header => `"${row[header as keyof typeof row] || ''}"`).join(','))
       ].join('\n');
       
+      // Descargar archivo
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       const url = URL.createObjectURL(blob);
       link.setAttribute('href', url);
-      link.setAttribute('download', `preregistros-v2-evento-${event.id}-${new Date().toISOString().split('T')[0]}.csv`);
+      link.setAttribute('download', `preregistros-evento-${eventId}-${new Date().toISOString().split('T')[0]}.csv`);
       link.style.visibility = 'hidden';
       document.body.appendChild(link);
       link.click();
@@ -216,7 +215,7 @@ export function PreregistrosPageClient({ event, initialPreregistrations }: Prere
       
       toast({
         title: "Exportación exitosa",
-        description: `Se han exportado ${csvData.length} preregistros (v2)`,
+        description: `Se han exportado ${csvData.length} preregistros`,
       });
       
     } catch (error) {
@@ -227,34 +226,31 @@ export function PreregistrosPageClient({ event, initialPreregistrations }: Prere
         description: "No se pudo exportar el archivo CSV",
       });
     }
-  }, [filteredPreregistros, event.id, toast]);
+  }, [filteredPreregistros, eventId, toast]); // 🔧 Dependencias estables
 
-  // Configurar acciones del header
+  // 🆕 Configurar acciones del header usando cache
   useEffect(() => {
     setPreregistrosActions({
-      onRefresh: () => loadPreregistrations(true),
+      onRefresh: refreshPreregistrations, // 🆕 Usar función del hook
       onExport: handleExport,
       onChangeStatus: handleChangeStatus,
       onDeleteSelected: handleDeleteSelected,
-      isRefreshing: loading.preregistrations
+      isRefreshing: isLoading
     });
 
     return () => setPreregistrosActions(null);
-  }, [loading.preregistrations]); // 🔧 FIX: Solo depender de loading
+  }, [isLoading]); // Solo depender de isLoading
 
-  // Cargar datos al montar
-  useEffect(() => {
-    loadPreregistrations();
-  }, [loadPreregistrations]);
+  // Los datos se cargan automáticamente por el hook - no necesita useEffect manual
 
   // Reset página cuando cambian filtros
   useEffect(() => {
     setCurrentPage(1);
-    setSelectedIds(new Set());
+    setSelectedIds(new Set()); // 🆕 Limpiar selección también
   }, [searchTerm, filterStatus]);
 
-  // Funciones para WhatsApp y copiar email
-  const handleOpenWhatsApp = (preregistro: any) => {
+  // 🆕 Funciones para WhatsApp y copiar email
+  const handleOpenWhatsApp = (preregistro: Preregistration) => {
     const message = generateWhatsAppMessage(preregistro);
     openWhatsApp(preregistro.phone, message);
   };
@@ -268,6 +264,7 @@ export function PreregistrosPageClient({ event, initialPreregistrations }: Prere
         description: "El email se ha copiado al portapapeles",
       });
       
+      // Quitar el estado de copiado después de 2 segundos
       setTimeout(() => {
         setCopiedEmails(prev => {
           const newSet = new Set(prev);
@@ -284,12 +281,12 @@ export function PreregistrosPageClient({ event, initialPreregistrations }: Prere
     }
   };
 
-  if (loading.preregistrations && adaptedPreregistrations.length === 0) {
+  if (isLoading && preregistrations.length === 0) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
-          <p className="text-gray-600">Cargando preregistros v2...</p>
+          <p className="text-gray-600">Cargando preregistros...</p>
         </div>
       </div>
     );
@@ -297,40 +294,41 @@ export function PreregistrosPageClient({ event, initialPreregistrations }: Prere
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-
       {/* Estadísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
-            <p className="text-sm text-gray-600">Total</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-2xl font-bold text-green-600">{stats.nuevo}</div>
-            <p className="text-sm text-gray-600">Nuevos</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-2xl font-bold text-yellow-600">{stats.contactado}</div>
-            <p className="text-sm text-gray-600">Contactados</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-2xl font-bold text-blue-600">{stats.interesado}</div>
-            <p className="text-sm text-gray-600">Interesados</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-2xl font-bold text-purple-600">{stats.convertido}</div>
-            <p className="text-sm text-gray-600">Convertidos</p>
-          </CardContent>
-        </Card>
-      </div>
+      {stats && (
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+          <Card>
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
+              <p className="text-sm text-gray-600">Total</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-green-600">{stats.nuevo}</div>
+              <p className="text-sm text-gray-600">Nuevos</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-yellow-600">{stats.contactado}</div>
+              <p className="text-sm text-gray-600">Contactados</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-blue-600">{stats.interesado}</div>
+              <p className="text-sm text-gray-600">Interesados</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-purple-600">{stats.convertido}</div>
+              <p className="text-sm text-gray-600">Convertidos</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Filtros */}
       <Card className="mb-6">
@@ -366,7 +364,7 @@ export function PreregistrosPageClient({ event, initialPreregistrations }: Prere
         </CardContent>
       </Card>
 
-      {/* Barra de selección múltiple (solo admin) */}
+      {/* 🆕 Barra de selección múltiple (solo admin) */}
       {userData?.roles?.includes('admin') && selectedIds.size > 0 && (
         <Card className="mb-6 border-red-200 bg-red-50">
           <CardContent className="p-4">
@@ -428,7 +426,7 @@ export function PreregistrosPageClient({ event, initialPreregistrations }: Prere
         </Card>
       ) : (
         <>
-          {/* Header de selección (solo admin) */}
+          {/* 🆕 Header de selección (solo admin) */}
           {userData?.roles?.includes('admin') && paginatedPreregistros.length > 0 && (
             <div className="mb-4 flex items-center gap-3 text-sm text-gray-600">
               <Checkbox
@@ -454,7 +452,7 @@ export function PreregistrosPageClient({ event, initialPreregistrations }: Prere
                 }`}>
                   <CardContent className="p-6">
                     <div className="flex items-start gap-4">
-                      {/* Checkbox de selección (solo admin) */}
+                      {/* 🆕 Checkbox de selección (solo admin) */}
                       {userData?.roles?.includes('admin') && (
                         <div className="pt-1">
                           <Checkbox
@@ -526,7 +524,7 @@ export function PreregistrosPageClient({ event, initialPreregistrations }: Prere
                               </div>
                             </div>
                             
-                            {/* Boletos de interés */}
+                            {/* 🆕 Boletos de interés */}
                             {formattedTickets && formattedTickets.length > 0 && (
                               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                                 <h4 className="text-sm font-medium text-blue-900 mb-2">🎫 Boletos de interés:</h4>
@@ -574,7 +572,7 @@ export function PreregistrosPageClient({ event, initialPreregistrations }: Prere
             })}
           </div>
 
-          {/* Componente de Paginación Seguro */}
+          {/* 🆕 Componente de Paginación Seguro */}
           {totalPages > 1 && (
             <div className="flex items-center justify-between py-6">
               <div className="text-sm text-gray-700">
