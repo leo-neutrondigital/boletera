@@ -3,6 +3,9 @@ import { adminDb } from "@/lib/firebase/admin";
 import { EventConfigurationClient } from "./event-configuration-client";
 import type { Event } from "@/types";
 
+// 🔧 Hacer la página dinámica para evitar caché
+export const revalidate = 0;
+
 async function getEvent(eventId: string): Promise<Event | null> {
   try {
     const eventDoc = await adminDb.collection("events").doc(eventId).get();

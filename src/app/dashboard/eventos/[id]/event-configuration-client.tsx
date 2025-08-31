@@ -36,27 +36,80 @@ export function EventConfigurationClient({ event: initialEvent }: EventConfigura
 
   const eventDateInfo = getEventDateInfo(event);
 
+  // Función para refrescar datos del evento
+  const refreshEventData = useCallback(async () => {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) return;
+
+      const token = await currentUser.getIdToken();
+      const response = await fetch(`/api/admin/events/${event.id}`, {
+        headers: {
+          "Authorization": `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const eventData = await response.json();
+        // Convertir fechas si es necesario
+        const updatedEvent = {
+          ...eventData,
+          start_date: new Date(eventData.start_date),
+          end_date: new Date(eventData.end_date),
+          created_at: new Date(eventData.created_at),
+          updated_at: eventData.updated_at ? new Date(eventData.updated_at) : undefined,
+        };
+        setEvent(updatedEvent);
+        setInternalNotes(updatedEvent.internal_notes || "");
+        console.log('✅ Event data refreshed');
+      }
+    } catch (error) {
+      console.error('Error refreshing event data:', error);
+    }
+  }, [event.id]);
+
+  // Función para manejar el éxito de actualización del formulario
+  const handleEventUpdated = useCallback((updatedEvent: Event) => {
+    setEvent(updatedEvent);
+    setInternalNotes(updatedEvent.internal_notes || "");
+    
+    // Refrescar datos en lugar de recargar la página
+    refreshEventData();
+  }, [refreshEventData]);
+
   // Guardar notas internas
   const handleSaveNotes = async () => {
     setSavingNotes(true);
     try {
-      const response = await fetch(`/api/admin/events/${event.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ internal_notes: internalNotes }),
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error('Usuario no autenticado');
+
+      const token = await currentUser.getIdToken();
+      
+      const response = await fetch('/api/admin/update-event', {
+        method: "PUT",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({ 
+          id: event.id,
+          internal_notes: internalNotes 
+        }),
       });
 
       if (response.ok) {
         setEvent({ ...event, internal_notes: internalNotes });
         toast({ title: "Notas guardadas exitosamente" });
       } else {
-        throw new Error("Error al guardar notas");
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Error al guardar notas");
       }
-    } catch {
+    } catch (error) {
       toast({
         variant: "destructive",
         title: "Error al guardar notas",
-        description: "No se pudieron guardar las notas internas",
+        description: error instanceof Error ? error.message : "No se pudieron guardar las notas internas",
       });
     } finally {
       setSavingNotes(false);
@@ -344,7 +397,7 @@ export function EventConfigurationClient({ event: initialEvent }: EventConfigura
         open={showEditDialog}
         onOpenChange={setShowEditDialog}
         onSuccess={(updatedEvent) => {
-          if (updatedEvent) handleEventUpdate(updatedEvent);
+          if (updatedEvent) handleEventUpdated(updatedEvent);
         }}
       />
     </div>

@@ -18,7 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { auth } from "@/lib/firebase/client";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
@@ -110,6 +110,30 @@ export function EventFormDialog({
       contact_email: eventToEdit?.contact_email ?? "",
     },
   });
+
+  // 🔧 FIX: Actualizar valores cuando cambia eventToEdit
+  useEffect(() => {
+    if (eventToEdit) {
+      setValue("name", eventToEdit.name || "");
+      setValue("slug", eventToEdit.slug || "");
+      setValue("start_date", eventToEdit.start_date ? 
+        new Date(eventToEdit.start_date.getTime() - eventToEdit.start_date.getTimezoneOffset() * 60000)
+          .toISOString().slice(0, 16) : "");
+      setValue("end_date", eventToEdit.end_date ? 
+        new Date(eventToEdit.end_date.getTime() - eventToEdit.end_date.getTimezoneOffset() * 60000)
+          .toISOString().slice(0, 16) : "");
+      setValue("location", eventToEdit.location || "");
+      setValue("description", eventToEdit.description || "");
+      setValue("internal_notes", eventToEdit.internal_notes || "");
+      setValue("published", eventToEdit.published || false);
+      setValue("public_description", eventToEdit.public_description || "");
+      setValue("allow_preregistration", eventToEdit.allow_preregistration || false);
+      setValue("preregistration_message", eventToEdit.preregistration_message || "");
+      setValue("featured_image_url", eventToEdit.featured_image_url || "");
+      setValue("terms_and_conditions", eventToEdit.terms_and_conditions || "");
+      setValue("contact_email", eventToEdit.contact_email || "");
+    }
+  }, [eventToEdit, setValue]);
 
   // Auto-generar slug desde el nombre
   const watchName = watch("name");
@@ -212,6 +236,14 @@ export function EventFormDialog({
       setActiveTab('basic');
       
       onSuccess(eventData);
+      
+      // 🔧 FIX: Invalidar cache del evento después de actualización
+      if (eventToEdit && typeof window !== 'undefined') {
+        // Invalidar cache específico del evento editado
+        window.dispatchEvent(new CustomEvent('invalidateEventCache', {
+          detail: { eventId: eventToEdit.id }
+        }));
+      }
     } catch (error: unknown) {
       console.error("Error al guardar el evento:", error);
       const err = error as { message?: string };

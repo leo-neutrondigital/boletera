@@ -501,6 +501,21 @@ export function EventCacheProvider({
     });
   }, [eventId]);
 
+  // 🔧 FIX: Escuchar eventos de invalidación de cache
+  useEffect(() => {
+    const handleInvalidateCache = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const { eventId: targetEventId } = customEvent.detail || {};
+      if (targetEventId === eventId) {
+        console.log('🗑️ Invalidating event cache due to update:', eventId);
+        invalidateCache(['eventDetails']);
+      }
+    };
+
+    window.addEventListener('invalidateEventCache', handleInvalidateCache);
+    return () => window.removeEventListener('invalidateEventCache', handleInvalidateCache);
+  }, [eventId, invalidateCache]);
+
   const value: EventCacheState = {
     eventId,
     

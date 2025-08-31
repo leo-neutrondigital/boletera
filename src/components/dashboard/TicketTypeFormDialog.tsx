@@ -130,6 +130,28 @@ export function TicketTypeFormDialog({
     },
   });
 
+  // 🔧 FIX: Actualizar valores cuando cambia ticketTypeToEdit
+  useEffect(() => {
+    if (ticketTypeToEdit) {
+      setValue("name", ticketTypeToEdit.name || "");
+      setValue("description", ticketTypeToEdit.description || "");
+      setValue("price", ticketTypeToEdit.price || 0);
+      setValue("currency", (ticketTypeToEdit.currency || "MXN") as "MXN" | "USD");
+      setValue("access_type", ticketTypeToEdit.access_type || "all_days");
+      setValue("available_days", ticketTypeToEdit.available_days?.map(d => format(d, "yyyy-MM-dd")) || []);
+      setValue("limit_per_user", ticketTypeToEdit.limit_per_user || null);
+      setValue("total_stock", ticketTypeToEdit.total_stock || null);
+      setValue("sale_start", ticketTypeToEdit.sale_start ? format(ticketTypeToEdit.sale_start, "yyyy-MM-dd'T'HH:mm") : "");
+      setValue("sale_end", ticketTypeToEdit.sale_end ? format(ticketTypeToEdit.sale_end, "yyyy-MM-dd'T'HH:mm") : "");
+      setValue("is_active", ticketTypeToEdit.is_active ?? true);
+      setValue("is_courtesy", ticketTypeToEdit.is_courtesy ?? false);
+      setValue("public_description", ticketTypeToEdit.public_description || "");
+      setValue("features", ticketTypeToEdit.features || []);
+      setValue("terms", ticketTypeToEdit.terms || "");
+      setFeatures(ticketTypeToEdit.features || []);
+    }
+  }, [ticketTypeToEdit, setValue]);
+
   const watchAccessType = watch("access_type");
   const watchAvailableDays = watch("available_days");
   const watchIsCourtesy = watch("is_courtesy");

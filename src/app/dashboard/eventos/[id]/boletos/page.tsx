@@ -4,6 +4,9 @@ import { adminDb } from "@/lib/firebase/admin";
 import { TicketTypesPageClient } from "./ticket-types-page-client";
 import type { Event, TicketType } from "@/types";
 
+// 🔧 Hacer la página dinámica para evitar caché
+export const revalidate = 0;
+
 async function getEventWithTicketTypes(eventId: string): Promise<{ event: Event; ticketTypes: TicketType[] } | null> {
   try {
     // Obtener evento
