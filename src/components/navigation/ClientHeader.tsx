@@ -63,23 +63,25 @@ export function ClientHeader({ currentPage }: ClientHeaderProps) {
             </button>
           </div>
 
-          {/* Navegación desktop */}
-          <nav className="hidden md:flex space-x-8">
-            {navigationItems.map((item) => (
-              <button
-                key={item.key}
-                onClick={() => router.push(item.href)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  currentPage === item.key
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-700 hover:text-blue-600 hover:bg-gray-50'
-                }`}
-              >
-                {item.icon && <item.icon className="w-4 h-4" />}
-                {item.label}
-              </button>
-            ))}
-          </nav>
+          {/* Navegación desktop - Ocultar en my-tickets y profile para evitar duplicación con dropdown */}
+          {currentPage !== 'tickets' && currentPage !== 'profile' && (
+            <nav className="hidden md:flex space-x-8">
+              {navigationItems.map((item) => (
+                <button
+                  key={item.key}
+                  onClick={() => router.push(item.href)}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    currentPage === item.key
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'text-gray-700 hover:text-blue-600 hover:bg-gray-50'
+                  }`}
+                >
+                  {item.icon && <item.icon className="w-4 h-4" />}
+                  {item.label}
+                </button>
+              ))}
+            </nav>
+          )}
 
           {/* Usuario desktop */}
           <div className="hidden md:flex items-center gap-4">
@@ -196,29 +198,31 @@ export function ClientHeader({ currentPage }: ClientHeaderProps) {
         {isMobileMenuOpen && (
           <div className="md:hidden border-t border-gray-200 py-4">
             
-            {/* Navegación móvil */}
-            <div className="space-y-2 mb-4">
-              {navigationItems.map((item) => (
-                <button
-                  key={item.key}
-                  onClick={() => {
-                    router.push(item.href);
-                    setIsMobileMenuOpen(false);
-                  }}
-                  className={`flex items-center gap-2 w-full px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    currentPage === item.key
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'text-gray-700 hover:text-blue-600 hover:bg-gray-50'
-                  }`}
-                >
-                  {item.icon && <item.icon className="w-4 h-4" />}
-                  {item.label}
-                </button>
-              ))}
-            </div>
+            {/* Navegación móvil - Ocultar en my-tickets y profile para evitar duplicación con dropdown */}
+            {currentPage !== 'tickets' && currentPage !== 'profile' && (
+              <div className="space-y-2 mb-4">
+                {navigationItems.map((item) => (
+                  <button
+                    key={item.key}
+                    onClick={() => {
+                      router.push(item.href);
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className={`flex items-center gap-2 w-full px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      currentPage === item.key
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'text-gray-700 hover:text-blue-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    {item.icon && <item.icon className="w-4 h-4" />}
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Usuario móvil */}
-            <div className="border-t border-gray-200 pt-4">
+            <div className={`border-t border-gray-200 pt-4 ${(currentPage === 'tickets' || currentPage === 'profile') ? 'border-t-0 pt-0' : ''}`}>
               {user ? (
                 <div className="space-y-2">
                   

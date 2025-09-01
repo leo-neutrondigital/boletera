@@ -48,7 +48,14 @@ export default function ScanPage() {
       
       if (!qrId) {
         console.error('❌ Invalid QR format');
-        // TODO: Mostrar error de QR inválido
+        
+        // Mostrar toast de error y continuar escaneando
+        toast({
+          variant: "destructive",
+          title: "QR inválido",
+          description: "El código escaneado no tiene el formato correcto. Intenta con otro código.",
+        });
+        
         setIsProcessing(false);
         return;
       }

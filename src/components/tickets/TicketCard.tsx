@@ -55,10 +55,17 @@ export function TicketCard({
   const [isSaving, setIsSaving] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [isResending, setIsResending] = useState(false);
+  const [emailError, setEmailError] = useState<string>('');
   const { triggerAutoGeneration } = useTicketAutoGeneration();
 
   const isConfigured = ticket.status === 'configured';
   const isUsed = ticket.status === 'used';
+
+  // Validación básica de email
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
 
   const handleEdit = () => {
     if (canEdit) {
@@ -73,6 +80,7 @@ export function TicketCard({
       attendee_phone: ticket.attendee_phone || '',
       special_requirements: ticket.special_requirements || '',
     });
+    setEmailError(''); // Limpiar error al cancelar
     setIsEditing(false);
   };
 
@@ -82,8 +90,18 @@ export function TicketCard({
     try {
       setIsSaving(true);
       
+      // 🔍 Validación básica del email
+      if (formData.attendee_email.trim() && !validateEmail(formData.attendee_email)) {
+        setEmailError('Por favor ingresa un email válido');
+        setIsSaving(false);
+        return;
+      }
+      
+      // Limpiar error si el email es válido
+      setEmailError('');
+      
       // 1. Verificar si está completamente configurado
-  isFullyConfigured = Boolean(formData.attendee_name.trim() && formData.attendee_email.trim());
+      isFullyConfigured = Boolean(formData.attendee_name.trim() && formData.attendee_email.trim());
       
       if (isFullyConfigured) {
         // ✨ UX OPTIMISTA: Actualizar UI inmediatamente
@@ -249,13 +267,20 @@ export function TicketCard({
                   id={`email-${ticket.id}`}
                   type="email"
                   value={formData.attendee_email}
-                  onChange={(e) => setFormData(prev => ({
-                    ...prev,
-                    attendee_email: e.target.value
-                  }))}
+                  onChange={(e) => {
+                    setFormData(prev => ({
+                      ...prev,
+                      attendee_email: e.target.value
+                    }));
+                    // Limpiar error cuando el usuario empiece a escribir
+                    if (emailError) setEmailError('');
+                  }}
                   placeholder="email@ejemplo.com"
-                  className="mt-1"
+                  className={`mt-1 ${emailError ? 'border-red-500 focus:border-red-500' : ''}`}
                 />
+                {emailError && (
+                  <p className="text-sm text-red-600 mt-1">{emailError}</p>
+                )}
               </div>
 
               <div>

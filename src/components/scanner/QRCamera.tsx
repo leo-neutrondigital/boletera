@@ -152,7 +152,7 @@ export function QRCamera({ onQRDetected, onClose, isProcessing = false }: QRCame
           
           // Evitar múltiples scans del mismo QR en poco tiempo
           const now = Date.now();
-          if (now - lastScanTime > 1000) { // 1 segundo cooldown
+          if (now - lastScanTime > 3000) { // 3 segundos cooldown (aumentado para evitar múltiples detecciones)
             console.log('📱 QR Code detected:', result.text);
             setLastScanTime(now);
             setScanCount(prev => prev + 1);
