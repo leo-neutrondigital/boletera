@@ -18,9 +18,17 @@ interface QRCameraProps {
   onQRDetected: (qrCode: string) => void;
   onClose: () => void;
   isProcessing?: boolean;
+  isProcessingRef?: React.MutableRefObject<boolean>; // 🔒 Referencia para bloqueo inmediato
+  scanStats?: {
+    total: number;
+    valid: number;
+    invalid: number;
+    successful: number;
+    failed: number;
+  };
 }
 
-export function QRCamera({ onQRDetected, onClose, isProcessing = false }: QRCameraProps) {
+export function QRCamera({ onQRDetected, onClose, isProcessing = false, isProcessingRef, scanStats }: QRCameraProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const scanIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -100,12 +108,17 @@ export function QRCamera({ onQRDetected, onClose, isProcessing = false }: QRCame
 
   // Escaneo QR usando canvas
   const scanQRCode = useCallback(async () => {
-    if (!videoRef.current || !canvasRef.current || !codeReader || isProcessing) {
+    // 🚫 Verificar bloqueos tanto por referencia como por estado
+    const isBlocked = (isProcessingRef && isProcessingRef.current) || isProcessing;
+    
+    if (!videoRef.current || !canvasRef.current || !codeReader || isBlocked) {
       console.log('🚫 Scan skipped:', {
         video: !!videoRef.current,
         canvas: !!canvasRef.current,
         codeReader: !!codeReader,
-        isProcessing
+        isProcessing,
+        isProcessingRef: isProcessingRef?.current,
+        isBlocked
       });
       return;
     }
@@ -150,9 +163,15 @@ export function QRCamera({ onQRDetected, onClose, isProcessing = false }: QRCame
           console.log('📱 Raw QR detected:', result.text);
           console.log('🔍 QR result object:', result);
           
-          // 🚫 BLOQUEO PRINCIPAL: No procesar si ya estamos validando
+          // 🚫 BLOQUEO PRINCIPAL: Verificar referencia inmutable primero
+          if (isProcessingRef && isProcessingRef.current) {
+            console.log('🚫 Processing blocked - validation in progress (ref check)');
+            return;
+          }
+          
+          // 🚫 BLOQUEO SECUNDARIO: Verificar estado React
           if (isProcessing) {
-            console.log('🚫 Processing blocked - validation in progress');
+            console.log('🚫 Processing blocked - validation in progress (state check)');
             return;
           }
           
@@ -289,6 +308,21 @@ export function QRCamera({ onQRDetected, onClose, isProcessing = false }: QRCame
             </Badge>
           )}
           
+          {/* Estadísticas detalladas (solo en desarrollo) */}
+          {process.env.NODE_ENV === 'development' && scanStats && scanStats.total > 0 && (
+            <div className="flex items-center gap-1">
+              <Badge variant="outline" className="bg-green-500/20 text-white border-green-300/30 text-xs">
+                ✅ {scanStats.successful}
+              </Badge>
+              <Badge variant="outline" className="bg-red-500/20 text-white border-red-300/30 text-xs">
+                ❌ {scanStats.failed}
+              </Badge>
+              <Badge variant="outline" className="bg-yellow-500/20 text-white border-yellow-300/30 text-xs">
+                📱 {scanStats.invalid}
+              </Badge>
+            </div>
+          )}
+          
           {/* Flash toggle */}
           {hasCamera && (
             <Button
@@ -412,6 +446,24 @@ export function QRCamera({ onQRDetected, onClose, isProcessing = false }: QRCame
             : 'Preparando la cámara para escanear códigos QR...'
           }
         </p>
+        
+        {/* Estadísticas resumidas y tips (solo en desarrollo) */}
+        {process.env.NODE_ENV === 'development' && scanStats && scanStats.total > 0 && (
+          <div className="mt-2 text-xs text-gray-400">
+            <p>
+              Total: {scanStats.total} | Válidos: {scanStats.valid} | 
+              Éxitos: {scanStats.successful} | 
+              Tasa éxito: {scanStats.valid > 0 ? ((scanStats.successful / scanStats.valid) * 100).toFixed(1) : 0}%
+            </p>
+          </div>
+        )}
+        
+        {/* Tips dinámicos basados en estadísticas */}
+        {scanStats && scanStats.invalid > 2 && (
+          <div className="mt-2 text-xs text-yellow-300">
+            💡 Tip: Asegúrate de escanear códigos QR de boletos de Boletera
+          </div>
+        )}
       </div>
     </div>
   );

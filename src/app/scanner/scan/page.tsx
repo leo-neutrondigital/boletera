@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { QRCamera } from '@/components/scanner/QRCamera';
 import { AuthGuard } from '@/components/auth/AuthGuard';
@@ -35,36 +35,101 @@ export default function ScanPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = useState(false);
+  const isProcessingRef = useRef(false); // 🔒 Referencia inmutable para bloqueo inmediato
+  const [scanStats, setScanStats] = useState({
+    total: 0,
+    valid: 0,
+    invalid: 0,
+    successful: 0,
+    failed: 0
+  });
+
+  // 🔓 Función helper para liberar el bloqueo completamente
+  const releaseProcessing = () => {
+    isProcessingRef.current = false;
+    releaseProcessing();
+  };
 
   const handleQRDetected = useCallback(async (qrData: string) => {
-    console.log('🎯 handleQRDetected called with isProcessing:', isProcessing);
+    console.log('🎯 handleQRDetected called with isProcessing:', isProcessing, 'ref:', isProcessingRef.current);
     
+    // 🔒 BLOQUEO INMEDIATO con useRef (no depende de re-renders)
+    if (isProcessingRef.current) {
+      console.log('🚫 Blocking handleQRDetected - already processing (ref check)');
+      return;
+    }
+    
+    // 🔒 BLOQUEO SECUNDARIO con estado
     if (isProcessing) {
-      console.log('🚫 Blocking handleQRDetected - already processing');
-      return; // Evitar múltiples procesamiento
+      console.log('🚫 Blocking handleQRDetected - already processing (state check)');
+      return;
     }
     
     try {
       console.log('🚀 Starting QR processing...');
+      isProcessingRef.current = true; // 🔒 Bloqueo inmediato
       setIsProcessing(true);
       console.log('📱 QR detected:', qrData);
+      
+      // Actualizar estadísticas
+      setScanStats(prev => ({
+        ...prev,
+        total: prev.total + 1
+      }));
       
       // Extraer QR ID
       const qrId = extractQRId(qrData);
       
       if (!qrId) {
-        console.error('❌ Invalid QR format');
+        console.error('❌ Invalid QR format:', qrData);
         
-        // Mostrar toast de error y continuar escaneando
+        // Actualizar estadísticas de inválidos
+        setScanStats(prev => ({
+          ...prev,
+          invalid: prev.invalid + 1
+        }));
+        
+        // Analizar el tipo de QR inválido para dar mejor feedback
+        let errorTitle = "QR inválido";
+        let errorDescription = "El código escaneado no tiene el formato correcto.";
+        let errorSuggestion = "Intenta con otro código QR de Boletera.";
+        
+        if (qrData.includes('http') || qrData.includes('www')) {
+          errorTitle = "QR de sitio web";
+          errorDescription = "Este parece ser un enlace web, no un boleto.";
+          errorSuggestion = "Busca el código QR específico del boleto.";
+        } else if (qrData.length < 10) {
+          errorTitle = "QR muy corto";
+          errorDescription = "El código es demasiado corto para ser un boleto válido.";
+          errorSuggestion = "Asegúrate de escanear todo el código QR.";
+        } else if (!qrData.includes('qr_')) {
+          errorTitle = "Formato incorrecto";
+          errorDescription = "Los boletos de Boletera tienen un formato específico.";
+          errorSuggestion = "Busca un QR que contenga el texto del boleto.";
+        }
+        
+        // Toast mejorado con más información
         toast({
           variant: "destructive",
-          title: "QR inválido",
-          description: "El código escaneado no tiene el formato correcto. Intenta con otro código.",
+          title: errorTitle,
+          description: `${errorDescription} ${errorSuggestion}`,
         });
         
-        setIsProcessing(false);
+        console.log('📊 Scan stats:', {
+          total: scanStats.total + 1,
+          invalid: scanStats.invalid + 1,
+          invalidRate: ((scanStats.invalid + 1) / (scanStats.total + 1) * 100).toFixed(1) + '%'
+        });
+        
+        releaseProcessing();
         return;
       }
+      
+      // Actualizar estadísticas de válidos
+      setScanStats(prev => ({
+        ...prev,
+        valid: prev.valid + 1
+      }));
       
       console.log('🔍 Validating QR ID:', qrId);
       
@@ -79,10 +144,30 @@ export default function ScanPage() {
       if (response.ok && result.success) {
         console.log('✅ Check-in successful:', result);
         
+        // Actualizar estadísticas de éxito
+        setScanStats(prev => ({
+          ...prev,
+          successful: prev.successful + 1
+        }));
+        
+        console.log('📊 Success! Stats:', {
+          total: scanStats.total + 1,
+          valid: scanStats.valid + 1,
+          successful: scanStats.successful + 1,
+          successRate: ((scanStats.successful + 1) / (scanStats.valid + 1) * 100).toFixed(1) + '%'
+        });
+        
         // Redirigir a página de éxito
         router.push(`/scanner/success/${result.ticket.id}?qr=${qrId}`);
       } else {
         console.error('❌ Check-in failed:', result);
+        
+        // Actualizar estadísticas de fallas
+        setScanStats(prev => ({
+          ...prev,
+          failed: prev.failed + 1
+        }));
+        
         console.error('❌ Full error response:', {
           status: response.status,
           statusText: response.statusText,
@@ -107,7 +192,7 @@ export default function ScanPage() {
             title: "Error de autenticación",
             description: "Tu sesión expiró. Refresca la página.",
           });
-          setIsProcessing(false);
+          releaseProcessing();
         } else if (result.error === 'Internal server error') {
           // Toast: Error del servidor
           toast({
@@ -115,7 +200,7 @@ export default function ScanPage() {
             title: "Error del servidor",
             description: "Problema temporal. Intenta de nuevo.",
           });
-          setIsProcessing(false);
+          releaseProcessing();
         } else {
           // Toast: Otros errores - continuar escaneando
           toast({
@@ -123,7 +208,7 @@ export default function ScanPage() {
             title: "Error de validación",
             description: result.error || 'Error desconocido. Intenta de nuevo.',
           });
-          setIsProcessing(false);
+          releaseProcessing();
         }
       }
       
@@ -137,7 +222,7 @@ export default function ScanPage() {
         description: "No se pudo conectar al servidor. Verifica tu conexión.",
       });
       
-      setIsProcessing(false);
+      releaseProcessing();
     }
   }, [router, isProcessing]);
 
@@ -151,6 +236,8 @@ export default function ScanPage() {
         onQRDetected={handleQRDetected}
         onClose={handleClose}
         isProcessing={isProcessing}
+        isProcessingRef={isProcessingRef}
+        scanStats={scanStats}
       />
     </AuthGuard>
   );
