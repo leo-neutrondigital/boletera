@@ -150,6 +150,12 @@ export function QRCamera({ onQRDetected, onClose, isProcessing = false }: QRCame
           console.log('📱 Raw QR detected:', result.text);
           console.log('🔍 QR result object:', result);
           
+          // 🚫 BLOQUEO PRINCIPAL: No procesar si ya estamos validando
+          if (isProcessing) {
+            console.log('🚫 Processing blocked - validation in progress');
+            return;
+          }
+          
           // Evitar múltiples scans del mismo QR en poco tiempo
           const now = Date.now();
           if (now - lastScanTime > 3000) { // 3 segundos cooldown (aumentado para evitar múltiples detecciones)

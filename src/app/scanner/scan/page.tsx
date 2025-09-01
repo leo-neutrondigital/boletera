@@ -37,9 +37,15 @@ export default function ScanPage() {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handleQRDetected = useCallback(async (qrData: string) => {
-    if (isProcessing) return; // Evitar múltiples procesamiento
+    console.log('🎯 handleQRDetected called with isProcessing:', isProcessing);
+    
+    if (isProcessing) {
+      console.log('🚫 Blocking handleQRDetected - already processing');
+      return; // Evitar múltiples procesamiento
+    }
     
     try {
+      console.log('🚀 Starting QR processing...');
       setIsProcessing(true);
       console.log('📱 QR detected:', qrData);
       
