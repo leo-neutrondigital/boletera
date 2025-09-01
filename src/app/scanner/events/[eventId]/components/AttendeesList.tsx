@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ManualCheckInModal } from '@/components/scanner/ManualCheckInModal';
+import { getTodayInMexicoTimezone } from '@/lib/utils/date-utils';
 
 // 🆕 Importar tipos del cache unificado
 import { AttendeeTicket, EventStats } from '@/contexts/DataCacheContext';
@@ -48,9 +49,19 @@ export function AttendeesList({
 
   // 🆕 Determinar estado de check-in para el día actual
   const getTodayCheckInStatus = (attendee: AttendeeTicket): 'checked_in' | 'not_arrived' | 'partial' => {
-    const today = new Date().toISOString().split('T')[0];
+    // 🎯 USAR LA MISMA FUNCIÓN QUE EL MODAL
+    const today = getTodayInMexicoTimezone();
     
-    // Si el día de hoy no está en los días autorizados, considerar como 'not_applicable'
+    // 🎯 Lógica específica por access_type (igual que QR y API manual)
+    if (attendee.access_type === 'all_days') {
+      // Para all_days: SOLO dos estados para HOY
+      if (attendee.used_days.includes(today)) {
+        return 'checked_in';  // Ya hizo check-in HOY
+      }
+      return 'not_arrived';   // No ha hecho check-in HOY (otros días no importan)
+    }
+    
+    // Para specific_days y any_single_day: usar lógica original (verificar authorized_days)
     if (!attendee.authorized_days.includes(today)) {
       // Para efectos de filtrado, si no aplica hoy, mostrar estado general
       return attendee.check_in_status;
@@ -165,62 +176,67 @@ export function AttendeesList({
   };
 
   // Componente de tarjeta de asistente
-  const AttendeeCard = ({ attendee }: { attendee: AttendeeTicket }) => (
-    <Card 
-      className="cursor-pointer hover:shadow-sm transition-all duration-200 border-l-4 border-l-transparent hover:border-l-blue-500"
-      onClick={() => openCheckInModal(attendee)}
-    >
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between">
-          
-          {/* Info del asistente */}
-          <div className="flex items-center gap-3 flex-1 min-w-0">
-            {/* Punto de estado */}
-            <div className={`w-3 h-3 rounded-full flex-shrink-0 ${getStatusDotColor(attendee.check_in_status)}`} />
+  const AttendeeCard = ({ attendee }: { attendee: AttendeeTicket }) => {
+    // 🎯 Usar estado calculado para HOY (igual que modal)
+    const todayStatus = getTodayCheckInStatus(attendee);
+    
+    return (
+      <Card 
+        className="cursor-pointer hover:shadow-sm transition-all duration-200 border-l-4 border-l-transparent hover:border-l-blue-500"
+        onClick={() => openCheckInModal(attendee)}
+      >
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
             
-            <div className="flex-1 min-w-0">
-              <h3 className="font-medium text-gray-900 truncate">
-                {attendee.attendee_name}
-              </h3>
+            {/* Info del asistente */}
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              {/* Punto de estado - usar estado de hoy */}
+              <div className={`w-3 h-3 rounded-full flex-shrink-0 ${getStatusDotColor(todayStatus)}`} />
               
-              <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
-                <span className="truncate">{attendee.ticket_type_name}</span>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-medium text-gray-900 truncate">
+                  {attendee.attendee_name}
+                </h3>
                 
-                {attendee.check_in_status === 'checked_in' && attendee.last_checkin && (
-                  <div className="flex items-center gap-1 text-green-600">
-                    <CheckCircle2 className="w-3 h-3" />
-                    <span className="text-xs">
-                      {formatTime(attendee.last_checkin)}
-                    </span>
-                  </div>
-                )}
-                
-                {attendee.check_in_status === 'partial' && (
-                  <div className="flex items-center gap-1 text-yellow-600">
-                    <Minus className="w-3 h-3" />
-                    <span className="text-xs">
-                      {attendee.used_days.length}/{attendee.authorized_days.length} días
-                    </span>
-                  </div>
-                )}
+                <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
+                  <span className="truncate">{attendee.ticket_type_name}</span>
+                  
+                  {todayStatus === 'checked_in' && attendee.last_checkin && (
+                    <div className="flex items-center gap-1 text-green-600">
+                      <CheckCircle2 className="w-3 h-3" />
+                      <span className="text-xs">
+                        {formatTime(attendee.last_checkin)}
+                      </span>
+                    </div>
+                  )}
+                  
+                  {todayStatus === 'partial' && (
+                    <div className="flex items-center gap-1 text-yellow-600">
+                      <Minus className="w-3 h-3" />
+                      <span className="text-xs">
+                        {attendee.used_days.length}/{attendee.authorized_days.length} días
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Acción */}
-          <div className="flex items-center gap-2">
-            {attendee.check_in_status === 'not_arrived' && (
-              <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
-                Registrar
-              </Button>
-            )}
-            
-            <ChevronRight className="w-4 h-4 text-gray-400" />
+            {/* Acción - usar estado de HOY */}
+            <div className="flex items-center gap-2">
+              {todayStatus === 'not_arrived' && (
+                <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
+                  Registrar
+                </Button>
+              )}
+              
+              <ChevronRight className="w-4 h-4 text-gray-400" />
+            </div>
           </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
+        </CardContent>
+      </Card>
+    );
+  };
 
   if (isLoading) {
     return (

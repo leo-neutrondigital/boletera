@@ -17,6 +17,8 @@ export interface AttendeeTicket {
   qr_id?: string;
   amount_paid: number;
   currency: string;
+  // 🆕 Campo para lógica inteligente de check-in
+  access_type?: 'all_days' | 'specific_days' | 'any_single_day';
 }
 
 export interface EventData {

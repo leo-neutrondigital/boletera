@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase/admin';
 import { getAuthFromRequest } from '@/lib/auth/server-auth';
+import { formatDateToLocalString } from '@/lib/utils/date-utils';
 
 interface AttendeeTicket {
   id: string;
@@ -19,6 +20,8 @@ interface AttendeeTicket {
   qr_id?: string;
   amount_paid: number;
   currency: string;
+  // 🆕 Campo para lógica inteligente de check-in
+  access_type?: 'all_days' | 'specific_days' | 'any_single_day';
 }
 
 interface EventAttendeesResponse {
@@ -101,8 +104,8 @@ export async function GET(
         event: {
           id: eventId,
           name: eventData.name,
-          start_date: eventData.start_date?.toDate().toISOString() || '',
-          end_date: eventData.end_date?.toDate().toISOString() || '',
+          start_date: formatDateToLocalString(eventData.start_date),
+          end_date: formatDateToLocalString(eventData.end_date),
           location: eventData.location || '',
           description: eventData.description
         },
@@ -136,19 +139,17 @@ export async function GET(
       const ticketData = doc.data();
       const ticketType = ticketTypesMap.get(ticketData.ticket_type_id);
 
-      // Procesar días autorizados y usados
-      const authorizedDays = (ticketData.authorized_days || []).map((day: any) => {
-        if (day?.toDate) {
-          return day.toDate().toISOString().split('T')[0];
-        }
-        return new Date(day).toISOString().split('T')[0];
-      });
+      // 🆕 Procesar días autorizados y usados con timezone local consistente
+      const authorizedDays = (ticketData.authorized_days || []).map(formatDateToLocalString);
+      const usedDays = (ticketData.used_days || []).map(formatDateToLocalString);
 
-      const usedDays = (ticketData.used_days || []).map((day: any) => {
-        if (day?.toDate) {
-          return day.toDate().toISOString().split('T')[0];
-        }
-        return new Date(day).toISOString().split('T')[0];
+      console.log('📅 Processing ticket dates (fixed timezone):', {
+        ticketId: doc.id,
+        attendeeName: ticketData.attendee_name,
+        rawAuthorizedDays: ticketData.authorized_days,
+        processedAuthorizedDays: authorizedDays,
+        rawUsedDays: ticketData.used_days,
+        processedUsedDays: usedDays
       });
 
       // Determinar estado de check-in
@@ -178,7 +179,9 @@ export async function GET(
         can_undo_until: ticketData.can_undo_until?.toDate().toISOString(),
         qr_id: ticketData.qr_id,
         amount_paid: ticketData.amount_paid || 0,
-        currency: ticketData.currency || 'MXN'
+        currency: ticketData.currency || 'MXN',
+        // 🆕 Incluir access_type para lógica inteligente de check-in
+        access_type: ticketType?.access_type
       };
     });
 

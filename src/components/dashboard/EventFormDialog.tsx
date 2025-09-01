@@ -22,6 +22,7 @@ import { useState, useEffect } from "react";
 import { auth } from "@/lib/firebase/client";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
+import { formatDateToDatetimeLocal, parseDatetimeLocal } from "@/lib/utils/date-utils";
 import type { Event } from "@/types";
 import { Calendar, Clock, Globe, Bell, Mail, Image as ImageIcon, FileText, AlertCircle } from "lucide-react";
 
@@ -89,13 +90,9 @@ export function EventFormDialog({
     defaultValues: {
       name: eventToEdit?.name ?? "",
       slug: eventToEdit?.slug ?? "",
-      // 🔧 FIX: Convertir fechas correctamente para datetime-local input
-      start_date: eventToEdit?.start_date ? 
-        new Date(eventToEdit.start_date.getTime() - eventToEdit.start_date.getTimezoneOffset() * 60000)
-          .toISOString().slice(0, 16) : "",
-      end_date: eventToEdit?.end_date ? 
-        new Date(eventToEdit.end_date.getTime() - eventToEdit.end_date.getTimezoneOffset() * 60000)
-          .toISOString().slice(0, 16) : "",
+      // 🔧 FIX: Usar utilidades centralizadas para datetime-local inputs
+      start_date: eventToEdit?.start_date ? formatDateToDatetimeLocal(eventToEdit.start_date) : "",
+      end_date: eventToEdit?.end_date ? formatDateToDatetimeLocal(eventToEdit.end_date) : "",
       location: eventToEdit?.location ?? "",
       description: eventToEdit?.description ?? "",
       internal_notes: eventToEdit?.internal_notes ?? "",
@@ -116,12 +113,9 @@ export function EventFormDialog({
     if (eventToEdit) {
       setValue("name", eventToEdit.name || "");
       setValue("slug", eventToEdit.slug || "");
-      setValue("start_date", eventToEdit.start_date ? 
-        new Date(eventToEdit.start_date.getTime() - eventToEdit.start_date.getTimezoneOffset() * 60000)
-          .toISOString().slice(0, 16) : "");
-      setValue("end_date", eventToEdit.end_date ? 
-        new Date(eventToEdit.end_date.getTime() - eventToEdit.end_date.getTimezoneOffset() * 60000)
-          .toISOString().slice(0, 16) : "");
+      // 🔧 Usar utilidades centralizadas para datetime-local
+      setValue("start_date", eventToEdit.start_date ? formatDateToDatetimeLocal(eventToEdit.start_date) : "");
+      setValue("end_date", eventToEdit.end_date ? formatDateToDatetimeLocal(eventToEdit.end_date) : "");
       setValue("location", eventToEdit.location || "");
       setValue("description", eventToEdit.description || "");
       setValue("internal_notes", eventToEdit.internal_notes || "");
@@ -203,8 +197,9 @@ export function EventFormDialog({
       const eventData: Event = {
         id: eventToEdit?.id || responseData.id,
         name: data.name,
-        start_date: new Date(data.start_date),
-        end_date: new Date(data.end_date),
+        // 🔧 Usar utilidades centralizadas para parsear datetime-local
+        start_date: parseDatetimeLocal(data.start_date),
+        end_date: parseDatetimeLocal(data.end_date),
         location: data.location,
         description: data.description || "",
         internal_notes: data.internal_notes || "",
@@ -223,8 +218,10 @@ export function EventFormDialog({
         updated_at: new Date(),
       };
 
-      const isMultiDay = new Date(data.start_date).getTime() !== new Date(data.end_date).getTime();
-      const durationText = isMultiDay ? `(${Math.ceil((new Date(data.end_date).getTime() - new Date(data.start_date).getTime()) / (1000 * 60 * 60 * 24)) + 1} días)` : "";
+      const startDate = parseDatetimeLocal(data.start_date);
+      const endDate = parseDatetimeLocal(data.end_date);
+      const isMultiDay = startDate.getTime() !== endDate.getTime();
+      const durationText = isMultiDay ? `(${Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1} días)` : "";
 
       toast({
         title: `Evento ${eventToEdit ? "actualizado" : "creado"} correctamente`,
@@ -257,7 +254,7 @@ export function EventFormDialog({
 
   const isMultiDay = watchStartDate && watchEndDate && watchStartDate !== watchEndDate;
   const eventDuration = isMultiDay ? 
-    Math.ceil((new Date(watchEndDate).getTime() - new Date(watchStartDate).getTime()) / (1000 * 60 * 60 * 24)) + 1 
+    Math.ceil((parseDatetimeLocal(watchEndDate).getTime() - parseDatetimeLocal(watchStartDate).getTime()) / (1000 * 60 * 60 * 24)) + 1 
     : 1;
 
   return (

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase/admin';
 import { getAuthFromRequest } from '@/lib/auth/server-auth';
 import { FieldValue } from 'firebase-admin/firestore';
+import { getTodayAsLocalString, formatDateToLocalString } from '@/lib/utils/date-utils';
 
 // ✅ Forzar modo dinámico para usar request.headers y request.json()
 export const dynamic = 'force-dynamic';
@@ -109,7 +110,15 @@ export async function POST(
     const eventStartDate = eventData.start_date?.toDate() || new Date();
     const eventEndDate = eventData.end_date?.toDate() || new Date();
     const today = new Date();
-    const todayStr = today.toISOString().split('T')[0]; // YYYY-MM-DD
+    const todayStr = getTodayAsLocalString(); // 🆕 Usar función centralizada
+
+    console.log('📅 Validation date context:', {
+      today: today,
+      todayStr: todayStr,
+      eventStart: eventStartDate,
+      eventEnd: eventEndDate,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+    });
 
     // 5. Validaciones según la acción
     if (action === 'checkin') {
@@ -186,9 +195,9 @@ async function handleCheckIn({
     }, { status: 400 });
   }
 
-  // 2. Verificar fechas del evento
-  const eventStartStr = eventStartDate.toISOString().split('T')[0];
-  const eventEndStr = eventEndDate.toISOString().split('T')[0];
+  // 2. Verificar fechas del evento (usar función centralizada)
+  const eventStartStr = formatDateToLocalString(eventStartDate);
+  const eventEndStr = formatDateToLocalString(eventEndDate);
   
   console.log('🗓️ Event date validation:', {
     today: todayStr,
@@ -238,16 +247,9 @@ async function handleCheckIn({
   const authorizedDays = ticketData.authorized_days || [];
   const usedDays = ticketData.used_days || [];
   
-  // Convertir fechas de Firestore a strings para comparación
-  const authorizedDayStrs = authorizedDays.map((day: any) => {
-    const date = day?.toDate ? day.toDate() : new Date(day);
-    return date.toISOString().split('T')[0];
-  });
-  
-  const usedDayStrs = usedDays.map((day: any) => {
-    const date = day?.toDate ? day.toDate() : new Date(day);
-    return date.toISOString().split('T')[0];
-  });
+  // 🆕 Convertir fechas usando función centralizada para consistencia
+  const authorizedDayStrs = authorizedDays.map(formatDateToLocalString);
+  const usedDayStrs = usedDays.map(formatDateToLocalString);
 
   console.log('📅 Days validation:', {
     ticketType: ticketTypeData.access_type,

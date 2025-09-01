@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase/admin';
 import { getAuthFromRequest } from '@/lib/auth/server-auth';
+import { formatDateToLocalString, getTodayAsLocalString, getTodayInMexicoTimezone } from '@/lib/utils/date-utils';
 
 // ✅ Forzar modo dinámico para usar request.headers y request.json()
 export const dynamic = 'force-dynamic';
@@ -118,18 +119,33 @@ export async function POST(
     const eventEndDate = eventData.end_date?.toDate() || new Date();
     const now = new Date();
 
-    // 7. Validar que el evento esté activo
-    if (now < eventStartDate) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: 'Event has not started yet' 
-        },
-        { status: 400 }
-      );
-    }
+    console.log('🐛 Event date validation debug:', {
+      eventStartDate: eventStartDate.toISOString(),
+      eventEndDate: eventEndDate.toISOString(),
+      currentTime: now.toISOString(),
+      eventStartDateStr: eventStartDate.toISOString().split('T')[0],
+      eventEndDateStr: eventEndDate.toISOString().split('T')[0],
+      currentDateStr: now.toISOString().split('T')[0],
+      eventName: eventData.name,
+      selectedDay: selectedDay
+    });
 
-    if (now > eventEndDate) {
+    // 7. Validar que el evento esté dentro del rango válido
+    // Para manual check-in, permitimos registrar para días específicos dentro del evento
+    const eventStartDateStr = formatDateToLocalString(eventStartDate);
+    const eventEndDateStr = formatDateToLocalString(eventEndDate);
+    const currentDateStr = getTodayInMexicoTimezone(); // Usar función centralizada
+    
+    console.log('🗓️ Event validation (FIXED with centralized functions):', {
+      eventStartDateStr,
+      eventEndDateStr,
+      currentDateStr,
+      eventIsActive: currentDateStr <= eventEndDateStr
+    });
+    
+    // Solo validar que el evento no haya terminado completamente
+    if (currentDateStr > eventEndDateStr) {
+      console.log('❌ Event has ended validation failed');
       return NextResponse.json(
         { 
           success: false, 
@@ -153,55 +169,181 @@ export async function POST(
 
     const ticketTypeData = ticketTypeDoc.data()!;
 
-    // 9. Procesar días autorizados
-    const authorizedDays = (ticketData.authorized_days || []).map((day: any) => {
-      if (day?.toDate) {
-        return day.toDate().toISOString().split('T')[0];
-      }
-      return new Date(day).toISOString().split('T')[0];
-    });
+    // 9. Procesar días autorizados usando utilidades centralizadas
+    let authorizedDays = (ticketData.authorized_days || []).map((day: any) => 
+      formatDateToLocalString(day)
+    );
 
-    const usedDays = (ticketData.used_days || []).map((day: any) => {
-      if (day?.toDate) {
-        return day.toDate().toISOString().split('T')[0];
-      }
-      return new Date(day).toISOString().split('T')[0];
-    });
+    const usedDays = (ticketData.used_days || []).map((day: any) => 
+      formatDateToLocalString(day)
+    );
 
-    // 10. Determinar día a registrar
-    let dayToCheck = selectedDay;
-    const todayStr = now.toISOString().split('T')[0];
-
-    if (!dayToCheck) {
-      // Si no se especifica día, usar hoy si está autorizado
-      if (authorizedDays.includes(todayStr)) {
-        dayToCheck = todayStr;
-      } else if (authorizedDays.length === 1) {
-        // Si solo hay un día autorizado, usar ese
-        dayToCheck = authorizedDays[0];
-      } else {
-        return NextResponse.json(
-          { 
-            success: false, 
-            error: 'Please specify which day to check-in for this multi-day event' 
-          },
-          { status: 400 }
-        );
+    // 🔧 FIX: Para tickets all_days, auto-corregir authorized_days si están fuera del rango del evento
+    if (ticketTypeData.access_type === 'all_days') {
+      const eventStartDateStr = formatDateToLocalString(eventStartDate);
+      const eventEndDateStr = formatDateToLocalString(eventEndDate);
+      
+      // Verificar si authorized_days está mal configurado (fuera del rango del evento)
+      const validDays = authorizedDays.filter((day: string) => day >= eventStartDateStr && day <= eventEndDateStr);
+      
+      if (validDays.length === 0) {
+        console.log('🔧 Auto-correcting authorized_days for all_days ticket - current days are outside event range');
+        // Para all_days, generar todas las fechas del evento
+        authorizedDays = [];
+        const currentDate = new Date(eventStartDate);
+        const endDate = new Date(eventEndDate);
+        
+        while (currentDate <= endDate) {
+          authorizedDays.push(formatDateToLocalString(currentDate));
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+        
+        console.log('🔧 Auto-generated authorized_days for all_days ticket:', authorizedDays);
       }
     }
 
-    // 11. Validar el día seleccionado
-    if (!authorizedDays.includes(dayToCheck)) {
+    console.log('🎫 Ticket data processing:', {
+      ticketId,
+      access_type: ticketTypeData.access_type,
+      originalAuthorizedDays: (ticketData.authorized_days || []).map((day: any) => formatDateToLocalString(day)),
+      correctedAuthorizedDays: authorizedDays,
+      usedDays,
+      selectedDay
+    });
+
+    // 10. Determinar día a registrar con lógica por access_type
+    let dayToCheck = selectedDay;
+    const todayStr = getTodayInMexicoTimezone(); // Usar timezone México consistentemente
+
+    if (!dayToCheck) {
+      switch (ticketTypeData.access_type) {
+        case 'all_days':
+          // Para all_days, siempre usar hoy (dentro del rango del evento)
+          dayToCheck = todayStr;
+          console.log('📅 all_days: Using today:', dayToCheck);
+          break;
+          
+        case 'any_single_day':
+          // Para any_single_day, usar hoy si está autorizado, sino el primero disponible
+          if (authorizedDays.includes(todayStr)) {
+            dayToCheck = todayStr;
+            console.log('📅 any_single_day: Using today:', dayToCheck);
+          } else if (authorizedDays.length === 1) {
+            dayToCheck = authorizedDays[0];
+            console.log('📅 any_single_day: Using only available day:', dayToCheck);
+          } else {
+            return NextResponse.json(
+              { 
+                success: false, 
+                error: 'Please specify which day to check-in for this any_single_day ticket' 
+              },
+              { status: 400 }
+            );
+          }
+          break;
+          
+        case 'specific_days':
+          // Para specific_days, usar hoy si está autorizado, sino requerir selección
+          if (authorizedDays.includes(todayStr)) {
+            dayToCheck = todayStr;
+            console.log('📅 specific_days: Using today:', dayToCheck);
+          } else if (authorizedDays.length === 1) {
+            dayToCheck = authorizedDays[0];
+            console.log('📅 specific_days: Using only available day:', dayToCheck);
+          } else {
+            return NextResponse.json(
+              { 
+                success: false, 
+                error: 'Please specify which day to check-in for this multi-day event' 
+              },
+              { status: 400 }
+            );
+          }
+          break;
+          
+        default:
+          // Fallback para tipos desconocidos
+          if (authorizedDays.includes(todayStr)) {
+            dayToCheck = todayStr;
+          } else if (authorizedDays.length === 1) {
+            dayToCheck = authorizedDays[0];
+          } else {
+            return NextResponse.json(
+              { 
+                success: false, 
+                error: 'Please specify which day to check-in for this multi-day event' 
+              },
+              { status: 400 }
+            );
+          }
+      }
+    }
+
+    // 11. Validar que tengamos un día para verificar
+    if (!dayToCheck) {
       return NextResponse.json(
         { 
           success: false, 
-          error: 'This ticket is not authorized for the selected day' 
+          error: 'Unable to determine check-in day' 
         },
         { status: 400 }
       );
     }
 
-    // 12. Verificar si ya está registrado para este día
+    // 12. Validar el día seleccionado según access_type
+    console.log('🔍 Day validation:', {
+      access_type: ticketTypeData.access_type,
+      dayToCheck,
+      todayStr,
+      authorizedDays,
+      eventStartDateStr,
+      eventEndDateStr
+    });
+
+    switch (ticketTypeData.access_type) {
+      case 'all_days':
+        // Para all_days, solo verificar que esté dentro del rango del evento
+        if (dayToCheck < eventStartDateStr || dayToCheck > eventEndDateStr) {
+          return NextResponse.json(
+            { 
+              success: false, 
+              error: `Check-in date must be within event dates (${eventStartDateStr} to ${eventEndDateStr})` 
+            },
+            { status: 400 }
+          );
+        }
+        console.log('✅ all_days: Day is within event range');
+        break;
+        
+      case 'any_single_day':
+      case 'specific_days':
+        // Para any_single_day y specific_days, verificar días autorizados
+        if (!authorizedDays.includes(dayToCheck)) {
+          return NextResponse.json(
+            { 
+              success: false, 
+              error: 'This ticket is not authorized for the selected day' 
+            },
+            { status: 400 }
+          );
+        }
+        console.log('✅ specific_days/any_single_day: Day is authorized');
+        break;
+        
+      default:
+        // Fallback - usar validación de días autorizados
+        if (!authorizedDays.includes(dayToCheck)) {
+          return NextResponse.json(
+            { 
+              success: false, 
+              error: 'This ticket is not authorized for the selected day' 
+            },
+            { status: 400 }
+          );
+        }
+    }
+
+    // 13. Verificar si ya está registrado para este día
     if (usedDays.includes(dayToCheck)) {
       return NextResponse.json(
         { 

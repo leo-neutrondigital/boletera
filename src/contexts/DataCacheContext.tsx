@@ -96,6 +96,8 @@ interface AttendeeTicket {
   qr_id?: string;
   amount_paid: number;
   currency: Currency;
+  // 🆕 Campo para lógica inteligente de check-in
+  access_type?: 'all_days' | 'specific_days' | 'any_single_day';
 }
 
 interface EventData {

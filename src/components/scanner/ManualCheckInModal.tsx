@@ -23,6 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { authenticatedPost } from '@/lib/utils/api';
 import { formatCurrency, Currency } from '@/lib/utils/currency';
+import { getTodayAsLocalString, getTodayInMexicoTimezone, debugDate, formatDateForDisplayMexico } from '@/lib/utils/date-utils';
 // 🆕 Importar invalidación de cache
 import { useDataCache } from '@/contexts/DataCacheContext';
 
@@ -43,6 +44,8 @@ interface AttendeeTicket {
   qr_id?: string;
   amount_paid: number;
   currency: Currency;
+  // 🆕 Campo para lógica inteligente de check-in
+  access_type?: 'all_days' | 'specific_days' | 'any_single_day';
 }
 
 interface ManualCheckInModalProps {
@@ -69,51 +72,151 @@ export function ManualCheckInModal({
   const [selectedDay, setSelectedDay] = useState<string>('');
   const [notes, setNotes] = useState('');
 
-  // 🆕 Preseleccionar día actual cuando se abre el modal
-  const getTodayAsString = () => {
-    const today = new Date();
-    return today.toISOString().split('T')[0]; // Formato: YYYY-MM-DD
-  };
-
-  // 🆕 Auto-seleccionar día actual si está disponible
+  // 🆕 Lógica inteligente de preselección según access_type
   useEffect(() => {
     if (attendee && isOpen) {
-      const today = getTodayAsString();
+      const today = getTodayAsLocalString();
+      const todayMexico = getTodayInMexicoTimezone();
       const availableDays = attendee.authorized_days.filter(day => 
         !attendee.used_days.includes(day)
       );
       
-      // Si hoy está en los días disponibles, preseleccionarlo
-      if (availableDays.includes(today)) {
-        setSelectedDay(today);
-        console.log('📅 Auto-selected today:', today);
-      } else if (availableDays.length === 1) {
-        // Si solo hay un día disponible, seleccionarlo
-        setSelectedDay(availableDays[0]);
-        console.log('📅 Auto-selected only available day:', availableDays[0]);
-      } else {
-        // Limpiar selección si hay múltiples opciones
-        setSelectedDay('');
+      console.log('🐛 DEBUG: Date information:', {
+        todayFromFunction: today,
+        todayMexicoTimezone: todayMexico,
+        todayDirectly: new Date().toISOString().split('T')[0],
+        currentTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        currentDate: new Date(),
+        currentDateLocal: new Date().toLocaleDateString('sv-SE'), // YYYY-MM-DD format
+        mexicoTime: new Date().toLocaleDateString('en-CA', { timeZone: 'America/Mexico_City' }),
+        mexicoTime2: new Date().toLocaleString('sv-SE', { timeZone: 'America/Mexico_City' }).split(' ')[0]
+      });
+      
+      debugDate('Today for check-in', new Date());
+      
+        console.log('🎯 Smart day selection:', {
+          access_type: attendee.access_type,
+          today,
+          todayMexico,
+          availableDays,
+          todayAvailable: availableDays.includes(today),
+          todayMexicoAvailable: availableDays.includes(todayMexico),
+          currentSelection: selectedDay,
+          attendeeName: attendee.attendee_name
+        });
+
+        console.log('📋 Full attendee data:', {
+          id: attendee.id,
+          authorized_days: attendee.authorized_days,
+          used_days: attendee.used_days,
+          access_type: attendee.access_type
+        });
+
+        // 🎯 Lógica por tipo de acceso - usar fecha de México
+        const todayToUse = todayMexico; // Usar timezone México
+        switch (attendee.access_type) {
+          case 'all_days':
+          case 'any_single_day':
+            // Para all_days y any_single_day: SIEMPRE usar hoy si está disponible
+            if (availableDays.includes(todayToUse)) {
+              setSelectedDay(todayToUse);
+              console.log('✅ Auto-selected TODAY (Mexico timezone) for', attendee.access_type, ':', todayToUse);
+            } else {
+              // Si hoy no está disponible, usar el primer día disponible
+              setSelectedDay(availableDays[0] || '');
+              console.log('📅 Today not available, selected first available day:', availableDays[0]);
+            }
+            break;        case 'specific_days':
+          // Para specific_days: preseleccionar hoy si está disponible
+          if (availableDays.includes(todayToUse)) {
+            setSelectedDay(todayToUse);
+            console.log('✅ Auto-selected TODAY (Mexico timezone) for specific_days:', todayToUse);
+          } else if (availableDays.length === 1) {
+            // Si solo hay un día disponible, seleccionarlo
+            setSelectedDay(availableDays[0]);
+            console.log('📅 Auto-selected only available day for specific_days:', availableDays[0]);
+          } else {
+            // Para múltiples días específicos, dejar que el usuario elija
+            setSelectedDay('');
+            console.log('🤔 Multiple specific days available, user must choose');
+          }
+          break;
+          
+        default:
+          // Fallback para tipos desconocidos (mantener lógica anterior)
+          if (availableDays.includes(todayToUse)) {
+            setSelectedDay(todayToUse);
+            console.log('🔄 Fallback: Auto-selected today (Mexico timezone):', todayToUse);
+          } else if (availableDays.length === 1) {
+            setSelectedDay(availableDays[0]);
+            console.log('🔄 Fallback: Auto-selected only available day:', availableDays[0]);
+          } else {
+            setSelectedDay('');
+            console.log('🔄 Fallback: Multiple options, user must choose');
+          }
       }
     }
   }, [attendee, isOpen]);
 
   if (!attendee) return null;
 
-  // Determinar días disponibles para check-in
-  const availableDays = attendee.authorized_days.filter(day => 
-    !attendee.used_days.includes(day)
-  );
+  // 🎯 Determinar días disponibles según access_type (igual que API QR)
+  const todayMexicoForAnalysis = getTodayInMexicoTimezone();
+  let availableDays: string[] = [];
 
-  // Formatear fecha para mostrar
-  const formatDisplayDate = (dateStr: string) => {
-    try {
-      const date = new Date(dateStr);
-      return format(date, "EEEE d 'de' MMMM", { locale: es });
-    } catch {
-      return dateStr;
-    }
-  };
+  switch (attendee.access_type) {
+    case 'specific_days':
+      // Solo días autorizados que no hayan sido usados
+      availableDays = attendee.authorized_days.filter(day => 
+        !attendee.used_days.includes(day)
+      );
+      break;
+      
+    case 'any_single_day':
+      // Si ya usó un día, no hay más disponibles
+      if (attendee.used_days.length > 0) {
+        availableDays = [];
+      } else {
+        // Todos los días autorizados están disponibles hasta que use uno
+        availableDays = attendee.authorized_days;
+      }
+      break;
+      
+    case 'all_days':
+      // ✅ Para all_days: cualquier día está disponible, solo verificar que no sea hoy si ya lo usó
+      availableDays = attendee.used_days.includes(todayMexicoForAnalysis) 
+        ? [] // Si ya hizo check-in hoy, no puede hacer otro hoy
+        : [todayMexicoForAnalysis]; // Solo puede hacer check-in hoy
+      break;
+      
+    default:
+      // Fallback a lógica anterior
+      availableDays = attendee.authorized_days.filter(day => 
+        !attendee.used_days.includes(day)
+      );
+  }
+
+  // 🔍 DEBUG: Analizar disponibilidad de días
+  console.log('🔍 Day availability analysis (FIXED):', {
+    access_type: attendee.access_type,
+    authorized_days: attendee.authorized_days,
+    used_days: attendee.used_days,
+    availableDays,
+    todayMexico: todayMexicoForAnalysis,
+    hasUsedAllDays: attendee.used_days.length === attendee.authorized_days.length,
+    todayIsAuthorized: attendee.authorized_days.includes(todayMexicoForAnalysis),
+    todayIsUsed: attendee.used_days.includes(todayMexicoForAnalysis)
+  });
+
+  // Formatear fecha para mostrar (ya no necesario, usar formatDateForDisplayMexico directamente)
+  // const formatDisplayDate = (dateStr: string) => {
+  //   try {
+  //     const date = new Date(dateStr);
+  //     return format(date, "EEEE d 'de' MMMM", { locale: es });
+  //   } catch {
+  //     return dateStr;
+  //   }
+  // };
 
   // Formatear fecha para select value
   const formatSelectDate = (dateStr: string) => {
@@ -149,18 +252,54 @@ export function ManualCheckInModal({
         return;
       }
 
-      // Si hay múltiples días, debe seleccionar uno
-      if (availableDays.length > 1 && !selectedDay) {
+      // 🎯 Validación inteligente según access_type
+      if (!selectedDay) {
+        // Para specific_days con múltiples opciones, requerir selección manual
+        if (attendee.access_type === 'specific_days' && availableDays.length > 1) {
+          toast({
+            variant: "destructive",
+            title: "Selecciona un día específico",
+            description: "Este boleto requiere selección manual del día autorizado.",
+          });
+          return;
+        }
+        
+        // Para otros casos, debería haberse autoseleccionado
         toast({
           variant: "destructive",
-          title: "Selecciona un día",
-          description: "Este boleto es válido para múltiples días. Selecciona el día del check-in.",
+          title: "Error de selección",
+          description: "No se pudo determinar el día para el check-in.",
         });
         return;
       }
 
       // Determinar día para el check-in
-      const dayToCheckIn = selectedDay || availableDays[0];
+      const today = getTodayInMexicoTimezone(); // Usar timezone México
+      const availableDaysForCheckIn = attendee.authorized_days.filter(day => 
+        !attendee.used_days.includes(day)
+      );
+      
+      // Priorizar hoy si está disponible, de lo contrario usar la selección actual o el primer disponible
+      let dayToCheckIn = selectedDay;
+      if (!dayToCheckIn) {
+        if (availableDaysForCheckIn.includes(today)) {
+          dayToCheckIn = today;
+        } else {
+          dayToCheckIn = availableDaysForCheckIn[0];
+        }
+      }
+
+      console.log('🐛 Final check-in decision:', {
+        selectedDay,
+        availableDaysForCheckIn,
+        todayMexico: today,
+        todayAvailable: availableDaysForCheckIn.includes(today),
+        fallbackDay: availableDaysForCheckIn[0],
+        finalDayToCheckIn: dayToCheckIn,
+        todayAgain: getTodayInMexicoTimezone()
+      });
+
+      debugDate('Day to check-in', dayToCheckIn);
 
       console.log('✋ Manual check-in:', {
         ticketId: attendee.id,
@@ -185,10 +324,23 @@ export function ManualCheckInModal({
 
       console.log('✅ Manual check-in successful:', result);
 
-      // Mostrar éxito
+      // 🎯 Mostrar éxito con mensaje inteligente según access_type
+      const getSuccessMessage = () => {
+        switch (attendee.access_type) {
+          case 'all_days':
+            return `${attendee.attendee_name} registrado para hoy (acceso todos los días)`;
+          case 'any_single_day':
+            return `${attendee.attendee_name} - único uso registrado para ${formatSelectDate(dayToCheckIn)}`;
+          case 'specific_days':
+            return `${attendee.attendee_name} registrado para día específico: ${formatSelectDate(dayToCheckIn)}`;
+          default:
+            return `${attendee.attendee_name} registrado para ${formatSelectDate(dayToCheckIn)}`;
+        }
+      };
+
       toast({
         title: "¡Check-in exitoso!",
-        description: `${attendee.attendee_name} registrado para ${formatSelectDate(dayToCheckIn)}`,
+        description: getSuccessMessage(),
         className: "bg-green-50 border-green-200",
       });
 
@@ -301,58 +453,136 @@ export function ManualCheckInModal({
           {/* Authorized Days */}
           <div>
             <h4 className="font-medium text-gray-900 mb-2">Días autorizados</h4>
-            <div className="flex flex-wrap gap-2">
-              {attendee.authorized_days.map((day, index) => {
-                const isUsed = attendee.used_days.includes(day);
-                return (
-                  <Badge 
-                    key={index} 
-                    variant={isUsed ? "secondary" : "outline"}
-                    className={isUsed ? "bg-green-100 text-green-800" : ""}
-                  >
-                    {formatSelectDate(day)}
-                    {isUsed && <CheckCircle2 className="w-3 h-3 ml-1" />}
-                  </Badge>
-                );
-              })}
-            </div>
+            {attendee.access_type === 'all_days' ? (
+              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                🎫 Válido todos los días del evento
+              </Badge>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {attendee.authorized_days.map((day, index) => {
+                  const isUsed = attendee.used_days.includes(day);
+                  return (
+                    <Badge 
+                      key={index} 
+                      variant={isUsed ? "secondary" : "outline"}
+                      className={isUsed ? "bg-green-100 text-green-800" : ""}
+                    >
+                      {formatSelectDate(day)}
+                      {isUsed && <CheckCircle2 className="w-3 h-3 ml-1" />}
+                    </Badge>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Check-in Form */}
           {availableDays.length > 0 && attendee.check_in_status !== 'checked_in' ? (
             <div className="space-y-4">
               
-              {/* Day Selection (if multiple days) */}
-              {availableDays.length > 1 && (
-                <div>
-                  <Label htmlFor="day-select" className="text-sm font-medium">
-                    Seleccionar día *
-                  </Label>
-                  <Select value={selectedDay} onValueChange={setSelectedDay}>
-                    <SelectTrigger className="mt-1">
-                      <SelectValue placeholder="Elige el día para registrar" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableDays.map((day) => (
-                        <SelectItem key={day} value={day}>
-                          {formatDisplayDate(day)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              {/* Single day info */}
-              {availableDays.length === 1 && (
-                <Alert className="bg-blue-50 border-blue-200">
-                  <Calendar className="h-4 w-4" />
-                  <AlertDescription className="text-blue-800">
-                    <p className="font-medium">Día del check-in:</p>
-                    <p>{formatDisplayDate(availableDays[0])}</p>
-                  </AlertDescription>
-                </Alert>
-              )}
+              {/* 🎯 Smart Day Selection Logic */}
+              {(() => {
+                // Para all_days y any_single_day: NO mostrar selector, solo confirmar día
+                if (attendee.access_type === 'all_days' || attendee.access_type === 'any_single_day') {
+                  // Para all_days: SIEMPRE mostrar hoy usando timezone de México
+                  const dayToShow = attendee.access_type === 'all_days' 
+                    ? getTodayInMexicoTimezone() 
+                    : (selectedDay || availableDays[0]);
+                  
+                  return (
+                    <Alert className="bg-blue-50 border-blue-200">
+                      <Calendar className="h-4 w-4" />
+                      <AlertDescription className="text-blue-800">
+                        <p className="font-medium">
+                          {attendee.access_type === 'all_days' 
+                            ? 'Registrando para hoy:' 
+                            : 'Registrando único uso para:'}
+                        </p>
+                        <p>{formatDateForDisplayMexico(dayToShow)}</p>
+                        {attendee.access_type === 'all_days' && (
+                          <p className="text-xs mt-1 opacity-75">
+                            Este boleto es válido para todos los días del evento
+                          </p>
+                        )}
+                      </AlertDescription>
+                    </Alert>
+                  );
+                }
+                
+                // Para specific_days: mostrar selector solo si hay múltiples opciones
+                if (attendee.access_type === 'specific_days') {
+                  if (availableDays.length > 1 && !selectedDay) {
+                    return (
+                      <div>
+                        <Label htmlFor="day-select" className="text-sm font-medium">
+                          Seleccionar día específico *
+                        </Label>
+                        <Select value={selectedDay} onValueChange={setSelectedDay}>
+                          <SelectTrigger className="mt-1">
+                            <SelectValue placeholder="Elige el día autorizado" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableDays.map((day) => (
+                              <SelectItem key={day} value={day}>
+                                {formatDateForDisplayMexico(day)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Este boleto solo es válido para días específicos
+                        </p>
+                      </div>
+                    );
+                  } else {
+                    // Un solo día específico disponible
+                    const dayToShow = selectedDay || availableDays[0];
+                    return (
+                      <Alert className="bg-amber-50 border-amber-200">
+                        <Calendar className="h-4 w-4" />
+                        <AlertDescription className="text-amber-800">
+                          <p className="font-medium">Día específico autorizado:</p>
+                          <p>{formatDateForDisplayMexico(dayToShow)}</p>
+                        </AlertDescription>
+                      </Alert>
+                    );
+                  }
+                }
+                
+                // Fallback para tipos desconocidos (lógica anterior)
+                if (availableDays.length > 1) {
+                  return (
+                    <div>
+                      <Label htmlFor="day-select" className="text-sm font-medium">
+                        Seleccionar día *
+                      </Label>
+                      <Select value={selectedDay} onValueChange={setSelectedDay}>
+                        <SelectTrigger className="mt-1">
+                          <SelectValue placeholder="Elige el día para registrar" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableDays.map((day) => (
+                            <SelectItem key={day} value={day}>
+                              {formatDateForDisplayMexico(day)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  );
+                } else {
+                  // Un solo día disponible
+                  return (
+                    <Alert className="bg-blue-50 border-blue-200">
+                      <Calendar className="h-4 w-4" />
+                      <AlertDescription className="text-blue-800">
+                        <p className="font-medium">Día del check-in:</p>
+                        <p>{formatDateForDisplayMexico(availableDays[0])}</p>
+                      </AlertDescription>
+                    </Alert>
+                  );
+                }
+              })()} 
 
               {/* Notes */}
               <div>
@@ -373,7 +603,12 @@ export function ManualCheckInModal({
               <div className="flex gap-3 pt-2">
                 <Button
                   onClick={handleCheckIn}
-                  disabled={isProcessing || (availableDays.length > 1 && !selectedDay)}
+                  disabled={isProcessing || (
+                    // Solo requerir selección para specific_days con múltiples opciones
+                    attendee.access_type === 'specific_days' && 
+                    availableDays.length > 1 && 
+                    !selectedDay
+                  )}
                   className="flex-1 bg-blue-600 hover:bg-blue-700"
                 >
                   {isProcessing ? (
@@ -384,7 +619,10 @@ export function ManualCheckInModal({
                   ) : (
                     <>
                       <CheckCircle2 className="w-4 h-4 mr-2" />
-                      Registrar entrada
+                      {attendee.access_type === 'any_single_day' 
+                        ? 'Registrar único uso'
+                        : 'Registrar entrada'
+                      }
                     </>
                   )}
                 </Button>
