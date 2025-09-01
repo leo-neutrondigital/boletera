@@ -18,7 +18,6 @@ interface QRCameraProps {
   onQRDetected: (qrCode: string) => void;
   onClose: () => void;
   isProcessing?: boolean;
-  isProcessingRef?: React.MutableRefObject<boolean>; // 🔒 Referencia para bloqueo inmediato
   scanStats?: {
     total: number;
     valid: number;
@@ -28,7 +27,7 @@ interface QRCameraProps {
   };
 }
 
-export function QRCamera({ onQRDetected, onClose, isProcessing = false, isProcessingRef, scanStats }: QRCameraProps) {
+export function QRCamera({ onQRDetected, onClose, isProcessing = false, scanStats }: QRCameraProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const scanIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -108,19 +107,14 @@ export function QRCamera({ onQRDetected, onClose, isProcessing = false, isProces
 
   // Escaneo QR usando canvas
   const scanQRCode = useCallback(async () => {
-    // 🚫 Verificar bloqueos tanto por referencia como por estado
-    const isBlocked = (isProcessingRef && isProcessingRef.current) || isProcessing;
-    
-    if (!videoRef.current || !canvasRef.current || !codeReader || isBlocked) {
-      console.log('🚫 Scan skipped:', {
-        video: !!videoRef.current,
-        canvas: !!canvasRef.current,
-        codeReader: !!codeReader,
-        isProcessing,
-        isProcessingRef: isProcessingRef?.current,
-        isBlocked
-      });
-      return;
+    // ✅ Verificación simple: solo verificar elementos básicos
+    if (!videoRef.current || !canvasRef.current || !codeReader) {
+      return; // Salir silenciosamente si no está listo
+    }
+
+    // 🚫 CRÍTICO: No escanear si estamos procesando
+    if (isProcessing) {
+      return; // El interval se detendrá automáticamente
     }
 
     try {
@@ -161,24 +155,17 @@ export function QRCamera({ onQRDetected, onClose, isProcessing = false, isProces
         
         if (result && result.text) {
           console.log('📱 Raw QR detected:', result.text);
-          console.log('🔍 QR result object:', result);
           
-          // 🚫 BLOQUEO PRINCIPAL: Verificar referencia inmutable primero
-          if (isProcessingRef && isProcessingRef.current) {
-            console.log('🚫 Processing blocked - validation in progress (ref check)');
-            return;
-          }
-          
-          // 🚫 BLOQUEO SECUNDARIO: Verificar estado React
+          // 🚫 VERIFICACIÓN SIMPLE: Solo verificar si estamos procesando
           if (isProcessing) {
-            console.log('🚫 Processing blocked - validation in progress (state check)');
+            console.log('🚫 Processing in progress, ignoring QR');
             return;
           }
           
-          // Evitar múltiples scans del mismo QR en poco tiempo
+          // ⏱️ Cooldown simple contra escaneos rápidos del mismo QR
           const now = Date.now();
-          if (now - lastScanTime > 3000) { // 3 segundos cooldown (aumentado para evitar múltiples detecciones)
-            console.log('📱 QR Code detected:', result.text);
+          if (now - lastScanTime > 2000) { // 2 segundos cooldown simple
+            console.log('📱 QR Code detected and accepted:', result.text);
             setLastScanTime(now);
             setScanCount(prev => prev + 1);
             
@@ -215,10 +202,43 @@ export function QRCamera({ onQRDetected, onClose, isProcessing = false, isProces
       clearInterval(scanIntervalRef.current);
     }
 
+    // 🚫 NO ESCANEAR si estamos procesando
+    if (isProcessing) {
+      console.log('🚫 Scanning paused - processing in progress');
+      return;
+    }
+
     // Escanear cada 300ms para balance entre performance y responsividad
-    scanIntervalRef.current = setInterval(scanQRCode, 300);
+    scanIntervalRef.current = setInterval(() => {
+      // Verificar en cada iteración si debemos parar
+      if (isProcessing) {
+        console.log('🛑 Stopping scan interval - processing started');
+        if (scanIntervalRef.current) {
+          clearInterval(scanIntervalRef.current);
+          scanIntervalRef.current = null;
+        }
+        return;
+      }
+      scanQRCode();
+    }, 300);
+    
     console.log('🔍 QR scanning started');
-  }, [scanQRCode]);
+  }, [scanQRCode, isProcessing]);
+
+  // Parar escaneo completamente
+  const stopScanning = useCallback(() => {
+    if (scanIntervalRef.current) {
+      clearInterval(scanIntervalRef.current);
+      scanIntervalRef.current = null;
+      console.log('🛑 QR scanning stopped');
+    }
+  }, []);
+
+  // Reanudar escaneo
+  const resumeScanning = useCallback(() => {
+    console.log('▶️ Resuming QR scanning...');
+    startScanning();
+  }, [startScanning]);
 
   // Cleanup manual (para el botón cerrar)
   const manualCleanup = useCallback(() => {
@@ -284,6 +304,24 @@ export function QRCamera({ onQRDetected, onClose, isProcessing = false, isProces
       }
     };
   }, [codeReader]);
+
+  // 🎯 EFECTO CRÍTICO: Pausar/reanudar escaneo según estado de procesamiento
+  useEffect(() => {
+    if (hasCamera) { // Solo si la cámara está inicializada
+      if (isProcessing) {
+        console.log('⏸️ Pausing scanning - processing started');
+        stopScanning();
+      } else {
+        console.log('▶️ Resuming scanning - processing finished');
+        // Pequeño delay para asegurar que el estado se haya actualizado
+        setTimeout(() => {
+          if (!isProcessing) { // Verificar nuevamente
+            resumeScanning();
+          }
+        }, 100);
+      }
+    }
+  }, [isProcessing, hasCamera, stopScanning, resumeScanning]);
 
   // Render
   return (

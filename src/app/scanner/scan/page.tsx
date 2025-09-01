@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { QRCamera } from '@/components/scanner/QRCamera';
 import { AuthGuard } from '@/components/auth/AuthGuard';
@@ -35,7 +35,6 @@ export default function ScanPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [isProcessing, setIsProcessing] = useState(false);
-  const isProcessingRef = useRef(false); // 🔒 Referencia inmutable para bloqueo inmediato
   const [scanStats, setScanStats] = useState({
     total: 0,
     valid: 0,
@@ -44,31 +43,32 @@ export default function ScanPage() {
     failed: 0
   });
 
-  // 🔓 Función helper para liberar el bloqueo completamente
-  const releaseProcessing = () => {
-    isProcessingRef.current = false;
-    releaseProcessing();
-  };
+  // � RESET al montar el componente (fresh start cada vez)
+  useEffect(() => {
+    console.log('� Scanner page mounted - fresh start');
+    setIsProcessing(false);
+    // Reset de estadísticas si se desea fresh start completo
+    setScanStats({
+      total: 0,
+      valid: 0,
+      invalid: 0,
+      successful: 0,
+      failed: 0
+    });
+  }, []);
 
   const handleQRDetected = useCallback(async (qrData: string) => {
-    console.log('🎯 handleQRDetected called with isProcessing:', isProcessing, 'ref:', isProcessingRef.current);
+    console.log('🎯 handleQRDetected called, isProcessing:', isProcessing);
     
-    // 🔒 BLOQUEO INMEDIATO con useRef (no depende de re-renders)
-    if (isProcessingRef.current) {
-      console.log('🚫 Blocking handleQRDetected - already processing (ref check)');
-      return;
-    }
-    
-    // 🔒 BLOQUEO SECUNDARIO con estado
+    // � BLOQUEO SIMPLE: Solo verificar estado actual
     if (isProcessing) {
-      console.log('🚫 Blocking handleQRDetected - already processing (state check)');
+      console.log('🚫 Blocking - already processing');
       return;
     }
     
     try {
       console.log('🚀 Starting QR processing...');
-      isProcessingRef.current = true; // 🔒 Bloqueo inmediato
-      setIsProcessing(true);
+      setIsProcessing(true); // ⏸️ Esto pausará automáticamente el scanning
       console.log('📱 QR detected:', qrData);
       
       // Actualizar estadísticas
@@ -121,7 +121,7 @@ export default function ScanPage() {
           invalidRate: ((scanStats.invalid + 1) / (scanStats.total + 1) * 100).toFixed(1) + '%'
         });
         
-        releaseProcessing();
+        setIsProcessing(false);
         return;
       }
       
@@ -192,7 +192,7 @@ export default function ScanPage() {
             title: "Error de autenticación",
             description: "Tu sesión expiró. Refresca la página.",
           });
-          releaseProcessing();
+          setIsProcessing(false);
         } else if (result.error === 'Internal server error') {
           // Toast: Error del servidor
           toast({
@@ -200,7 +200,7 @@ export default function ScanPage() {
             title: "Error del servidor",
             description: "Problema temporal. Intenta de nuevo.",
           });
-          releaseProcessing();
+          setIsProcessing(false);
         } else {
           // Toast: Otros errores - continuar escaneando
           toast({
@@ -208,7 +208,7 @@ export default function ScanPage() {
             title: "Error de validación",
             description: result.error || 'Error desconocido. Intenta de nuevo.',
           });
-          releaseProcessing();
+          setIsProcessing(false);
         }
       }
       
@@ -222,7 +222,7 @@ export default function ScanPage() {
         description: "No se pudo conectar al servidor. Verifica tu conexión.",
       });
       
-      releaseProcessing();
+      setIsProcessing(false);
     }
   }, [router, isProcessing]);
 
@@ -236,7 +236,6 @@ export default function ScanPage() {
         onQRDetected={handleQRDetected}
         onClose={handleClose}
         isProcessing={isProcessing}
-        isProcessingRef={isProcessingRef}
         scanStats={scanStats}
       />
     </AuthGuard>
