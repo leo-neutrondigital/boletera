@@ -27,7 +27,6 @@ export function CustomerDetails() {
 
   const [isFormValid, setIsFormValid] = useState(false);
   const [currentFormData, setCurrentFormData] = useState<CustomerFormData | null>(null);
-  const [termsAccepted, setTermsAccepted] = useState(false);
   const isSettingRef = useRef(false); // 🔧 Flag para evitar dobles llamadas
   const latestCustomerDataRef = useRef(customerData); // 🔧 Ref para el customerData más actualizado
   const shouldNavigateRef = useRef(false); // 🔧 Flag para controlar navegación automática
@@ -304,7 +303,7 @@ export function CustomerDetails() {
 
           <Button
             onClick={handleContinue}
-            disabled={!isFormValid || (!!event.terms_and_conditions && !termsAccepted)}
+            disabled={!isFormValid}
             className="flex items-center gap-2 px-6"
             size="lg"
           >
