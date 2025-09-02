@@ -63,12 +63,13 @@ async function generateQRCode(ticket: Ticket): Promise<Buffer> {
 
 async function designTicketPDF(pdf: jsPDF, ticket: Ticket, qrCodeBuffer: Buffer) {
   // Configuración de colores como tuplas constantes
-  const primaryColor = [102, 126, 234] as const; // #667eea
+  const headerColor = [11, 105, 70] as const;    // #0B6946 - Verde solicitado
+  const accessCodeColor = [227, 6, 19] as const; // #E30613 - Rojo solicitado
   const grayColor = [100, 116, 139] as const;    // #64748b
   const darkColor = [30, 41, 59] as const;       // #1e293b
   
-  // Header con gradiente simulado
-  pdf.setFillColor(...primaryColor);
+  // Header con color verde
+  pdf.setFillColor(...headerColor);
   pdf.rect(0, 0, 210, 40, 'F');
   
   // Título del evento
@@ -109,10 +110,24 @@ async function designTicketPDF(pdf: jsPDF, ticket: Ticket, qrCodeBuffer: Buffer)
   pdf.setFontSize(12);
   pdf.setFont('helvetica', 'normal');
   pdf.setTextColor(...darkColor);
-  const eventDate = ticket.event?.start_date ? 
-    format(ticket.event.start_date, "d 'de' MMM, yyyy", { locale: es }) : 
-    'Por confirmar';
-  pdf.text(eventDate, 110, yPos + 8);
+  
+  // Mostrar rango de fechas del evento
+  let eventDateRange = 'Por confirmar';
+  if (ticket.event?.start_date && ticket.event?.end_date) {
+    const startDate = format(ticket.event.start_date, "d 'de' MMM", { locale: es });
+    const endDate = format(ticket.event.end_date, "d 'de' MMM, yyyy", { locale: es });
+    
+    // Si es el mismo día, mostrar solo una fecha
+    if (format(ticket.event.start_date, 'yyyy-MM-dd') === format(ticket.event.end_date, 'yyyy-MM-dd')) {
+      eventDateRange = format(ticket.event.start_date, "d 'de' MMM, yyyy", { locale: es });
+    } else {
+      eventDateRange = `${startDate} al ${endDate}`;
+    }
+  } else if (ticket.event?.start_date) {
+    eventDateRange = format(ticket.event.start_date, "d 'de' MMM, yyyy", { locale: es });
+  }
+  
+  pdf.text(eventDateRange, 110, yPos + 8);
   
   yPos += 25;
   
@@ -169,34 +184,36 @@ async function designTicketPDF(pdf: jsPDF, ticket: Ticket, qrCodeBuffer: Buffer)
   
   yPos += 20;
   
-  // Sección del QR
+  // Sección del QR con color rojo
   pdf.setFontSize(16);
   pdf.setFont('helvetica', 'bold');
-  pdf.setTextColor(...darkColor);
+  pdf.setTextColor(...accessCodeColor); // Usar color rojo
   pdf.text('Código de acceso', 105, yPos, { align: 'center' });
   
   yPos += 10;
   
-  // Agregar QR code
+  // Agregar QR code más grande (20% más grande: de 50x50 a 60x60)
   try {
     const qrDataUrl = `data:image/png;base64,${qrCodeBuffer.toString('base64')}`;
-    pdf.addImage(qrDataUrl, 'PNG', 80, yPos, 50, 50);
-    yPos += 55;
+    pdf.addImage(qrDataUrl, 'PNG', 75, yPos, 60, 60); // Cambiado de 50x50 a 60x60
+    yPos += 65; // Ajustar posición siguiente
   } catch (error) {
     console.error('Error adding QR to PDF:', error);
     // Fallback: mostrar texto
     pdf.setFontSize(12);
     pdf.setTextColor(...grayColor);
-    pdf.text('QR Code no disponible', 105, yPos + 25, { align: 'center' });
-    yPos += 35;
+    pdf.text('QR Code no disponible', 105, yPos + 30, { align: 'center' });
+    yPos += 40;
   }
   
-  // Instrucciones
+  // Instrucciones actualizadas
   pdf.setFontSize(11);
   pdf.setFont('helvetica', 'normal');
   pdf.setTextColor(...grayColor);
   const instructions = [
-    'Presenta este código QR en el evento para ingresar.',
+    'Este QR te permitirá acceder a los días del evento adquirido,',
+    'por lo que te invitamos a llevarlo cada día del evento.',
+    '',
     'Puedes mostrar este PDF desde tu teléfono o imprimirlo.'
   ];
   

@@ -306,6 +306,23 @@ export default function SuccessPage() {
             </CardContent>
           </Card>
 
+          {/* 🆕 Botón principal de acción - Movido aquí para mejor accesibilidad */}
+          <div className="hidden sm:block mb-6">
+            <Button 
+              onClick={() => router.push('/scanner/scan')}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-lg py-6 relative"
+              size="lg"
+            >
+              <QrCode className="w-5 h-5 mr-2" />
+              Escanear otro boleto
+              {autoRedirectSeconds > 0 && (
+                <span className="absolute top-1 right-3 text-xs bg-white/20 px-2 py-1 rounded-full">
+                  {autoRedirectSeconds}s
+                </span>
+              )}
+            </Button>
+          </div>
+
           {/* Undo section */}
           {ticketData.can_undo && timeLeft > 0 && (
             <Alert className="mb-6 bg-amber-50 border-amber-200">
@@ -344,11 +361,37 @@ export default function SuccessPage() {
             </Alert>
           )}
 
-          {/* Acciones principales */}
-          <div className="space-y-3">
+          {/* Botón de volver al dashboard - Solo desktop */}
+          <div className="hidden sm:block mb-6">
+            <Button 
+              onClick={() => router.push('/scanner')}
+              variant="ghost"
+              className="w-full text-gray-600 hover:text-gray-800 text-sm py-2 flex items-center justify-center"
+              size="sm"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Volver al dashboard
+            </Button>
+          </div>
+
+          {/* 🆕 Botón flotante "Dashboard" para móvil - Esquina superior derecha */}
+          <div className="fixed top-4 right-4 sm:hidden z-50">
+            <Button 
+              onClick={() => router.push('/scanner')}
+              variant="secondary"
+              className="bg-gray-100 hover:bg-gray-200 text-gray-700 shadow-lg border border-gray-300 rounded-full px-3 py-2 text-sm"
+              size="sm"
+            >
+              <ArrowLeft className="w-4 h-4 mr-1" />
+              Dashboard
+            </Button>
+          </div>
+
+          {/* 🆕 Botón flotante para móvil */}
+          <div className="fixed bottom-10 left-4 right-4 sm:hidden z-50">
             <Button 
               onClick={() => router.push('/scanner/scan')}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-lg py-6 relative"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-lg py-6 shadow-lg border-2 border-white rounded-lg backdrop-blur-sm relative"
               size="lg"
             >
               <QrCode className="w-5 h-5 mr-2" />
@@ -359,20 +402,10 @@ export default function SuccessPage() {
                 </span>
               )}
             </Button>
-            
-            <Button 
-              onClick={() => router.push('/scanner')}
-              variant="ghost"
-              className="w-full text-gray-600 hover:text-gray-800 text-sm py-2"
-              size="sm"
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Volver al dashboard
-            </Button>
           </div>
 
           {/* Info adicional */}
-          <div className="mt-8 text-center text-sm text-gray-500">
+          <div className="mt-8 text-center text-sm text-gray-500 mb-20">
             <p>
               Ticket ID: <code className="bg-gray-200 px-1 rounded">{ticketData.id}</code>
             </p>

@@ -158,8 +158,8 @@ export default function QRNotFoundPage() {
             </CardContent>
           </Card>
 
-          {/* Acciones */}
-          <div className="space-y-3">
+          {/* Acciones - Desktop */}
+          <div className="hidden sm:block space-y-3">
             <Button 
               onClick={() => router.push('/scanner/scan')}
               className="w-full bg-blue-600 hover:bg-blue-700 text-lg py-6"
@@ -191,12 +191,44 @@ export default function QRNotFoundPage() {
           </div>
 
           {/* Información adicional */}
-          <div className="mt-8 text-center">
+          <div className="mt-8 text-center pb-40 sm:pb-8">
             <p className="text-xs text-gray-500">
               Por seguridad, todos los escaneos son registrados para auditoría.
             </p>
           </div>
 
+        </div>
+
+        {/* Botones flotantes - Mobile */}
+        <div className="sm:hidden fixed bottom-20 left-4 right-4 z-40 space-y-3">
+          <Button 
+            onClick={() => router.push('/scanner/scan')}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-lg py-4 shadow-lg"
+            size="lg"
+          >
+            <QrCode className="w-5 h-5 mr-2" />
+            Escanear otro boleto
+          </Button>
+          
+          <Button 
+            onClick={() => router.push('/scanner/events')}
+            variant="outline"
+            className="w-full bg-white hover:bg-gray-50 text-lg py-3 shadow-lg border"
+            size="lg"
+          >
+            <Search className="w-5 h-5 mr-2" />
+            Buscar por nombre
+          </Button>
+          
+          <Button 
+            onClick={() => router.push('/scanner')}
+            variant="ghost"
+            className="w-full bg-white hover:bg-gray-50 text-gray-600 hover:text-gray-800 text-sm py-3 shadow-lg border"
+            size="sm"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Volver al dashboard
+          </Button>
         </div>
       </div>
     </AuthGuard>

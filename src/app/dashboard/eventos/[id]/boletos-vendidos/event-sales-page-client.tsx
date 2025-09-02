@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSalesOrders } from "@/hooks/use-sales-orders"; // 🆕 Hook para órdenes agrupadas
 import { useCourtesyTickets } from "@/hooks/use-courtesy-tickets"; // 🆕 Hook unificado
+import { authenticatedGet } from "@/lib/utils/api"; // Para CSV con llamada directa
 import {
   
   Search,
@@ -157,74 +158,145 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
 
   // 📊 Exportar datos a CSV
   const handleExportCSV = useCallback(async () => {
-    if (!data) {
-      toast({
-        variant: "destructive",
-        title: "Sin datos",
-        description: "No hay datos para exportar",
-      });
-      return;
-    }
-
     try {
       setIsRefreshing(true);
       
-      // Preparar datos CSV combinando ventas y cortesías
+      console.log('📥 Descargando TODOS los boletos vendidos del evento...');
+      
+      // 🔄 Llamada directa a la API para obtener TODOS los datos
+      const response = await authenticatedGet(`/api/admin/events/${event.id}/sales?salesLimit=1000&courtesyLimit=1000`);
+      const result = await response.json();
+      
+      console.log('✅ Datos obtenidos:', result);
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Error cargando datos de ventas');
+      }
+      
+      // Preparar CSV con todos los boletos individuales
       const csvData = [];
       
-      // Headers
+      // Headers para boletos individuales  
       csvData.push([
         'Tipo',
+        'ID Boleto', 
         'ID Orden',
         'Cliente',
         'Email',
-        'Boletos',
-        'Configurados',
-        'Pendientes',
-        'Usados',
-        'Monto Total',
+        'Nombre Asistente',
+        'Tipo de Boleto',
+        'Estado',
+        'Monto Unitario',
         'Moneda',
-        'Tipo Cortesía',
-        'Fecha Creación'
+        'Fecha Compra',
+        'Fecha Uso',
+        'Tipo Cortesía'
       ]);
       
-      // Ventas - ahora iteramos sobre salesOrders y sus tickets
-      data.sales.orders.forEach((order) => {
-        order.tickets.forEach((ticket) => {
-          csvData.push([
-            'Venta',
-            order.id, // ID de la orden
-            order.customer_name,
-            order.customer_email,
-            1, // Un boleto por fila
-            ticket.status === 'generated' ? 1 : 0,
-            ticket.status === 'purchased' ? 1 : 0,
-            ticket.status === 'used' ? 1 : 0,
-            order.total_amount / order.total_tickets, // Prorrateamos el monto por boleto
-            order.currency || 'MXN',
-            '',
-            new Date(order.created_at).toLocaleDateString()
-          ]);
+      // 🎫 Procesar ventas - cada boleto en una fila
+      if (result.sales?.orders) {
+        console.log(`🎫 Procesando ${result.sales.orders.length} órdenes de venta...`);
+        
+        result.sales.orders.forEach((order: any) => {
+          if (order.tickets?.length > 0) {
+            // Usar tickets individuales si existen
+            order.tickets.forEach((ticket: any) => {
+              csvData.push([
+                'Venta',
+                ticket.id || `${order.id}-${Math.random().toString(36).substr(2, 9)}`,
+                order.id,
+                order.customer_name,
+                order.customer_email,
+                ticket.attendee_name || order.customer_name,
+                ticket.ticket_type_name || 'Boleto',
+                ticket.status || 'purchased',
+                (order.total_amount / order.total_tickets).toFixed(2),
+                order.currency || 'MXN',
+                new Date(order.created_at).toLocaleDateString(),
+                ticket.used_at ? new Date(ticket.used_at).toLocaleDateString() : '',
+                ''
+              ]);
+            });
+          } else {
+            // Crear filas individuales basadas en total_tickets
+            for (let i = 0; i < (order.total_tickets || 1); i++) {
+              csvData.push([
+                'Venta',
+                `${order.id}-${i + 1}`,
+                order.id,
+                order.customer_name,
+                order.customer_email,
+                order.customer_name,
+                'Boleto',
+                'purchased',
+                (order.total_amount / (order.total_tickets || 1)).toFixed(2),
+                order.currency || 'MXN',
+                new Date(order.created_at).toLocaleDateString(),
+                '',
+                ''
+              ]);
+            }
+          }
         });
-      });
+      }
       
-      // Cortesías
-      courtesyTickets.forEach((courtesy) => {
-        csvData.push([
-          'Cortesía',
-          courtesy.id,
-          courtesy.customer_name,
-          courtesy.customer_email,
-          courtesy.total_tickets,
-          courtesy.configured_tickets,
-          courtesy.pending_tickets,
-          0, // No hay "usados" para cortesías aún
-          0, // Sin monto para cortesías
-          'MXN',
-          courtesy.courtesy_type,
-          new Date(courtesy.created_at).toLocaleDateString()
-        ]);
-      });
+      // 🎁 Procesar cortesías
+      if (result.courtesies?.orders) {
+        console.log(`🎁 Procesando ${result.courtesies.orders.length} cortesías...`);
+        
+        result.courtesies.orders.forEach((courtesy: any) => {
+          if (courtesy.tickets?.length > 0) {
+            // Usar tickets individuales si existen
+            courtesy.tickets.forEach((ticket: any) => {
+              csvData.push([
+                'Cortesía',
+                ticket.id || `${courtesy.id}-${Math.random().toString(36).substr(2, 9)}`,
+                courtesy.id,
+                courtesy.customer_name,
+                courtesy.customer_email,
+                ticket.attendee_name || courtesy.customer_name,
+                ticket.ticket_type_name || 'Cortesía',
+                ticket.status || 'generated',
+                '0.00',
+                'MXN',
+                new Date(courtesy.created_at).toLocaleDateString(),
+                ticket.used_at ? new Date(ticket.used_at).toLocaleDateString() : '',
+                courtesy.courtesy_type || 'General'
+              ]);
+            });
+          } else {
+            // Crear filas individuales basadas en total_tickets
+            for (let i = 0; i < (courtesy.total_tickets || 1); i++) {
+              csvData.push([
+                'Cortesía',
+                `${courtesy.id}-${i + 1}`,
+                courtesy.id,
+                courtesy.customer_name,
+                courtesy.customer_email,
+                courtesy.customer_name,
+                'Cortesía',
+                'generated',
+                '0.00',
+                'MXN',
+                new Date(courtesy.created_at).toLocaleDateString(),
+                '',
+                courtesy.courtesy_type || 'General'
+              ]);
+            }
+          }
+        });
+      }
+      
+      console.log(`📋 Total boletos exportados: ${csvData.length - 1}`);
+      
+      if (csvData.length <= 1) {
+        toast({
+          variant: "destructive",
+          title: "Sin datos",
+          description: "No hay boletos para exportar en este evento",
+        });
+        return;
+      }
       
       // Convertir a CSV y descargar
       const csvContent = csvData.map(row => 
@@ -234,12 +306,12 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
-      link.download = `ventas-${event.name}-${new Date().toISOString().split('T')[0]}.csv`;
+      link.download = `boletos-vendidos-${event.name}-${new Date().toISOString().split('T')[0]}.csv`;
       link.click();
       
       toast({
-        title: "Exportación completada",
-        description: "El archivo CSV se ha descargado correctamente",
+        title: "✅ Exportación completada",
+        description: `Se han exportado ${csvData.length - 1} boletos al archivo CSV`,
       });
       
     } catch (error) {
@@ -252,7 +324,7 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
     } finally {
       setIsRefreshing(false);
     }
-  }, [data, courtesyTickets, event.name, toast]);
+  }, [event.id, event.name, toast]);
 
   // Configurar acciones para el header (DESPUÉS de handleExportCSV)
   useEffect(() => {

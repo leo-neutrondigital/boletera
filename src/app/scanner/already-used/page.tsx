@@ -70,6 +70,8 @@ export default function AlreadyUsedPage() {
         const result = await response.json();
         
         if (response.ok && result.success) {
+          console.log('🎫 Ticket data received:', result.ticket);
+          console.log('📅 Used days data:', result.ticket.used_days);
           setTicketData(result.ticket);
         } else {
           console.error('Error fetching ticket data:', result);
@@ -87,9 +89,38 @@ export default function AlreadyUsedPage() {
   // Formatear fecha y hora del último check-in
   const formatLastCheckIn = (dateData: any) => {
     try {
-      const date = dateData?.toDate ? dateData.toDate() : new Date(dateData);
+      let date: Date;
+      
+      // Manejar diferentes formatos de fecha
+      if (dateData && typeof dateData === 'object') {
+        if (dateData.toDate && typeof dateData.toDate === 'function') {
+          // Firebase Timestamp
+          date = dateData.toDate();
+        } else if (dateData._seconds) {
+          // Firebase Timestamp serializado
+          date = new Date(dateData._seconds * 1000);
+        } else if (dateData.seconds) {
+          // Firebase Timestamp serializado alternativo
+          date = new Date(dateData.seconds * 1000);
+        } else {
+          // Objeto Date
+          date = new Date(dateData);
+        }
+      } else if (typeof dateData === 'string' || typeof dateData === 'number') {
+        // String o timestamp
+        date = new Date(dateData);
+      } else {
+        return 'Fecha no disponible';
+      }
+      
+      // Verificar que la fecha es válida
+      if (isNaN(date.getTime())) {
+        return 'Fecha no disponible';
+      }
+      
       return format(date, "EEEE d 'de' MMMM 'a las' HH:mm", { locale: es });
-    } catch {
+    } catch (error) {
+      console.error('Error formatting date:', error, dateData);
       return 'Fecha no disponible';
     }
   };
@@ -165,6 +196,18 @@ export default function AlreadyUsedPage() {
             </CardContent>
           </Card>
 
+          {/* 🆕 Botón principal de acción - Movido aquí para mejor accesibilidad */}
+          <div className="hidden sm:block mb-6">
+            <Button 
+              onClick={() => router.push('/scanner/scan')}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-lg py-6"
+              size="lg"
+            >
+              <QrCode className="w-5 h-5 mr-2" />
+              Escanear otro boleto
+            </Button>
+          </div>
+
           {/* 🆕 Información del ticket */}
           {ticketData && (
             <Card className="mb-6">
@@ -180,20 +223,20 @@ export default function AlreadyUsedPage() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-gray-700">Asistente:</span>
-                    <span className="font-medium">{ticketData.attendee_name}</span>
+                    <span className="font-medium">{ticketData.attendee_name || 'No disponible'}</span>
                   </div>
                   
                   {ticketData.attendee_email && (
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium text-gray-700">Email:</span>
-                      <span className="text-sm text-gray-600">{ticketData.attendee_email}</span>
+                      <span className="text-sm text-gray-600">{String(ticketData.attendee_email)}</span>
                     </div>
                   )}
                   
                   {ticketData.attendee_phone && (
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium text-gray-700">Teléfono:</span>
-                      <span className="text-sm text-gray-600">{ticketData.attendee_phone}</span>
+                      <span className="text-sm text-gray-600">{String(ticketData.attendee_phone)}</span>
                     </div>
                   )}
                 </div>
@@ -205,12 +248,12 @@ export default function AlreadyUsedPage() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium text-gray-700">Evento:</span>
-                      <span className="font-medium">{ticketData.event.name}</span>
+                      <span className="font-medium">{String(ticketData.event.name || 'No disponible')}</span>
                     </div>
                     
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium text-gray-700">Ubicación:</span>
-                      <span className="text-sm text-gray-600">{ticketData.event.location}</span>
+                      <span className="text-sm text-gray-600">{String(ticketData.event.location || 'No disponible')}</span>
                     </div>
                   </div>
                 )}
@@ -229,15 +272,40 @@ export default function AlreadyUsedPage() {
                     </div>
                   )}
                   
-                  {ticketData.used_days && ticketData.used_days.length > 0 && (
+                  {ticketData.used_days && Array.isArray(ticketData.used_days) && ticketData.used_days.length > 0 && (
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium text-gray-700">Días utilizados:</span>
                       <div className="flex flex-wrap gap-1">
-                        {ticketData.used_days.map((day) => (
-                          <Badge key={day} variant="secondary" className="text-xs">
-                            {day}
-                          </Badge>
-                        ))}
+                        {ticketData.used_days.map((day: any, index) => {
+                          // Manejar diferentes formatos de día
+                          let dayText = '';
+                          
+                          if (typeof day === 'string') {
+                            dayText = day;
+                          } else if (typeof day === 'object' && day !== null) {
+                            // Si es un objeto, extraer información relevante
+                            if (day.date) {
+                              dayText = day.date;
+                            } else if (day.day) {
+                              dayText = day.day;
+                            } else if (day._seconds) {
+                              // Si es un timestamp
+                              const date = new Date(day._seconds * 1000);
+                              dayText = date.toLocaleDateString('es-MX');
+                            } else {
+                              // Como último recurso, convertir a JSON para debugging
+                              dayText = `Debug: ${JSON.stringify(day)}`;
+                            }
+                          } else {
+                            dayText = String(day);
+                          }
+                          
+                          return (
+                            <Badge key={`day-${index}`} variant="secondary" className="text-xs">
+                              {dayText}
+                            </Badge>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -245,7 +313,7 @@ export default function AlreadyUsedPage() {
                   {ticketData.ticket_type && (
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium text-gray-700">Tipo de boleto:</span>
-                      <Badge variant="outline">{ticketData.ticket_type.name}</Badge>
+                      <Badge variant="outline">{String(ticketData.ticket_type.name || 'No disponible')}</Badge>
                     </div>
                   )}
                 </div>
@@ -303,21 +371,12 @@ export default function AlreadyUsedPage() {
             </CardContent>
           </Card>
 
-          {/* Acciones */}
-          <div className="space-y-3">
-            <Button 
-              onClick={() => router.push('/scanner/scan')}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-lg py-6"
-              size="lg"
-            >
-              <QrCode className="w-5 h-5 mr-2" />
-              Escanear otro boleto
-            </Button>
-            
+          {/* Botón de volver al dashboard - Solo desktop */}
+          <div className="hidden sm:block mb-6">
             <Button 
               onClick={() => router.push('/scanner')}
               variant="ghost"
-              className="w-full text-gray-600 hover:text-gray-800 text-sm py-2"
+              className="w-full text-gray-600 hover:text-gray-800 text-sm py-2 flex items-center justify-center"
               size="sm"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
@@ -325,9 +384,34 @@ export default function AlreadyUsedPage() {
             </Button>
           </div>
 
+          {/* 🆕 Botón flotante "Dashboard" para móvil - Esquina superior derecha */}
+          <div className="fixed top-4 right-4 sm:hidden z-50">
+            <Button 
+              onClick={() => router.push('/scanner')}
+              variant="secondary"
+              className="bg-gray-100 hover:bg-gray-200 text-gray-700 shadow-lg border border-gray-300 rounded-full px-3 py-2 text-sm"
+              size="sm"
+            >
+              <ArrowLeft className="w-4 h-4 mr-1" />
+              Dashboard
+            </Button>
+          </div>
+
+          {/* 🆕 Botón flotante para móvil */}
+          <div className="fixed bottom-10 left-4 right-4 sm:hidden z-50">
+            <Button 
+              onClick={() => router.push('/scanner/scan')}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-lg py-6 shadow-lg border-2 border-white rounded-lg backdrop-blur-sm"
+              size="lg"
+            >
+              <QrCode className="w-5 h-5 mr-2" />
+              Escanear otro boleto
+            </Button>
+          </div>
+
           {/* Información adicional */}
           <div className="mt-8 text-center">
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-gray-500 mb-20">
               Si crees que esto es un error, contacta al administrador del evento.
             </p>
           </div>
