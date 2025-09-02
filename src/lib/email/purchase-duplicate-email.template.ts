@@ -38,8 +38,8 @@ export function generatePurchaseDuplicateEmailHTML(data: PurchaseDuplicateEmailD
 <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc;">
     <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
         
-        <!-- Header con gradiente verde éxito -->
-        <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 40px 30px; text-align: center;">
+        <!-- Header con color corporativo -->
+        <div style="background: #0B6946; padding: 40px 30px; text-align: center;">
             <h1 style="color: #ffffff; margin: 0; font-size: 32px; font-weight: 700;">
                 🎉 ¡Compra exitosa!
             </h1>
@@ -62,7 +62,7 @@ export function generatePurchaseDuplicateEmailHTML(data: PurchaseDuplicateEmailD
             </p>
 
             <!-- Detalles de la compra - Card prominente -->
-            <div style="background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); border: 2px solid #10b981; border-radius: 16px; padding: 30px; margin: 0 0 30px 0;">
+            <div style="background: #ecfdf5; border: 2px solid #10b981; border-radius: 16px; padding: 30px; margin: 0 0 30px 0;">
                 <h3 style="color: #047857; margin: 0 0 20px 0; font-size: 22px; font-weight: 700;">
                     📋 Detalles de tu compra
                 </h3>

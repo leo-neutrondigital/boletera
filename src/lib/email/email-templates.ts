@@ -51,12 +51,12 @@ export function generateTicketEmailHTML(data: EmailTemplateData): string {
 <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc;">
     <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
         
-        <!-- Header con gradiente -->
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
+        <!-- Header con color corporativo -->
+        <div style="background: #0B6946; padding: 40px 30px; text-align: center;">
             <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 600;">
                 🎫 ¡Tu boleto está listo!
             </h1>
-            <p style="color: #e2e8f0; margin: 10px 0 0 0; font-size: 16px;">
+            <p style="color: #ffffff; margin: 10px 0 0 0; font-size: 16px;">
                 Gracias por registrarte a nuestro evento
             </p>
         </div>
@@ -148,10 +148,10 @@ export function generateTicketEmailHTML(data: EmailTemplateData): string {
             <!-- Botón de descarga destacado -->
             <div style="text-align: center; margin: 0 0 30px 0;">
                 <a href="${ticket.pdf_url}" 
-                   style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                   style="display: inline-block; background: #E30613; 
                           color: #ffffff; text-decoration: none; padding: 16px 32px; 
                           border-radius: 8px; font-weight: 600; font-size: 16px;
-                          box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);">
+                          box-shadow: 0 4px 12px rgba(227, 6, 19, 0.4);">
                     📄 Descargar Mi Boleto PDF
                 </a>
             </div>
