@@ -27,6 +27,7 @@ export function CustomerDetails() {
 
   const [isFormValid, setIsFormValid] = useState(false);
   const [currentFormData, setCurrentFormData] = useState<CustomerFormData | null>(null);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const isSettingRef = useRef(false); // 🔧 Flag para evitar dobles llamadas
   const latestCustomerDataRef = useRef(customerData); // 🔧 Ref para el customerData más actualizado
   const shouldNavigateRef = useRef(false); // 🔧 Flag para controlar navegación automática
@@ -283,19 +284,15 @@ export function CustomerDetails() {
 
       {/* Navegación */}
       <div className="flex items-center justify-between pt-6 border-t">
-        {/* Solo mostrar botón atrás si hay preregistro (vino del paso method) */}
-        {event.allow_preregistration ? (
-          <Button
-            variant="outline"
-            onClick={goBack}
-            className="flex items-center gap-2"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Atrás
-          </Button>
-        ) : (
-          <div></div> // Espacio vacío para mantener el layout
-        )}
+        {/* Siempre mostrar botón atrás para regresar a selección de boletos */}
+        <Button
+          variant="outline"
+          onClick={goBack}
+          className="flex items-center gap-2"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Atrás
+        </Button>
 
         <div className="flex items-center gap-4">
           {/* Debug info en desarrollo */}
@@ -307,7 +304,7 @@ export function CustomerDetails() {
 
           <Button
             onClick={handleContinue}
-            disabled={!isFormValid}
+            disabled={!isFormValid || (!!event.terms_and_conditions && !termsAccepted)}
             className="flex items-center gap-2 px-6"
             size="lg"
           >

@@ -170,6 +170,49 @@ export function TicketTypeCard({ ticketType }: TicketTypeCardProps) {
       </CardHeader>
 
       <CardContent className="space-y-4">
+        {/* Información adicional del boleto */}
+        {(ticketType.public_description || (ticketType.features && ticketType.features.length > 0) || ticketType.terms) && (
+          <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+            {/* Descripción pública */}
+            {ticketType.public_description && (
+              <div className="mb-3">
+                <p className="text-sm text-gray-700 leading-relaxed">
+                  {ticketType.public_description}
+                </p>
+              </div>
+            )}
+
+            {/* Características */}
+            {ticketType.features && ticketType.features.length > 0 && (
+              <div className="mb-3">
+                <h6 className="text-sm font-bold text-gray-700 mb-2">
+                  Incluye
+                </h6>
+                <ul className="space-y-1">
+                  {ticketType.features.map((feature, index) => (
+                    <li key={index} className="text-sm text-gray-600 flex items-center gap-2">
+                      <span className="text-gray-400 text-xs">•</span>
+                      {feature}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Términos específicos */}
+            {ticketType.terms && (
+              <div>
+                <h6 className="text-sm font-bold text-gray-700 mb-2">
+                  Términos específicos
+                </h6>
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  {ticketType.terms}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Información de acceso */}
         <div className="flex items-center gap-2 text-sm text-gray-600">
           <Info className="h-4 w-4" />

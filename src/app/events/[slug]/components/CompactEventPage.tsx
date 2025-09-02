@@ -223,10 +223,27 @@ export function CompactEventPage() {
                   {/* Descripción */}
                   {event.public_description && (
                     <div className="mt-6 pt-6 border-t border-gray-200">
-                      <h3 className="font-semibold text-gray-900 mb-2">Acerca del evento</h3>
-                      <p className="text-gray-600 leading-relaxed">
-                        {event.public_description}
-                      </p>
+                      <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                        <span className="text-lg">📋</span>
+                        Acerca del evento
+                      </h3>
+                      <div className="prose prose-sm max-w-none">
+                        <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
+                          {event.public_description}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Enlaces adicionales */}
+                  {event.terms_and_conditions && (
+                    <div className="mt-4 pt-4 border-t border-gray-100">
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="text-amber-600">⚠️</span>
+                        <span className="text-gray-600">
+                          Este evento tiene términos y condiciones específicos
+                        </span>
+                      </div>
                     </div>
                   )}
                 </CardContent>

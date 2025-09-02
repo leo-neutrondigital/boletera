@@ -1,6 +1,7 @@
 // src/app/api/admin/users/[id]/route.ts
 import { NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase/admin";
+import { FieldValue } from "firebase-admin/firestore";
 import { getAuthFromRequest } from "@/lib/auth/server-auth";
 
 // ✅ Forzar modo dinámico para usar request.headers
@@ -128,18 +129,23 @@ export async function DELETE(
       }, { status: 400 });
     }
 
-    // Verificar si el usuario tiene boletos o actividad
+    // Obtener todos los boletos del usuario para borrado en cascada
     const ticketsSnapshot = await adminDb
       .collection("tickets")
       .where("user_id", "==", id)
-      .limit(1)
       .get();
 
-    if (!ticketsSnapshot.empty) {
-      return NextResponse.json({ 
-        error: "No se puede eliminar un usuario que tiene boletos asociados" 
-      }, { status: 400 });
-    }
+    // Contar boletos por tipo para actualizar sold_count
+    const ticketTypeCounts = new Map<string, number>();
+    
+    ticketsSnapshot.forEach(doc => {
+      const ticket = doc.data();
+      const typeId = ticket.ticket_type_id;
+      ticketTypeCounts.set(typeId, (ticketTypeCounts.get(typeId) || 0) + 1);
+    });
+
+    console.log(`🎫 Found ${ticketsSnapshot.size} tickets to delete for user ${id}`);
+    console.log("📊 Ticket counts by type:", Object.fromEntries(ticketTypeCounts));
 
     // Eliminar de Firebase Auth
     if (userUid) {
@@ -154,9 +160,30 @@ export async function DELETE(
       }
     }
 
-    // Eliminar de Firestore
-    await adminDb.collection("users").doc(id).delete();
-    console.log("✅ Deleted user from Firestore");
+    // Borrar boletos en cascada y actualizar sold_count
+    const batch = adminDb.batch();
+    
+    // 1. Eliminar todos los boletos del usuario
+    ticketsSnapshot.forEach(doc => {
+      batch.delete(doc.ref);
+    });
+    
+    // 2. Actualizar sold_count en cada tipo de boleto afectado
+    for (const [ticketTypeId, count] of ticketTypeCounts) {
+      const ticketTypeRef = adminDb.collection("ticket_types").doc(ticketTypeId);
+      batch.update(ticketTypeRef, {
+        sold_count: FieldValue.increment(-count)
+      });
+    }
+    
+    // 3. Eliminar el usuario de Firestore
+    const userRef = adminDb.collection("users").doc(id);
+    batch.delete(userRef);
+    
+    // Ejecutar todas las operaciones como transacción
+    await batch.commit();
+    
+    console.log("✅ Deleted user and all associated tickets with sold_count update");
 
     return NextResponse.json({ 
       success: true, 
