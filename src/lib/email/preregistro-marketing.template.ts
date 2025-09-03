@@ -26,7 +26,6 @@ export function generatePreregistroMarketingEmailHTML(data: PreregistroMarketing
     event_start_date, 
     event_end_date, 
     event_location, 
-    event_description, 
     interested_tickets,
     app_url,
     event_slug 
@@ -56,12 +55,12 @@ export function generatePreregistroMarketingEmailHTML(data: PreregistroMarketing
 <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc;">
     <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff;">
         
-        <!-- Header con gradiente naranja/dorado para marketing -->
-        <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 40px 30px; text-align: center;">
+        <!-- Header con color corporativo verde sólido -->
+        <div style="background: #0B6946; padding: 40px 30px; text-align: center;">
             <h1 style="color: #ffffff; margin: 0; font-size: 32px; font-weight: 700;">
                 🎉 ¡Gracias por tu interés!
             </h1>
-            <p style="color: #fde68a; margin: 15px 0 0 0; font-size: 18px; font-weight: 500;">
+            <p style="color: #ffffff; margin: 15px 0 0 0; font-size: 18px; font-weight: 500;">
                 Te contactaremos en 24-48 horas con información personalizada
             </p>
         </div>
@@ -79,8 +78,8 @@ export function generatePreregistroMarketingEmailHTML(data: PreregistroMarketing
                 Nuestro equipo te contactará próximamente con información exclusiva sobre precios y disponibilidad.
             </p>
 
-            <!-- Tu información registrada - Card prominente -->
-            <div style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border: 2px solid #f59e0b; border-radius: 16px; padding: 30px; margin: 0 0 30px 0;">
+            <!-- Tu información registrada - Card prominente con colores sólidos -->
+            <div style="background: #fffbeb; border: 2px solid #fbbf24; border-radius: 16px; padding: 30px; margin: 0 0 30px 0;">
                 <h3 style="color: #92400e; margin: 0 0 20px 0; font-size: 22px; font-weight: 700;">
                     📋 Tu información registrada
                 </h3>
@@ -105,7 +104,7 @@ export function generatePreregistroMarketingEmailHTML(data: PreregistroMarketing
                     <strong style="color: #78350f;">Boletos de interés:</strong>
                     <div style="margin-top: 10px;">
                         ${interested_tickets.map(ticket => `
-                        <div style="background: #ffffff; border-radius: 8px; padding: 12px; margin-bottom: 8px; border-left: 4px solid #f59e0b;">
+                        <div style="background: #ffffff; border-radius: 8px; padding: 12px; margin-bottom: 8px; border-left: 4px solid #fbbf24;">
                             <span style="color: #1a202c; font-weight: 600;">${ticket.quantity}x ${ticket.ticket_type_name}</span>
                         </div>
                         `).join('')}
@@ -145,21 +144,21 @@ export function generatePreregistroMarketingEmailHTML(data: PreregistroMarketing
                 </div>
             </div>
 
-            <!-- CTA Principal - ¿Cambió de opinión? -->
-            <div style="background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); border-radius: 16px; padding: 30px; text-align: center; margin: 0 0 30px 0;">
+            <!-- CTA Principal - Botón rojo sólido con texto blanco -->
+            <div style="background: #E30613; border-radius: 16px; padding: 30px; text-align: center; margin: 0 0 30px 0;">
                 <h3 style="color: #ffffff; margin: 0 0 15px 0; font-size: 24px; font-weight: 700;">
                     🎫 ¿NO QUIERES ESPERAR?
                 </h3>
                 
-                <p style="color: #fecaca; margin: 0 0 25px 0; font-size: 16px; line-height: 1.5;">
+                <p style="color: #ffffff; margin: 0 0 25px 0; font-size: 16px; line-height: 1.5; opacity: 0.9;">
                     Si prefieres asegurar tu lugar ahora mismo, puedes comprar directamente
                 </p>
                 
-                <a href="${eventUrl}" style="display: inline-block; background: #ffffff; color: #dc2626; padding: 16px 32px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 18px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+                <a href="${eventUrl}" style="display: inline-block; background: #ffffff; color: #E30613; padding: 16px 32px; border-radius: 12px; text-decoration: none; font-weight: 700; font-size: 18px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
                     ¡COMPRAR AHORA!
                 </a>
                 
-                <p style="color: #fecaca; margin: 15px 0 0 0; font-size: 14px;">
+                <p style="color: #ffffff; margin: 15px 0 0 0; font-size: 14px; opacity: 0.9;">
                     ⚡ Acceso inmediato • 🔒 Pago seguro con PayPal
                 </p>
             </div>

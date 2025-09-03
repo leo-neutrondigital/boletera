@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthFromRequest, requireRoles } from '@/lib/auth/server-auth';
 import { PreregistroEmailService } from '@/lib/email/preregistro-email-service';
+import { syncPreregistrationToHubSpot } from '@/lib/integrations/hubspot';
 import { adminDb } from '@/lib/firebase/admin';
 
 // ✅ Forzar modo dinámico para usar request.headers
@@ -131,6 +132,25 @@ export async function POST(request: NextRequest) {
     } catch (emailError) {
       console.error('❌ Error sending marketing email:', emailError);
       // No fallar todo el proceso si falla el email
+    }
+
+    // 🎯 SINCRONIZACIÓN CON HUBSPOT
+    try {
+      console.log('🔄 Syncing preregistration to HubSpot...');
+      
+      await syncPreregistrationToHubSpot({
+        email: customer_data.email,
+        name: customer_data.name,
+        phone: customer_data.phone,
+        company: customer_data.company,
+        eventName: eventData.name,
+        eventId: event_id
+      });
+      
+      console.log('✅ HubSpot sync completed');
+    } catch (hubspotError) {
+      console.error('❌ HubSpot sync error (continuing anyway):', hubspotError);
+      // No fallar el proceso principal si falla HubSpot
     }
 
     // Respuesta exitosa
