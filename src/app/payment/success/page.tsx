@@ -38,9 +38,6 @@ function PaymentSuccessForm() {
 
   useEffect(() => {
     async function capturePayment() {
-      console.log('🔄 PaymentSuccessPage mounted');
-      console.log('📋 URL params:', { token, PayerID });
-
       if (!token || !PayerID) {
         console.error('❌ Missing required parameters');
         setResult({
@@ -52,11 +49,8 @@ function PaymentSuccessForm() {
       }
 
       try {
-        console.log('🔍 Checking sessionStorage for payment data...');
-        
         // Obtener datos del pago desde sessionStorage
         const storedPaymentData = sessionStorage.getItem('paymentData');
-        console.log('📦 Stored payment data exists:', !!storedPaymentData);
         
         if (!storedPaymentData) {
           console.error('❌ No payment data in sessionStorage');
@@ -73,12 +67,6 @@ function PaymentSuccessForm() {
         }
 
         const paymentData = JSON.parse(storedPaymentData);
-        console.log('📦 Payment data retrieved:', {
-          orderID: paymentData.orderID,
-          customerEmail: paymentData.customerData?.email,
-          ticketsCount: paymentData.tickets?.length,
-          eventId: paymentData.eventId
-        });
 
         setDebugInfo({
           hasSessionData: true,
@@ -95,8 +83,6 @@ function PaymentSuccessForm() {
           });
         }
 
-        console.log('🔄 Starting payment capture...');
-        
         // Capturar el pago con el backend
         const response = await fetch('/api/payments/capture', {
           method: 'POST',
@@ -111,21 +97,15 @@ function PaymentSuccessForm() {
           }),
         });
 
-        console.log('📡 Capture API response status:', response.status);
-
         const captureResult = await response.json();
-        console.log('📋 Capture result:', captureResult);
 
         if (!response.ok) {
           console.error('❌ Capture API error:', captureResult);
           throw new Error(captureResult.error || 'Error capturando el pago');
         }
 
-        console.log('✅ Payment captured successfully:', captureResult.paymentId);
-
         // Limpiar datos de pago temporales
         sessionStorage.removeItem('paymentData');
-        console.log('🧹 Session data cleaned');
 
         setResult({
           success: true,

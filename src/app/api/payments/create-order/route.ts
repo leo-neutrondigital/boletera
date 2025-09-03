@@ -51,18 +51,9 @@ async function getPayPalAccessToken(): Promise<string> {
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('🔄 Creating PayPal order...');
-
     // Parsear body
     const body: CreateOrderRequest = await request.json();
     const { tickets, customer, eventId, totalAmount, currency } = body;
-
-    console.log('📦 Order data:', {
-      ticketsCount: tickets.length,
-      totalAmount,
-      currency,
-      customer: customer.email
-    });
 
     // Validaciones básicas
     if (!tickets || tickets.length === 0) {

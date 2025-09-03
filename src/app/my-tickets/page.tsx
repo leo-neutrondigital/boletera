@@ -58,7 +58,7 @@ function MyTicketsPageContent() {
       }
 
       try {
-        console.log('🔍 Loading tickets for user:', user.email, user.uid);
+        console.log('🔍 Loading tickets for authenticated user');
         console.log('🛡️ User roles:', userData?.roles);
         setError(null);
 

@@ -42,11 +42,7 @@ export function CustomerDetails() {
   // 🔧 Mantener el ref actualizado
   useEffect(() => {
     latestCustomerDataRef.current = customerData;
-    console.log('🔄 CustomerDetails - customerData ref updated:', {
-      hasCustomerData: !!customerData,
-      name: customerData?.name || 'none',
-      email: customerData?.email || 'none'
-    });
+    // CustomerData ref updated
   }, [customerData]);
 
   // 🔧 SOLUCIÓN DEFINITIVA: useEffect que detecta cuando customerData se actualiza y navega automáticamente
@@ -111,27 +107,14 @@ export function CustomerDetails() {
 
   // Proceder al siguiente paso
   const handleContinue = () => {
-    console.log('🚀 CustomerDetails - handleContinue called:', {
-      isFormValid,
-      hasCurrentFormData: !!currentFormData,
-      canProceedFromContext: canProceed(),
-      contextCustomerData: !!customerData,
-      currentFormData: currentFormData ? {
-        ...currentFormData,
-        passwordLength: currentFormData.password?.length || 0,
-        passwordProvided: !!currentFormData.password
-      } : null
-    });
+    // Handle continue button click validation
     
     if (!isFormValid || !currentFormData) {
       console.log('❌ CustomerDetails - Form not valid or no data');
       return;
     }
 
-    console.log('📝 CustomerDetails - Proceeding with data:', {
-      ...currentFormData,
-      passwordLength: currentFormData.password?.length || 0
-    });
+    // Proceeding with form data
     
     // 🔧 ARREGLO CRITICO: Guardar datos ANTES de navegar
     const customerInfo = {
@@ -144,12 +127,7 @@ export function CustomerDetails() {
       userId: isLoggedIn ? user?.uid : undefined,
     };
     
-    console.log('📝 CustomerDetails - Setting customer data in context:', {
-      ...customerInfo,
-      passwordLength: customerInfo.password?.length || 0,
-      isLoggedIn,
-      userUid: user?.uid || 'not-logged-in'
-    });
+    // Setting customer data in context
 
     // 🔧 NUEVA ESTRATEGIA: NO usar setTimeout, activar flag para navegación automática
     if (isSettingRef.current) {

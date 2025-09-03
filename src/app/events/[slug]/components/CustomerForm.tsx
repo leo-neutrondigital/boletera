@@ -106,12 +106,12 @@ export function CustomerForm({
     
     // Solo validar si el email cambió realmente
     const timeoutId = setTimeout(() => {
-      console.log('🕰️ Debounce timeout triggered for email:', watchedEmail);
+      // Debounce timeout triggered for email validation
       validateEmail(watchedEmail);
     }, 1000); // Aumentar debounce a 1 segundo
     
     return () => {
-      console.log('🗑️ Clearing timeout for email:', watchedEmail);
+      // Clearing timeout for email validation
       clearTimeout(timeoutId);
     };
   }, [watchedEmail, isLoggedIn, isPreregistration, validateEmail]);

@@ -111,7 +111,7 @@ function RegisterForm() {
           
           await Promise.all(updatePromises);
           
-          console.log(`✅ Successfully linked ${ticketsSnapshot.size} tickets to user ${user.uid}`);
+          console.log(`✅ Successfully linked ${ticketsSnapshot.size} tickets to user account`);
           
           // Mostrar notificación al usuario
           setSuccessMessage(`¡Cuenta creada exitosamente! Se vincularon ${ticketsSnapshot.size} boleto${ticketsSnapshot.size > 1 ? 's' : ''} a tu cuenta.`);

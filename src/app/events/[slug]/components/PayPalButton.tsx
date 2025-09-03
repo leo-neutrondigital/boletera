@@ -167,7 +167,7 @@ export function PayPalButton({ onSuccess, onError, disabled = false }: PayPalBut
           const { auth } = await import('@/lib/firebase/client');
           
           const userCredential = await signInWithCustomToken(auth, captureResult.userAccount.customToken);
-          console.log('✅ Autologin successful:', userCredential.user.uid);
+          // Autologin successful
           
           // Mostrar mensaje de éxito con cuenta creada
           console.log('👤 New account created and logged in automatically');

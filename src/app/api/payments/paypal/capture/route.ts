@@ -25,7 +25,7 @@ export async function POST(req: Request) {
     const body: PayPalCaptureRequest = await req.json();
     const { orderID, cartId, eventId } = body;
 
-    console.log("📦 Capture request:", { orderID, cartId, eventId, userId: user.uid });
+    // Processing capture request
 
     // Validar datos requeridos
     if (!orderID || !cartId || !eventId) {
@@ -82,7 +82,7 @@ export async function POST(req: Request) {
     const orderDocRef = await adminDb.collection("orders").add(orderData);
     const orderId = orderDocRef.id;
 
-    console.log("📋 Order created:", orderId);
+    // Order created successfully
 
     // 4. Generar boletos individuales
   const ticketPromises = cart.items.map(async (item: any) => {

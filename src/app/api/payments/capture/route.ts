@@ -66,18 +66,14 @@ function generateQRId(): string {
 // 🆕 Función para detectar usuario existente por email (SIN crear cuenta)
 async function findExistingUserByEmail(email: string): Promise<string | null> {
   try {
-    console.log('🔍 Buscando usuario existente por email:', email);
-    
     const { getAuth } = await import('firebase-admin/auth');
     const auth = getAuth();
     
     const firebaseUser = await auth.getUserByEmail(email);
-    console.log('✅ Usuario existente encontrado:', firebaseUser.uid);
     
     return firebaseUser.uid;
   } catch (error: any) {
     if (error.code === 'auth/user-not-found') {
-      console.log('🔍 Usuario no existe para email:', email);
       return null;
     }
     
@@ -88,20 +84,12 @@ async function findExistingUserByEmail(email: string): Promise<string | null> {
 
 // Crear usuario en Firebase Auth Y Firestore
 async function createUserAccount(customerData: CaptureRequest['customerData']) {
-  console.log('🔄 createUserAccount called with:', {
-    createAccount: customerData.createAccount,
-    hasPassword: !!customerData.password,
-    email: customerData.email
-  });
-  
   if (!customerData.createAccount || !customerData.password) {
     console.log('❌ Skipping account creation - not requested or no password');
     return { userId: null, firebaseUid: null, customToken: null };
   }
 
-  try {
-    console.log('🔄 Creating user account for:', customerData.email);
-    
+  try {    
     // 1. Crear usuario en Firebase Auth
     const { getAuth } = await import('firebase-admin/auth');
     const auth = getAuth();
@@ -111,7 +99,7 @@ async function createUserAccount(customerData: CaptureRequest['customerData']) {
       // Verificar si el usuario ya existe
       console.log('🔍 Checking if user already exists...');
       firebaseUser = await auth.getUserByEmail(customerData.email);
-      console.log('⚠️ User already exists in Firebase Auth:', firebaseUser.uid);
+      // Usuario ya existe en Firebase Auth
     } catch (error: any) {
       console.log('🔍 User lookup error:', error.code);
       if (error.code === 'auth/user-not-found') {
@@ -124,7 +112,7 @@ async function createUserAccount(customerData: CaptureRequest['customerData']) {
             displayName: customerData.name,
             emailVerified: true, // Pre-verificado por que hizo una compra
           });
-          console.log('✅ Firebase Auth user created:', firebaseUser.uid);
+          // Firebase Auth user created successfully
         } catch (createError) {
           console.error('❌ Firebase Auth createUser failed:', createError);
           throw createError;
@@ -168,7 +156,7 @@ async function createUserAccount(customerData: CaptureRequest['customerData']) {
     // 3. Generar custom token para autologin
     console.log('🔑 Generating custom token...');
     const customToken = await auth.createCustomToken(firebaseUser.uid);
-    console.log('✅ Custom token generated for autologin (length:', customToken.length, ')');
+    // Custom token generated successfully for autologin
 
     return { 
       userId: firebaseUser.uid, 
@@ -348,7 +336,7 @@ export async function POST(request: NextRequest) {
       
       if (existingUserId) {
         // 🆕 EMAIL DUPLICADO DETECTADO - Asociar automáticamente
-        console.log('🔄 Email duplicado detectado - Asociando a cuenta existente:', existingUserId);
+        console.log('🔄 Email duplicado detectado - Asociando a cuenta existente');
         userId = existingUserId;
         emailExisted = true;
         
@@ -389,7 +377,7 @@ export async function POST(request: NextRequest) {
         if (newUserId) {
           userId = newUserId;
           customToken = token;
-          console.log('✅ New account created:', newUserId);
+          console.log('✅ New account created successfully');
         } else {
           userId = null;
           console.log('⚠️ Account creation failed, continuing as guest');
@@ -443,11 +431,11 @@ export async function POST(request: NextRequest) {
       }
     } else {
       // 4. 👤 USUARIO YA LOGGEADO
-      console.log('👤 Usando usuario ya loggeado:', customerData.userId);
+      console.log('👤 Usando usuario ya loggeado');
     }
     
     console.log('📍 Estado final de usuario:', {
-      userId: userId,
+      hasUserId: !!userId,
       userIdType: typeof userId,
       hasCustomToken: !!customToken,
       accountCreationFailed,
