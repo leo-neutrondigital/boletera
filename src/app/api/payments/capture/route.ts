@@ -2,16 +2,22 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase/admin';
 import { FieldValue } from 'firebase-admin/firestore';
 import { formatCurrency } from '@/lib/utils/currency';
+import { adaptPaymentResponse, UnifiedPaymentResponse } from '@/lib/payments/adapters';
+import Stripe from 'stripe';
 
 // ✅ Forzar modo dinámico para usar request.json() y headers
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
+// PayPal Configuration
 const PAYPAL_CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID!;
 const PAYPAL_CLIENT_SECRET = process.env.PAYPAL_CLIENT_SECRET!;
 const PAYPAL_BASE_URL = process.env.PAYPAL_SANDBOX_MODE === 'true' 
   ? 'https://api-m.sandbox.paypal.com' 
   : 'https://api-m.paypal.com';
+
+// Stripe Configuration
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 interface CaptureRequest {
   orderID: string;
@@ -22,7 +28,7 @@ interface CaptureRequest {
     company?: string;
     createAccount?: boolean;
     password?: string;
-    userId?: string; // 🆕 AGREGADO para usuarios registrados
+    userId?: string;
   };
   tickets: Array<{
     ticket_type_id: string;
@@ -33,6 +39,8 @@ interface CaptureRequest {
     total_price: number;
   }>;
   eventId: string;
+  provider?: 'paypal' | 'stripe'; // 🆕 AGREGADO para identificar provider
+  paymentIntent?: any; // 🆕 Para Stripe
 }
 
 // Obtener access token de PayPal
@@ -56,6 +64,70 @@ async function getPayPalAccessToken(): Promise<string> {
   }
 
   return data.access_token;
+}
+
+// 🆕 Capturar pago con PayPal
+async function capturePayPalPayment(orderID: string): Promise<any> {
+  const accessToken = await getPayPalAccessToken();
+
+  const captureResponse = await fetch(`${PAYPAL_BASE_URL}/v2/checkout/orders/${orderID}/capture`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${accessToken}`,
+    },
+  });
+
+  const captureResult = await captureResponse.json();
+
+  if (!captureResponse.ok) {
+    console.error('❌ PayPal Capture Error:', captureResult);
+    throw new Error(`PayPal capture failed: ${captureResult.error || 'Unknown error'}`);
+  }
+
+  if (captureResult.status !== 'COMPLETED') {
+    throw new Error(`PayPal payment not completed: ${captureResult.status}`);
+  }
+
+  return captureResult;
+}
+
+// 🆕 Verificar pago con Stripe
+async function verifyStripePayment(paymentIntentId: string): Promise<any> {
+  try {
+    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+    
+    if (paymentIntent.status !== 'succeeded') {
+      throw new Error(`Stripe payment not succeeded: ${paymentIntent.status}`);
+    }
+
+    return paymentIntent;
+  } catch (error) {
+    console.error('❌ Stripe verification error:', error);
+    throw error;
+  }
+}
+
+// 🆕 Procesar pago unificado
+async function processPayment(request: CaptureRequest): Promise<UnifiedPaymentResponse> {
+  const { orderID, provider, paymentIntent } = request;
+  
+  try {
+    if (provider === 'stripe') {
+      // Para Stripe, verificamos el PaymentIntent
+      console.log('🔄 Verifying Stripe payment:', orderID);
+      const stripeData = paymentIntent || await verifyStripePayment(orderID);
+      return adaptPaymentResponse(stripeData, 'stripe');
+    } else {
+      // Para PayPal (default), capturamos la orden
+      console.log('🔄 Capturing PayPal payment:', orderID);
+      const paypalData = await capturePayPalPayment(orderID);
+      return adaptPaymentResponse(paypalData, 'paypal');
+    }
+  } catch (error) {
+    console.error(`❌ Payment processing failed for ${provider || 'paypal'}:`, error);
+    throw error;
+  }
 }
 
 // Generar ID único para QR
@@ -243,33 +315,15 @@ function calculateAuthorizedDays(ticketTypeData: any, eventStartDate: Date, even
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('🔄 Capturing PayPal payment...');
-    
-    // Debug: Verificar variables de entorno al inicio
-    console.log('🔧 Environment variables status:', {
-      NODE_ENV: process.env.NODE_ENV,
-      VERCEL_ENV: process.env.VERCEL_ENV,
-      EMAIL_VARS: {
-        EMAIL_API_URL: !!process.env.EMAIL_API_URL,
-        EMAIL_API_TOKEN: !!process.env.EMAIL_API_TOKEN,
-        EMAIL_HMAC_SECRET: !!process.env.EMAIL_HMAC_SECRET,
-      },
-      EMAIL_KEYS_FOUND: Object.keys(process.env).filter(key => key.startsWith('EMAIL')),
-    });
-
     const body: CaptureRequest = await request.json();
-    const { orderID, customerData, tickets, eventId } = body;
+    const { orderID, customerData, tickets, eventId, provider = 'paypal' } = body;
 
-    console.log('📦 Capture data:', {
+    console.log(`� Processing ${provider.toUpperCase()} payment capture...`, {
       orderID,
+      provider,
       customerEmail: customerData.email,
       ticketsCount: tickets.length,
       eventId,
-      customerCreateAccount: customerData.createAccount,
-      customerHasPassword: !!customerData.password,
-      passwordLength: customerData.password?.length || 0,
-      customerUserId: customerData.userId || 'guest', // 🆕 AGREGADO
-      isRegisteredUser: !!customerData.userId
     });
 
     // Validaciones
@@ -291,38 +345,18 @@ export async function POST(request: NextRequest) {
     const eventStartDate = eventData.start_date.toDate();
     const eventEndDate = eventData.end_date.toDate();
 
-    // Obtener access token y capturar el pago
-    const accessToken = await getPayPalAccessToken();
-
-    console.log('🔄 Capturing payment with PayPal...');
-    const captureResponse = await fetch(`${PAYPAL_BASE_URL}/v2/checkout/orders/${orderID}/capture`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken}`,
-      },
-    });
-
-    const captureResult = await captureResponse.json();
-
-    if (!captureResponse.ok) {
-      console.error('❌ PayPal Capture Error:', captureResult);
+    // 🆕 PROCESAR PAGO UNIFICADO
+    const paymentResult = await processPayment(body);
+    
+    if (paymentResult.status !== 'completed') {
+      console.error(`❌ ${provider.toUpperCase()} payment not completed:`, paymentResult.status);
       return NextResponse.json(
-        { error: 'Payment capture failed', details: captureResult },
+        { error: 'Payment not completed', status: paymentResult.status, provider },
         { status: 400 }
       );
     }
 
-    console.log('✅ Payment captured successfully:', captureResult.id);
-
-    // Verificar que el pago esté completado
-    if (captureResult.status !== 'COMPLETED') {
-      console.error('❌ Payment not completed:', captureResult.status);
-      return NextResponse.json(
-        { error: 'Payment not completed', status: captureResult.status },
-        { status: 400 }
-      );
-    }
+    console.log(`✅ ${provider.toUpperCase()} payment processed successfully:`, paymentResult.orderId);
 
     // 🆕 DETECCIÓN AUTOMÁTICA DE EMAILS DUPLICADOS
     let userId: string | null = customerData.userId || null;
@@ -477,7 +511,7 @@ export async function POST(request: NextRequest) {
             customer_name: customerData.name,
             customer_phone: customerData.phone,
             order_id: orderID,
-            capture_id: captureResult.id,
+            capture_id: paymentResult.orderId,
             account_requested: customerData.createAccount || false,
             password_provided: !!customerData.password,
             failure_timestamp: FieldValue.serverTimestamp(),
@@ -489,7 +523,7 @@ export async function POST(request: NextRequest) {
           
           // Datos de pago
           order_id: orderID,
-          capture_id: captureResult.id,
+          capture_id: paymentResult.orderId,
           purchase_date: FieldValue.serverTimestamp(),
           amount_paid: ticketInfo.unit_price,
           currency: ticketInfo.currency,
@@ -621,9 +655,10 @@ export async function POST(request: NextRequest) {
     // Respuesta exitosa
     return NextResponse.json({
       success: true,
-      paymentId: captureResult.id,
+      paymentId: paymentResult.orderId,
       orderId: orderID,
-      status: 'COMPLETED',
+      status: paymentResult.status.toUpperCase(),
+      provider: paymentResult.provider,
       ticketsCreated: createdTickets.length,
       ticketIds: createdTickets,
       message: `Pago procesado y ${createdTickets.length} boletos creados exitosamente`,

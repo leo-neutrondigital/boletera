@@ -28,7 +28,7 @@ const customerSchemaCompra = z.object({
   phone: z.string().min(10, 'Teléfono debe tener al menos 10 dígitos'),
   company: z.string().optional(),
   createAccount: z.boolean().optional(),
-  password: z.string().optional(),
+  password: z.string().max(100, 'La contraseña no puede tener más de 100 caracteres').optional(),
 }).refine((data) => {
   // 🔧 ARREGLO: Validación de contraseña más clara
   if (data.createAccount === true) {
@@ -332,6 +332,7 @@ export function CustomerForm({
                   type={showPassword ? 'text' : 'password'}
                   {...register('password')}
                   placeholder="Mínimo 6 caracteres"
+                  maxLength={100}
                   className={errors.password ? 'border-red-500 pr-10' : 'pr-10'}
                 />
                 <button

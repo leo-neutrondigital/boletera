@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { CreditCard, User, Mail, Phone, Building, ShoppingCart, CheckCircle, UserPlus, Send } from 'lucide-react';
 import { useEventFlow, useCurrentStepInfo } from '@/components/event/EventFlowProvider';
 import { useAuth } from '@/contexts/AuthContext';
-import { PayPalButton } from './PayPalButton';
+import PaymentButton from './PaymentButton';
 import { FlowNavigation } from './FlowNavigation';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -232,28 +232,53 @@ export function PaymentStep() {
   const handlePaymentSuccess = (details: any) => {
     console.log('✅ Payment successful in PaymentStep:', details);
     
-    // Asegurar que tenemos el orderId correcto
-    const orderId = details.orderID || details.orderId || details.captureResult?.orderId;
-    const captureResult = details.captureResult;
+    // 🆕 NORMALIZACIÓN: Detectar formato y extraer datos correctamente
+    let normalizedData;
     
-    console.log('📋 Processing success with orderId:', orderId);
+    if (details.captureResult) {
+      // Formato PayPal: datos anidados
+      console.log('📋 Processing PayPal format response');
+      normalizedData = {
+        orderID: details.orderID || details.orderId, // PayPal usa orderID
+        orderId: details.orderID || details.orderId, // Nuestro sistema usa orderId
+        payerID: details.payerID,
+        paymentId: details.captureResult.paymentId || 'N/A',
+        ticketsCreated: details.captureResult.ticketsCreated || 0,
+        status: details.captureResult.status || 'COMPLETED',
+        userAccount: details.captureResult.userAccount,
+        provider: 'paypal',
+        ...details.captureResult
+      };
+    } else {
+      // Formato Stripe: datos directos (API response)
+      console.log('📋 Processing Stripe format response');
+      normalizedData = {
+        orderID: details.orderID || details.orderId,
+        orderId: details.orderID || details.orderId,
+        payerID: details.payerID, // Puede no existir en Stripe
+        paymentId: details.paymentId || 'N/A',
+        ticketsCreated: details.ticketsCreated || 0,
+        status: details.status || 'COMPLETED',
+        userAccount: details.userAccount,
+        provider: 'stripe',
+        ...details
+      };
+    }
     
-    setPaymentResult({
-      orderID: orderId, // PayPal usa orderID
-      orderId: orderId, // Nuestro sistema usa orderId
-      payerID: details.payerID,
-      paymentId: captureResult?.paymentId || 'N/A',
-      ticketsCreated: captureResult?.ticketsCreated || 0,
-      status: captureResult?.status || 'COMPLETED',
-      ...captureResult
+    console.log('📋 Normalized payment data:', {
+      orderId: normalizedData.orderId,
+      ticketsCreated: normalizedData.ticketsCreated,
+      status: normalizedData.status,
+      provider: normalizedData.provider
     });
     
+    setPaymentResult(normalizedData);
     setPaymentSuccess(true);
     setIsProcessing(false);
 
     toast({
       title: "¡Pago exitoso!",
-      description: `Se han creado ${captureResult?.ticketsCreated || 0} boletos. Te enviamos un correo de confirmación.`,
+      description: `Se han creado ${normalizedData.ticketsCreated || 0} boletos. Te enviamos un correo de confirmación.`,
     });
   };
 
@@ -805,7 +830,7 @@ export function PaymentStep() {
                   </Alert>
                 )}
 
-                <PayPalButton
+                <PaymentButton
                   onSuccess={handlePaymentSuccess}
                   onError={handlePaymentError}
                   disabled={isProcessing}
