@@ -81,13 +81,14 @@ export function PayPalButton({ onSuccess, onError, disabled = false }: PayPalBut
         currency
       };
 
-      console.log('📤 Sending order data:', {
-        ...orderData,
-        customer: {
-          ...customerData,
-          passwordLength: customerData.password?.length || 0
-        }
-      });
+      // 🔒 SECURITY: Comentado para evitar exposición de datos del cliente en producción
+      // console.log('📤 Sending order data:', {
+      //   ...orderData,
+      //   customer: {
+      //     ...customerData,
+      //     passwordLength: customerData.password?.length || 0
+      //   }
+      // });
 
       const response = await fetch('/api/payments/create-order', {
         method: 'POST',
@@ -124,7 +125,8 @@ export function PayPalButton({ onSuccess, onError, disabled = false }: PayPalBut
       setIsProcessing(true);
       setError(null);
       
-      console.log('✅ Payment approved by user:', data);
+      // 🔒 SECURITY: Comentado para evitar exposición de datos de pago en producción
+      // console.log('✅ Payment approved by user:', data);
       console.log('🔄 Starting immediate capture...');
       
       // Preparar datos para captura
@@ -135,11 +137,12 @@ export function PayPalButton({ onSuccess, onError, disabled = false }: PayPalBut
         eventId: event.id
       };
 
-      console.log('📤 Sending capture data:', {
-        orderID: captureData.orderID,
-        customerEmail: captureData.customerData.email,
-        ticketsCount: captureData.tickets.length
-      });
+      // 🔒 SECURITY: Comentado para evitar exposición de datos de captura en producción
+      // console.log('📤 Sending capture data:', {
+      //   orderID: captureData.orderID,
+      //   customerEmail: captureData.customerData.email,
+      //   ticketsCount: captureData.tickets.length
+      // });
 
       // Capturar inmediatamente
       const captureResponse = await fetch('/api/payments/capture', {
@@ -157,7 +160,8 @@ export function PayPalButton({ onSuccess, onError, disabled = false }: PayPalBut
         throw new Error(captureResult.error || 'Error capturing payment');
       }
 
-      console.log('✅ Payment captured successfully:', captureResult);
+      // 🔒 SECURITY: Comentado para evitar exposición de datos de captura en producción
+      // console.log('✅ Payment captured successfully:', captureResult);
 
       // 🆕 AUTOLOGIN si se creó cuenta
       if (captureResult.userAccount?.created && captureResult.userAccount.customToken) {
@@ -166,7 +170,7 @@ export function PayPalButton({ onSuccess, onError, disabled = false }: PayPalBut
           const { signInWithCustomToken } = await import('firebase/auth');
           const { auth } = await import('@/lib/firebase/client');
           
-          const userCredential = await signInWithCustomToken(auth, captureResult.userAccount.customToken);
+          await signInWithCustomToken(auth, captureResult.userAccount.customToken);
           // Autologin successful
           
           // Mostrar mensaje de éxito con cuenta creada

@@ -230,7 +230,8 @@ export function PaymentStep() {
   };
 
   const handlePaymentSuccess = (details: any) => {
-    console.log('✅ Payment successful in PaymentStep:', details);
+    // 🔒 SECURITY: Comentado para evitar exposición de datos sensibles en producción
+    // console.log('✅ Payment successful in PaymentStep:', details);
     
     // 🆕 NORMALIZACIÓN: Detectar formato y extraer datos correctamente
     let normalizedData;
