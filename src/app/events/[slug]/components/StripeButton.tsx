@@ -7,7 +7,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Loader2, AlertCircle, CheckCircle, CreditCard } from 'lucide-react';
 import { useEventFlow } from '@/components/event/EventFlowProvider';
-import { useRouter } from 'next/navigation';
+// import { useRouter } from 'next/navigation'; // 🔧 Comentado mientras se decide si usar redirección automática
 import { getStripePublicKey } from '@/lib/payments/providers';
 
 // Configurar Stripe
@@ -25,7 +25,7 @@ function StripeCheckoutForm({ onSuccess, onError, disabled = false }: StripeButt
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
+  // const router = useRouter(); // 🔧 Comentado mientras se decide si usar redirección automática
   
   const { 
     selectedTickets, 
@@ -167,11 +167,12 @@ function StripeCheckoutForm({ onSuccess, onError, disabled = false }: StripeButt
           throw new Error(captureResult.error || 'Error procesando la compra');
         }
 
-        // Éxito - redirigir
+        // Éxito - llamar callback
         onSuccess(captureResult);
         
-        // Redirigir a página de éxito
-        router.push(`/my-tickets/${paymentIntent.id}`);
+        // 🔧 REDIRECCIÓN AUTOMÁTICA (comentado para testing)
+        // Descomenta la siguiente línea si prefieres redirección automática a my-tickets
+        // router.push(`/my-tickets/${paymentIntent.id}`);
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error procesando el pago';
