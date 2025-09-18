@@ -7,140 +7,78 @@ import { CustomerForm, CustomerFormData } from './CustomerForm';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/utils/currency';
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 
 
 export function CustomerDetails() {
-  const { 
+  const {
     event, 
     method, 
     selectedTickets, 
     totalAmount, 
     setCustomerData,
-    customerData, // 🔧 Usar esto directamente
     goNext,
-    goBack,
-    canProceed
+    goBack
   } = useEventFlow();
   const { user, userData } = useAuth();
   const stepInfo = useCurrentStepInfo();
 
-  const [isFormValid, setIsFormValid] = useState(false);
-  const [currentFormData, setCurrentFormData] = useState<CustomerFormData | null>(null);
-  const isSettingRef = useRef(false); // 🔧 Flag para evitar dobles llamadas
-  const latestCustomerDataRef = useRef(customerData); // 🔧 Ref para el customerData más actualizado
-  const shouldNavigateRef = useRef(false); // 🔧 Flag para controlar navegación automática
-
-  // Mover el return null al final de los hooks
+  // 🆕 V2: Estados simples y claros
+  const [formData, setFormData] = useState<CustomerFormData | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const totalItems = selectedTickets.reduce((sum, ticket) => sum + ticket.quantity, 0);
   const currency = selectedTickets[0]?.currency || 'MXN';
   const isPreregistration = method === 'preregister';
   const isLoggedIn = !!user;
 
-
-  // 🔧 Mantener el ref actualizado
-  useEffect(() => {
-    latestCustomerDataRef.current = customerData;
-    // CustomerData ref updated
-  }, [customerData]);
-
-  // 🔧 SOLUCIÓN DEFINITIVA: useEffect que detecta cuando customerData se actualiza y navega automáticamente
-  useEffect(() => {
-    if (shouldNavigateRef.current && customerData) {
-      console.log('🚪 CustomerDetails - Auto-navigation triggered by customerData change');
-      const hasCustomerDataNow = !!customerData.name && !!customerData.email;
-      const shouldProceed = isPreregistration ? hasCustomerDataNow : (hasCustomerDataNow && selectedTickets.length > 0);
-      console.log('🔍 CustomerDetails - Auto-navigation check:', {
-        hasCustomerDataNow,
-        shouldProceed,
-        isPreregistration,
-        customerName: customerData.name,
-        customerEmail: customerData.email
-      });
-      if (shouldProceed) {
-        console.log('✅ CustomerDetails - Auto-navigation: calling goNext');
-        shouldNavigateRef.current = false; // Reset flag
-        isSettingRef.current = false; // Reset setting flag
-        goNext();
-      } else {
-        console.log('❌ CustomerDetails - Auto-navigation: conditions not met');
-        shouldNavigateRef.current = false;
-        isSettingRef.current = false;
-      }
-    }
-  }, [customerData, isPreregistration, selectedTickets.length, goNext]);
-
   // Datos iniciales del formulario
   const initialData: Partial<CustomerFormData> = {
-    name: userData?.name || customerData?.name || '',
-    email: userData?.email || customerData?.email || '',
-    phone: userData?.phone || customerData?.phone || '',
-    company: userData?.company || customerData?.company || '',
-    createAccount: customerData?.password ? true : false,
+    name: userData?.name || '',
+    email: userData?.email || '',
+    phone: userData?.phone || '',
+    company: userData?.company || '',
+    createAccount: false,
   };
 
-  // Callback cuando cambia la validación del formulario
-  const handleValidationChange = useCallback((isValid: boolean, data?: CustomerFormData) => {
-    console.log('🔄 CustomerDetails - Validation changed:', {
-      isValid,
-      hasData: !!data,
-      isPreregistration,
-      step: 'details',
-      data: data ? {
-        ...data,
-        passwordLength: data.password?.length || 0,
-        passwordProvided: !!data.password
-      } : null
-    });
-    setIsFormValid(isValid);
-    if (isValid && data) {
-      console.log('✅ CustomerDetails - Setting currentFormData');
-      setCurrentFormData(data);
-    } else {
-      console.log('🗑️ CustomerDetails - Clearing currentFormData');
-      setCurrentFormData(null);
-    }
-  }, [isPreregistration]); // 🔧 Solo isPreregistration como dependencia
+  // 🆕 V2: Un solo callback simple para recibir datos del form
+  const handleFormChange = (data: CustomerFormData | null) => {
+    setFormData(data);
+  };
 
   if (!event) return null;
 
-  // Proceder al siguiente paso
-  const handleContinue = () => {
-    // Handle continue button click validation
-    
-    if (!isFormValid || !currentFormData) {
-      console.log('❌ CustomerDetails - Form not valid or no data');
-      return;
-    }
-
-    // Proceeding with form data
-    
-    // 🔧 ARREGLO CRITICO: Guardar datos ANTES de navegar
-    const customerInfo = {
-      name: currentFormData.name,
-      email: currentFormData.email,
-      phone: currentFormData.phone,
-      company: currentFormData.company || '',
-      createAccount: currentFormData.createAccount || false,
-      password: currentFormData.createAccount ? currentFormData.password : undefined,
-      userId: isLoggedIn ? user?.uid : undefined,
-    };
-    
-    // Setting customer data in context
-
-    // 🔧 NUEVA ESTRATEGIA: NO usar setTimeout, activar flag para navegación automática
-    if (isSettingRef.current) {
-      console.warn('⚠️ CustomerDetails - setCustomerData already in progress, skipping');
+  // 🆕 V2: Handler simple y síncrono para continuar
+  const handleSubmit = async () => {
+    if (!formData || isSubmitting) {
+      console.log('🚫 CustomerDetails - Submit blocked:', { hasFormData: !!formData, isSubmitting });
       return;
     }
     
-    isSettingRef.current = true;
-    shouldNavigateRef.current = true; // 🔧 Activar flag para navegación automática
-    
-    console.log('📝 CustomerDetails - About to call setCustomerData for navigation trigger...');
-    setCustomerData(customerInfo);
-    console.log('📝 CustomerDetails - setCustomerData called, auto-navigation will trigger via useEffect');
+    console.log('🚀 CustomerDetails - Starting submit process');
+    setIsSubmitting(true);
+    try {
+      const customerInfo = {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        company: formData.company || '',
+        createAccount: formData.createAccount || false,
+        password: formData.createAccount ? formData.password : undefined,
+        userId: isLoggedIn ? user?.uid : undefined,
+      };
+      
+      console.log('📝 CustomerDetails - Setting customer data:', customerInfo);
+      setCustomerData(customerInfo);
+      
+      // 🆕 Delay mínimo para que React procese el setState
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      console.log('🎯 CustomerDetails - Proceeding to next step');
+      goNext(); // Navegación directa - UN SOLO SISTEMA
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const getStepTitle = () => {
@@ -244,7 +182,7 @@ export function CustomerDetails() {
           initialData={initialData}
           isPreregistration={isPreregistration}
           isLoggedIn={isLoggedIn}
-          onValidationChange={handleValidationChange}
+          onFormChange={handleFormChange}
         />
       </div>
 
@@ -275,13 +213,13 @@ export function CustomerDetails() {
           {/* Debug info en desarrollo */}
           {process.env.NODE_ENV === 'development' && (
             <div className="text-xs text-gray-500">
-              Valid: {isFormValid ? 'Yes' : 'No'} | Data: {!!currentFormData ? 'Yes' : 'No'}
+              Form Data: {!!formData ? 'Yes' : 'No'} | Submitting: {isSubmitting ? 'Yes' : 'No'}
             </div>
           )}
 
           <Button
-            onClick={handleContinue}
-            disabled={!isFormValid}
+            onClick={handleSubmit}
+            disabled={!formData || isSubmitting}
             className="flex items-center gap-2 px-6"
             size="lg"
           >

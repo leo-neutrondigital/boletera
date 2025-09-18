@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
 import type { Event, TicketType } from '@/types';
 
 // Estados del flujo
@@ -101,36 +101,12 @@ const initialState: EventFlowState = {
 // Provider
 export function EventFlowProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<EventFlowState>(initialState);
-  const renderCount = useRef(0);
-  
-  // 🔧 DEBUG: Añadir debugging de estado en cada render
-  renderCount.current += 1;
-  console.log('🔄 EventFlowProvider render #', renderCount.current, 'with state:', {
-    method: state.method,
-    currentStep: state.currentStep,
-    eventId: state.event?.id,
-    hasCustomerData: !!state.customerData,
-    customerDataName: state.customerData?.name || 'none',
-    selectedTicketsCount: state.selectedTickets.length
-  });
 
   // Calcular total automáticamente
   useEffect(() => {
     const total = state.selectedTickets.reduce((sum, ticket) => sum + ticket.total_price, 0);
     if (total !== state.totalAmount) {
-      console.log('💰 Updating total amount:', total, '(prev:', state.totalAmount, ')');
-      
-      // 🔧 VERIFICAR SI ESTO ESTÁ CORROMPIENDO EL ESTADO
-      setState(prev => {
-        if (prev.customerData) {
-          console.log('💰 totalAmount update - preserving customerData:', prev.customerData.name);
-        } else {
-          console.log('💰 totalAmount update - no customerData to preserve');
-        }
-        return { ...prev, totalAmount: total };
-      });
-    } else {
-      console.log('💰 Total amount unchanged:', total);
+      setState(prev => ({ ...prev, totalAmount: total }));
     }
   }, [state.selectedTickets, state.totalAmount]);
 
@@ -192,47 +168,19 @@ export function EventFlowProvider({ children }: { children: React.ReactNode }) {
       const stepOrder: FlowStep[] = ['method', 'selection', 'details', 'payment', 'configure'];
       const currentIndex = stepOrder.indexOf(state.currentStep);
       
-      // 🔧 ARREGLO FINAL: Evaluar canProceed DIRECTAMENTE sin function closure
-      const directCanProceed = (() => {
-        switch (state.currentStep) {
-          case 'method':
-            return state.method !== null;
-          case 'selection':
-            return state.selectedTickets.length > 0; // ✅ OBLIGATORIO para ambos métodos
-          case 'details':
-            const hasCustomerDataNow = state.customerData !== null && 
-                                    state.customerData.name.trim() !== '' && 
-                                    state.customerData.email.trim() !== '';
-            if (state.method === 'preregister') {
-              return hasCustomerDataNow;
-            } else {
-              return hasCustomerDataNow && state.selectedTickets.length > 0;
-            }
-          case 'payment':
-            return true;
-          case 'configure':
-            return true;
-          default:
-            return false;
-        }
-      })();
-      
       console.log('🔄 goNext attempt:', {
         currentStep: state.currentStep,
         currentIndex,
-        canProceed: directCanProceed, // 🔧 Usar evaluación directa
-        method: state.method,
-        hasCustomerDataDirect: !!state.customerData,
-        customerDataName: state.customerData?.name || 'none',
-        functionCanProceed: canProceed() // 🔧 Para comparación
+        maxIndex: stepOrder.length - 1
       });
       
-      if (currentIndex < stepOrder.length - 1 && directCanProceed) {
+      // 🆕 PLAN XML: "goNext() debe ser simple: cambiar step SIN validación duplicada"
+      if (currentIndex < stepOrder.length - 1) {
         const nextStep = stepOrder[currentIndex + 1];
         console.log('✅ goNext success:', nextStep);
         setState(prev => ({ ...prev, currentStep: nextStep }));
       } else {
-        console.log('❌ goNext blocked - directCanProceed:', directCanProceed, 'functionCanProceed:', canProceed());
+        console.log('❌ goNext blocked - reached end of flow');
       }
     },
 
@@ -254,8 +202,7 @@ export function EventFlowProvider({ children }: { children: React.ReactNode }) {
       console.log('🚀 initializeFlow called:', {
         eventId: event.id,
         hasPreregistration,
-        availableTypes: availableTypes.length,
-        renderCount: renderCount.current
+        availableTypes: availableTypes.length
       });
       
       setState(prev => {
@@ -275,19 +222,10 @@ export function EventFlowProvider({ children }: { children: React.ReactNode }) {
       });
     },
 
-    // Método - CON DEBUGGING INTENSIVO
+    // Método
     setMethod: (method: PurchaseMethod) => {
-      console.log('📝 setMethod called with:', method, 'at render:', renderCount.current);
-      setState(prev => {
-        console.log('📝 setMethod - previous method:', prev.method, '-> new method:', method);
-        const newState = { ...prev, method };
-        console.log('📝 setMethod - complete new state:', {
-          method: newState.method,
-          currentStep: newState.currentStep,
-          eventId: newState.event?.id
-        });
-        return newState;
-      });
+      console.log('📝 setMethod called with:', method);
+      setState(prev => ({ ...prev, method }));
     },
 
     // Selección de boletos
@@ -364,6 +302,14 @@ export function EventFlowProvider({ children }: { children: React.ReactNode }) {
         createAccount: data.createAccount,
         hasPassword: !!data.password,
         userId: data.userId || 'none'
+      });
+      
+      // 🐛 DEBUG: Log password in setCustomerData
+      console.log('🔍 EventFlowProvider.setCustomerData - Password received:', {
+        password: data.password,
+        passwordLength: data.password?.length || 0,
+        passwordChars: data.password ? [...data.password] : [],
+        timestamp: new Date().toISOString()
       });
       
       setState(prev => {

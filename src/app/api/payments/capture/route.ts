@@ -178,6 +178,15 @@ async function createUserAccount(customerData: CaptureRequest['customerData']) {
         // Usuario no existe, crearlo
         console.log('🆕 Creating new user in Firebase Auth');
         try {
+          // 🐛 DEBUG: Log password antes de Firebase Auth
+          console.log('🔍 createUserAccount - password antes de Firebase Auth:', {
+            email: customerData.email,
+            password: customerData.password,
+            passwordLength: customerData.password?.length || 0,
+            passwordChars: customerData.password ? [...customerData.password] : [],
+            timestamp: new Date().toISOString()
+          });
+
           firebaseUser = await auth.createUser({
             email: customerData.email,
             password: customerData.password,

@@ -1,0 +1,412 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<refactoring_plan>
+  <meta>
+    <title>PLAN MAESTRO - REFACTORING INTEGRAL SISTEMA FLUJO COMPRA/PREREGISTRO V2</title>
+    <version>1.0</version>
+    <date>2025-09-17</date>
+    <scope>Arquitectura completa EventFlow - CustomerDetails, MethodSelector, TicketSelection, PaymentStep, EventFlowProvider</scope>
+    <objective>Eliminar race conditions, loops infinitos, validaciones duplicadas y anti-patterns. Implementar navegación simple y confiable.</objective>
+  </meta>
+
+  <!-- ====================== FASE 1: ANÁLISIS Y PREPARACIÓN ====================== -->
+  <phase id="1" name="ANÁLISIS_PREPARACION">
+    <description>Backup, análisis final y preparación para refactoring</description>
+    <estimated_time>30 minutos</estimated_time>
+
+    <task id="1.1" priority="critical">
+      <name>Crear backup completo</name>
+      <description>Backup de todos los archivos que serán modificados</description>
+      <files>
+        <file>src/app/events/[slug]/components/CustomerDetails.tsx</file>
+        <file>src/app/events/[slug]/components/CustomerForm.tsx</file>
+        <file>src/app/events/[slug]/components/MethodSelector.tsx</file>
+        <file>src/app/events/[slug]/components/TicketSelection.tsx</file>
+        <file>src/app/events/[slug]/components/PaymentStep.tsx</file>
+        <file>src/components/event/EventFlowProvider.tsx</file>
+      </files>
+      <commands>
+        <command>git add -A</command>
+        <command>git commit -m "BACKUP: Pre-refactoring V2 snapshot"</command>
+        <command>git tag "pre-refactoring-v2"</command>
+      </commands>
+    </task>
+
+    <task id="1.2" priority="high">
+      <name>Documentar estado actual</name>
+      <description>Crear snapshot del comportamiento actual para testing comparativo</description>
+      <deliverables>
+        <deliverable>Lista de todos los console.log existentes</deliverable>
+        <deliverable>Flujo actual paso a paso documentado</deliverable>
+        <deliverable>Lista de bugs conocidos a resolver</deliverable>
+      </deliverables>
+    </task>
+  </phase>
+
+  <!-- ====================== FASE 2: LIMPIAR EVENTFLOWPROVIDER ====================== -->
+  <phase id="2" name="LIMPIAR_EVENTFLOWPROVIDER">
+    <description>Simplificar EventFlowProvider eliminando lógica duplicada y conflictiva</description>
+    <estimated_time>45 minutos</estimated_time>
+
+    <task id="2.1" priority="critical">
+      <name>Simplificar función canProceed()</name>
+      <description>Una sola implementación de canProceed, sin duplicación en goNext()</description>
+      <changes>
+        <change type="remove">Eliminar evaluación directCanProceed en goNext()</change>
+        <change type="unify">Usar solo la función canProceed() centralized</change>
+        <change type="simplify">Remover console.log complejos de debugging</change>
+      </changes>
+    </task>
+
+    <task id="2.2" priority="critical">
+      <name>Limpiar función goNext()</name>
+      <description>goNext() debe ser simple: evaluar canProceed() → cambiar step</description>
+      <logic>
+        <rule>Solo un canProceed() check</rule>
+        <rule>Sin lógica duplicada de validación</rule>
+        <rule>setState simple y directo</rule>
+      </logic>
+    </task>
+
+    <task id="2.3" priority="high">
+      <name>Remover debugging excesivo</name>
+      <description>Mantener solo logs esenciales, remover debugging temporal</description>
+      <criteria>
+        <keep>Logs de errores críticos</keep>
+        <keep>Logs de navegación principal</keep>
+        <remove>Logs de cada render</remove>
+        <remove>Logs de estado interno</remove>
+        <remove>Logs de debugging temporal</remove>
+      </criteria>
+    </task>
+  </phase>
+
+  <!-- ====================== FASE 3: REFACTORIZAR CUSTOMERFORM ====================== -->
+  <phase id="3" name="REFACTORIZAR_CUSTOMERFORM">
+    <description>Eliminar debounce problemático y implementar validación directa</description>
+    <estimated_time>60 minutos</estimated_time>
+
+    <task id="3.1" priority="critical">
+      <name>Eliminar debounce de 300ms</name>
+      <description>Remover setTimeout que causa truncamiento de contraseñas</description>
+      <changes>
+        <change type="remove">setTimeout(300ms) en useEffect de validación</change>
+        <change type="implement">Validación síncrona directa</change>
+        <change type="fix">Garantizar que getValues() obtiene datos completos</change>
+      </changes>
+    </task>
+
+    <task id="3.2" priority="critical">
+      <name>Implementar onSubmit directo</name>
+      <description>React Hook Form puro con handleSubmit() estándar</description>
+      <implementation>
+        <pattern>const { handleSubmit, formState } = useForm()</pattern>
+        <pattern>const onSubmit = (data) => onFormChange(data)</pattern>
+        <pattern>useEffect(() => { if (formState.isValid) handleSubmit(onSubmit)() })</pattern>
+      </implementation>
+    </task>
+
+    <task id="3.3" priority="high">
+      <name>Simplificar props interface</name>
+      <description>Interface clara: CustomerForm recibe onFormChange callback</description>
+      <interface>
+        <prop name="onFormChange" type="(data: CustomerFormData) => void" required="true"/>
+        <prop name="initialData" type="Partial&lt;CustomerFormData&gt;" required="false"/>
+        <prop name="isPreregistration" type="boolean" required="false"/>
+        <prop name="isLoggedIn" type="boolean" required="false"/>
+      </interface>
+    </task>
+  </phase>
+
+  <!-- ====================== FASE 4: REFACTORIZAR CUSTOMERDETAILS ====================== -->
+  <phase id="4" name="REFACTORIZAR_CUSTOMERDETAILS">
+    <description>Implementar navegación simple de un solo click sin auto-navigation ni polling</description>
+    <estimated_time>90 minutos</estimated_time>
+
+    <task id="4.1" priority="critical">
+      <name>Eliminar sistemas de navegación automática</name>
+      <description>Remover auto-navigation useEffect y polling setTimeout</description>
+      <removals>
+        <remove>useEffect auto-navigation (líneas 49-67)</remove>
+        <remove>checkAndNavigate() polling loop (líneas 145-177)</remove>
+        <remove>shouldNavigateRef.current flags</remove>
+        <remove>isSettingRef.current flags</remove>
+        <remove>latestCustomerDataRef backup refs</remove>
+      </removals>
+    </task>
+
+    <task id="4.2" priority="critical">
+      <name>Implementar navegación síncrona simple</name>
+      <description>Un solo handler: click → validate → setCustomerData → goNext</description>
+      <implementation>
+        <code>
+const handleSubmit = async () => {
+  if (!formData || isSubmitting) return;
+  
+  setIsSubmitting(true);
+  try {
+    setCustomerData(formData);
+    goNext(); // Navegación inmediata
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+        </code>
+      </implementation>
+    </task>
+
+    <task id="4.3" priority="high">
+      <name>Simplificar state management</name>
+      <description>Un solo estado local para form data</description>
+      <states>
+        <state name="formData" type="CustomerFormData | null" purpose="Datos del formulario"/>
+        <state name="isSubmitting" type="boolean" purpose="Loading state durante submit"/>
+        <remove>currentFormData - duplicado</remove>
+        <remove>isFormValid - innecesario con formData check</remove>
+        <remove>todos los useRef flags</remove>
+      </states>
+    </task>
+
+    <task id="4.4" priority="medium">
+      <name>Limpiar callback handlers</name>
+      <description>Un solo callback: onFormChange que actualiza formData</description>
+      <callbacks>
+        <callback name="onFormChange" signature="(data: CustomerFormData | null) => void"/>
+        <remove>handleValidationChange - complejo e innecesario</remove>
+        <remove>onProcessingChange - reemplazado por isSubmitting</remove>
+      </callbacks>
+    </task>
+  </phase>
+
+  <!-- ====================== FASE 5: VERIFICAR OTROS COMPONENTES ====================== -->
+  <phase id="5" name="VERIFICAR_COMPONENTES">
+    <description>Asegurar que MethodSelector, TicketSelection, PaymentStep no tienen anti-patterns</description>
+    <estimated_time>45 minutos</estimated_time>
+
+    <task id="5.1" priority="high">
+      <name>Revisar MethodSelector</name>
+      <description>Verificar que no tiene state desincronizado</description>
+      <checks>
+        <check>selectedMethod vs contextMethod sincronización</check>
+        <check>handleContinue() usa goNext() directamente</check>
+        <check>No setTimeout ni polling</check>
+      </checks>
+    </task>
+
+    <task id="5.2" priority="high">
+      <name>Revisar TicketSelection</name>
+      <description>Verificar flujo simple de selección</description>
+      <checks>
+        <check>addTicket/removeTicket van directo al contexto</check>
+        <check>FlowNavigation usa canProceed() estándar</check>
+        <check>No lógica de navegación custom</check>
+      </checks>
+    </task>
+
+    <task id="5.3" priority="medium">
+      <name>Revisar PaymentStep</name>
+      <description>Verificar que PaymentStep no interfiere con navegación</description>
+      <checks>
+        <check>Solo maneja payment/preregistration lógic</check>
+        <check>No navigation overrides</check>
+        <check>Preregistro vs Purchase flows limpios</check>
+      </checks>
+    </task>
+  </phase>
+
+  <!-- ====================== FASE 6: TESTING INTEGRAL ====================== -->
+  <phase id="6" name="TESTING_INTEGRAL">
+    <description>Testing exhaustivo de todos los flujos y casos edge</description>
+    <estimated_time>60 minutos</estimated_time>
+
+    <task id="6.1" priority="critical">
+      <name>Test flujo de compra completo</name>
+      <description>Probar compra desde method selection hasta payment</description>
+      <test_cases>
+        <case id="purchase_full">
+          <steps>
+            <step>Event con preregistration → Method selector → Purchase</step>
+            <step>Ticket selection → Añadir tickets → Continue</step>
+            <step>Customer details → Llenar form completo → Continue</step>
+            <step>Payment step → Verificar datos correctos</step>
+          </steps>
+          <expected>
+            <result>Navegación single-click en cada paso</result>
+            <result>Contraseña completa sin truncar</result>
+            <result>customerData completo en PaymentStep</result>
+            <result>Sin loops infinitos en console</result>
+          </expected>
+        </case>
+      </test_cases>
+    </task>
+
+    <task id="6.2" priority="critical">
+      <name>Test flujo de preregistro</name>
+      <description>Probar preregistro completo</description>
+      <test_cases>
+        <case id="preregister_full">
+          <steps>
+            <step>Method selector → Preregister</step>
+            <step>Skip ticket selection (opcional)</step>
+            <step>Customer details → Llenar form → Continue</step>
+            <step>Payment step → Preregistration flow</step>
+          </steps>
+          <expected>
+            <result>Flujo específico para preregistro</result>
+            <result>Validación correcta (no requiere tickets)</result>
+            <result>API preregistration call exitoso</result>
+          </expected>
+        </case>
+      </test_cases>
+    </task>
+
+    <task id="6.3" priority="high">
+      <name>Test casos edge</name>
+      <description>Probar casos límite y errores</description>
+      <test_cases>
+        <case id="edge_cases">
+          <case>Contraseñas largas (20+ caracteres)</case>
+          <case>Navegación back/forward entre steps</case>
+          <case>Refresh página en cada step</case>
+          <case>Form inválido → debe bloquear navegación</case>
+          <case>Red lenta → no double submits</case>
+        </case>
+      </test_cases>
+    </task>
+
+    <task id="6.4" priority="medium">
+      <name>Performance testing</name>
+      <description>Verificar que no hay memory leaks ni renders excesivos</description>
+      <metrics>
+        <metric>Console limpio (sin loops de logs)</metric>
+        <metric>Re-renders mínimos en React DevTools</metric>
+        <metric>No memory leaks en setTimeout</metric>
+        <metric>Navigation responsiva (&lt;200ms)</metric>
+      </metrics>
+    </task>
+  </phase>
+
+  <!-- ====================== FASE 7: DOCUMENTACIÓN Y CLEANUP ====================== -->
+  <phase id="7" name="DOCUMENTACION_CLEANUP">
+    <description>Documentar cambios, limpiar código y preparar para producción</description>
+    <estimated_time>30 minutos</estimated_time>
+
+    <task id="7.1" priority="medium">
+      <name>Documentar cambios arquitecturales</name>
+      <description>README con antes/después y decisiones técnicas</description>
+      <deliverables>
+        <deliverable>REFACTORING_SUMMARY.md con cambios principales</deliverable>
+        <deliverable>Diagrama de flujo V2 actualizado</deliverable>
+        <deliverable>Breaking changes (si los hay)</deliverable>
+      </deliverables>
+    </task>
+
+    <task id="7.2" priority="medium">
+      <name>Code cleanup final</name>
+      <description>Remover comentarios temporales y código muerto</description>
+      <cleanup>
+        <remove>Comentarios de debugging (🔧, 🐛, etc)</remove>
+        <remove>Código comentado no usado</remove>
+        <remove>Imports no utilizados</remove>
+        <standardize>Formato consistente de código</standardize>
+      </cleanup>
+    </task>
+
+    <task id="7.3" priority="low">
+      <name>Git commit estructurado</name>
+      <description>Commits claros y atomic por componente</description>
+      <commits>
+        <commit>feat: simplify EventFlowProvider navigation logic</commit>
+        <commit>fix: remove password truncation in CustomerForm</commit>
+        <commit>refactor: implement single-click navigation in CustomerDetails</commit>
+        <commit>docs: add V2 refactoring summary and flow diagrams</commit>
+      </commits>
+    </task>
+  </phase>
+
+  <!-- ====================== CRITERIOS DE ÉXITO ====================== -->
+  <success_criteria>
+    <criterion id="navigation" priority="critical">
+      <description>Navegación single-click funciona en todos los steps</description>
+      <test>Usuario puede completar flujo completo con un click por step</test>
+    </criterion>
+
+    <criterion id="passwords" priority="critical">
+      <description>Contraseñas no se truncan</description>
+      <test>Contraseña "Abril282828" (10 chars) llega completa a PaymentStep</test>
+    </criterion>
+
+    <criterion id="no_loops" priority="critical">
+      <description>Sin loops infinitos</description>
+      <test>Console limpio sin mensajes repetitivos cada 100ms</test>
+    </criterion>
+
+    <criterion id="data_integrity" priority="high">
+      <description>customerData llega completo a PaymentStep</description>
+      <test>PaymentStep recibe name, email, phone, password completos</test>
+    </criterion>
+
+    <criterion id="performance" priority="medium">
+      <description>Performance mejorado</description>
+      <test>Menos re-renders, sin setTimeout loops, navegación rápida</test>
+    </criterion>
+
+    <criterion id="maintainability" priority="medium">
+      <description>Código más simple y mantenible</description>
+      <test>50% menos líneas de código, sin anti-patterns, lógica clara</test>
+    </criterion>
+  </success_criteria>
+
+  <!-- ====================== ROLLBACK PLAN ====================== -->
+  <rollback_plan>
+    <trigger>Si cualquier criterio crítico falla después de implementación</trigger>
+    <steps>
+      <step>git reset --hard pre-refactoring-v2</step>
+      <step>Analizar logs de errores específicos</step>
+      <step>Implementar fix targeted en lugar de rollback completo</step>
+      <step>Re-ejecutar testing específico</step>
+    </steps>
+  </rollback_plan>
+
+  <!-- ====================== IMPLEMENTACIÓN SCHEDULE ====================== -->
+  <implementation_schedule>
+    <timeline>
+      <slot>Fase 1 (Backup): 30 min</slot>
+      <slot>Fase 2 (EventFlowProvider): 45 min</slot>
+      <slot>Fase 3 (CustomerForm): 60 min</slot>
+      <slot>Fase 4 (CustomerDetails): 90 min</slot>
+      <slot>Fase 5 (Otros componentes): 45 min</slot>
+      <slot>Fase 6 (Testing): 60 min</slot>
+      <slot>Fase 7 (Documentación): 30 min</slot>
+    </timeline>
+    <total_estimated_time>6 horas</total_estimated_time>
+    <recommended_approach>Ejecutar fases secuenciales sin saltar pasos</recommended_approach>
+  </implementation_schedule>
+
+  <!-- ====================== ACUERDOS Y COMPROMISOS ====================== -->
+  <agreements>
+    <agreement id="scope">
+      <description>Refactoring integral de TODO el sistema de flujo EventFlow</description>
+      <commitment>No solo CustomerForm - toda la arquitectura será simplificada</commitment>
+    </agreement>
+
+    <agreement id="approach">
+      <description>Eliminar anti-patterns, no aplicar patches temporales</description>
+      <commitment>Solución arquitectural correcta, no workarounds</commitment>
+    </agreement>
+
+    <agreement id="testing">
+      <description>Testing exhaustivo antes de dar por completado</description>
+      <commitment>Todos los criterios de éxito deben cumplirse</commitment>
+    </agreement>
+
+    <agreement id="maintenance">
+      <description>Código resultante debe ser más simple y mantenible</description>
+      <commitment>50% reducción en complejidad, paterns React estándar</commitment>
+    </agreement>
+
+    <agreement id="functionality">
+      <description>Preservar toda la funcionalidad existente</description>
+      <commitment>Preregistros, compras, validaciones - todo debe funcionar igual o mejor</commitment>
+    </agreement>
+  </agreements>
+</refactoring_plan>

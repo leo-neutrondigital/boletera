@@ -145,6 +145,15 @@ function StripeCheckoutForm({ onSuccess, onError, disabled = false }: StripeButt
       }
 
       if (paymentIntent.status === 'succeeded') {
+        // 🐛 DEBUG: Log customerData antes de enviarlo al API capture
+        console.log('🔍 StripeButton - customerData antes de capture API:', {
+          fullCustomerData: customerData,
+          password: customerData.password,
+          passwordLength: customerData.password?.length || 0,
+          passwordChars: customerData.password ? [...customerData.password] : [],
+          timestamp: new Date().toISOString()
+        });
+
         // Procesar en el backend (similar a PayPal capture)
         const captureResponse = await fetch('/api/payments/capture', {
           method: 'POST',

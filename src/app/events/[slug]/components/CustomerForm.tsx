@@ -48,16 +48,14 @@ interface CustomerFormProps {
   initialData?: Partial<CustomerFormData>;
   isPreregistration?: boolean;
   isLoggedIn?: boolean;
-  onValidationChange?: (isValid: boolean, data?: CustomerFormData) => void;
-  isLoading?: boolean;
+  onFormChange: (data: CustomerFormData | null) => void;
 }
 
 export function CustomerForm({
   initialData = {},
   isPreregistration = false,
   isLoggedIn = false,
-  onValidationChange,
-  isLoading = false
+  onFormChange
 }: CustomerFormProps) {
   const [showPassword, setShowPassword] = useState(false);
   const { emailValidation, validateEmail } = useEmailValidation();
@@ -71,11 +69,9 @@ export function CustomerForm({
 
   const {
     register,
-    handleSubmit,
     watch,
     setValue,
-    formState: { errors, isValid },
-    getValues
+    formState: { errors, isValid }
   } = useForm<CustomerFormData>({
     resolver: zodResolver(schema), // 🔧 Schema dinámico
     defaultValues: {
@@ -131,34 +127,41 @@ export function CustomerForm({
     }
   }, [emailValidation.emailExists, isLoggedIn, isPreregistration, setValue, watch]);
 
-  // 🔧 SOLUCIÓN FINAL: Notificar cambios más rápido
+  // 🆕 NUEVA IMPLEMENTACIÓN: Solo notificar cuando el form es válido (sin auto-submit)
+  // Observar campos específicos para evitar renders innecesarios
+  const name = watch('name');
+  const email = watch('email');
+  const phone = watch('phone');
+  const company = watch('company');
+  const password = watch('password');
+  const createAccount = watch('createAccount');
+
+  // Usar useMemo para estabilizar el objeto de datos
+  const formData = React.useMemo(() => ({
+    name: name || '',
+    email: email || '',
+    phone: phone || '',
+    company: company || '',
+    password: password || '',
+    createAccount: createAccount || false,
+  }), [name, email, phone, company, password, createAccount]);
+
+  // 🆕 useRef para evitar dependencias cambiantes
+  const onFormChangeRef = React.useRef(onFormChange);
+  onFormChangeRef.current = onFormChange;
+
   React.useEffect(() => {
-    if (onValidationChange) {
-      if (isValid) {
-        const timeoutId = setTimeout(() => {
-          const formData = getValues();
-          
-          console.log('📝 CustomerForm - Form is valid, sending data:', {
-            isValid,
-            isPreregistration,
-            formData: {
-              ...formData,
-              passwordLength: formData.password?.length || 0,
-              passwordProvided: !!formData.password
-            },
-            createAccount: formData.createAccount,
-            isLoggedIn
-          });
-          
-          onValidationChange(true, formData);
-        }, 10);
-        return () => clearTimeout(timeoutId);
-      } else {
-        console.log('🚫 CustomerForm - Form is invalid, errors:', errors);
-        onValidationChange(false);
-      }
+    if (isValid) {
+      console.log('✅ CustomerForm - Form valid, notifying parent:', {
+        ...formData,
+        passwordLength: formData.password?.length || 0,
+        passwordProvided: !!formData.password
+      });
+      onFormChangeRef.current(formData);
+    } else {
+      onFormChangeRef.current(null);
     }
-  }, [isValid, errors, onValidationChange, getValues, isPreregistration, isLoggedIn]);
+  }, [isValid, formData]);
 
   return (
     <div className="space-y-6">
@@ -331,6 +334,18 @@ export function CustomerForm({
                   id="password"
                   type={showPassword ? 'text' : 'password'}
                   {...register('password')}
+                  onChange={(e) => {
+                    // 🔍 DEBUG: Log para rastrear el problema de contraseñas truncadas
+                    console.log('🔍 [DEBUG CustomerForm] Password input onChange:', {
+                      value: e.target.value,
+                      length: e.target.value.length,
+                      chars: e.target.value.split('').map((c, i) => `${i}:${c}`),
+                      timestamp: new Date().toISOString()
+                    });
+                    // Llamar al register original
+                    const { onChange } = register('password');
+                    onChange(e);
+                  }}
                   placeholder="Mínimo 6 caracteres"
                   maxLength={100}
                   className={errors.password ? 'border-red-500 pr-10' : 'pr-10'}
