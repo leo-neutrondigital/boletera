@@ -6,10 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useEventFlow, useCurrentStepInfo } from '@/components/event/EventFlowProvider';
 import { formatCurrency } from '@/lib/utils/currency';
+import { getCurrentProviderInfo } from '@/lib/payments/providers';
 
 export function MethodSelector() {
   const { event, method, setMethod, goNext, canProceed, availableTicketTypes } = useEventFlow();
   const stepInfo = useCurrentStepInfo();
+  const providerInfo = getCurrentProviderInfo();
   
   // Estado local SIN sincronización automática
   const [selectedMethod, setSelectedMethod] = useState<'preregister' | 'purchase' | null>(method);
@@ -168,7 +170,7 @@ export function MethodSelector() {
                 </div>
                 
                 <p className="text-gray-600 text-sm mb-3">
-                  Selecciona y compra tus boletos ahora. Pago seguro con PayPal.
+                  Selecciona y compra tus boletos ahora. Pago seguro con {providerInfo.displayName}.
                 </p>
                 
                 <div className="flex items-center gap-4 text-sm">

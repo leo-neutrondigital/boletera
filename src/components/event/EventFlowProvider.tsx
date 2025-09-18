@@ -304,14 +304,6 @@ export function EventFlowProvider({ children }: { children: React.ReactNode }) {
         userId: data.userId || 'none'
       });
       
-      // 🐛 DEBUG: Log password in setCustomerData
-      console.log('🔍 EventFlowProvider.setCustomerData - Password received:', {
-        password: data.password,
-        passwordLength: data.password?.length || 0,
-        passwordChars: data.password ? [...data.password] : [],
-        timestamp: new Date().toISOString()
-      });
-      
       setState(prev => {
         console.log('💾 setCustomerData - prev state had customerData:', !!prev.customerData);
         

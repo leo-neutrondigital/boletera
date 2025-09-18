@@ -65,7 +65,7 @@ export default function PaymentButton(props: PaymentButtonProps) {
         {/* Header informativo */}
         <div className="flex items-center gap-2 text-sm text-gray-600">
           <CreditCard className="w-4 h-4" />
-          <span>Pago seguro con Stripe</span>
+          <span>Pago seguro con {providerInfo.displayName}</span>
         </div>
         
         <StripeButton {...props} />
@@ -73,7 +73,7 @@ export default function PaymentButton(props: PaymentButtonProps) {
         {/* Footer informativo */}
         {process.env.NODE_ENV === 'development' && (
           <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
-            🔧 Dev: Usando Stripe como proveedor de pagos
+            🔧 Dev: Usando {providerInfo.displayName} como proveedor de pagos
           </div>
         )}
       </div>
@@ -88,7 +88,7 @@ export default function PaymentButton(props: PaymentButtonProps) {
         <div className="w-4 h-4 bg-blue-600 rounded-sm flex items-center justify-center">
           <span className="text-white text-xs font-bold">P</span>
         </div>
-        <span>Pago seguro con PayPal</span>
+        <span>Pago seguro con {providerInfo.displayName}</span>
       </div>
       
       <PayPalButton {...props} />
@@ -96,7 +96,7 @@ export default function PaymentButton(props: PaymentButtonProps) {
       {/* Footer informativo */}
       {process.env.NODE_ENV === 'development' && (
         <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
-          🔧 Dev: Usando PayPal como proveedor de pagos
+          🔧 Dev: Usando {providerInfo.displayName} como proveedor de pagos
         </div>
       )}
     </div>

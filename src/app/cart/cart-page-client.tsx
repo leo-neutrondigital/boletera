@@ -8,10 +8,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CartProvider, useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext'; // ← Corregir import
 import { formatCurrency } from '@/lib/utils/currency';
+import { getCurrentProviderInfo } from '@/lib/payments/providers';
 
 function CartPageContent() {
   const router = useRouter();
   const { userData: user } = useAuth(); // ← Corregir uso de useAuth
+  const providerInfo = getCurrentProviderInfo();
   const { 
     items, 
     totalAmount, 
@@ -150,7 +152,7 @@ function CartPageContent() {
                   <div className="space-y-3 text-sm text-gray-600">
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      <span>Pago seguro con PayPal</span>
+                      <span>Pago seguro con {providerInfo.displayName}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="w-2 h-2 bg-blue-500 rounded-full"></div>

@@ -145,15 +145,6 @@ function StripeCheckoutForm({ onSuccess, onError, disabled = false }: StripeButt
       }
 
       if (paymentIntent.status === 'succeeded') {
-        // 🐛 DEBUG: Log customerData antes de enviarlo al API capture
-        console.log('🔍 StripeButton - customerData antes de capture API:', {
-          fullCustomerData: customerData,
-          password: customerData.password,
-          passwordLength: customerData.password?.length || 0,
-          passwordChars: customerData.password ? [...customerData.password] : [],
-          timestamp: new Date().toISOString()
-        });
-
         // Procesar en el backend (similar a PayPal capture)
         const captureResponse = await fetch('/api/payments/capture', {
           method: 'POST',
@@ -174,6 +165,29 @@ function StripeCheckoutForm({ onSuccess, onError, disabled = false }: StripeButt
 
         if (!captureResponse.ok) {
           throw new Error(captureResult.error || 'Error procesando la compra');
+        }
+
+        // 🆕 AUTOLOGIN si se creó cuenta
+        if (captureResult.userAccount?.created && captureResult.userAccount.customToken) {
+          console.log('🔄 Performing autologin for new account...');
+          try {
+            const { signInWithCustomToken } = await import('firebase/auth');
+            const { auth } = await import('@/lib/firebase/client');
+            
+            await signInWithCustomToken(auth, captureResult.userAccount.customToken);
+            // Autologin successful
+            
+            // Mostrar mensaje de éxito con cuenta creada
+            console.log('👤 New account created and logged in automatically');
+          } catch (loginError) {
+            console.error('❌ Autologin failed:', loginError);
+            // No fallar todo el proceso si falla el autologin
+          }
+        } else if (captureResult.userAccount?.failed) {
+          // 🚨 CASO: Pago exitoso pero creación de cuenta falló
+          console.log('⚠️ Payment successful but account creation failed');
+          console.log('📧 User will receive recovery instructions via email');
+          // El usuario verá un mensaje especial en la UI
         }
 
         // Éxito - llamar callback

@@ -335,13 +335,6 @@ export function CustomerForm({
                   type={showPassword ? 'text' : 'password'}
                   {...register('password')}
                   onChange={(e) => {
-                    // 🔍 DEBUG: Log para rastrear el problema de contraseñas truncadas
-                    console.log('🔍 [DEBUG CustomerForm] Password input onChange:', {
-                      value: e.target.value,
-                      length: e.target.value.length,
-                      chars: e.target.value.split('').map((c, i) => `${i}:${c}`),
-                      timestamp: new Date().toISOString()
-                    });
                     // Llamar al register original
                     const { onChange } = register('password');
                     onChange(e);
