@@ -51,7 +51,7 @@ export async function GET(
 ): Promise<NextResponse<EventAttendeesResponse>> {
   try {
     const { eventId } = params;
-    console.log('👥 Fetching attendees for event:', eventId);
+    console.log('[Scanner] Fetching attendees for event:', eventId);
 
     // 1. Verificar autenticación
     const authUser = await getAuthFromRequest(request);
@@ -134,29 +134,73 @@ export async function GET(
       }
     });
 
+    // Helper: Generar array de fechas del evento
+    const generateEventDays = (startStr: string, endStr: string): string[] => {
+      const days: string[] = [];
+      const start = new Date(startStr);
+      const end = new Date(endStr);
+      const current = new Date(start);
+      
+      while (current <= end) {
+        days.push(formatDateToLocalString(current));
+        current.setDate(current.getDate() + 1);
+      }
+      
+      return days;
+    };
+
+    // Obtener rango de fechas del evento actual
+    const eventStartStr = formatDateToLocalString(eventData.start_date);
+    const eventEndStr = formatDateToLocalString(eventData.end_date);
+
     // 6. Procesar tickets en formato de asistentes
     const attendees: AttendeeTicket[] = ticketsSnapshot.docs.map(doc => {
       const ticketData = doc.data();
       const ticketType = ticketTypesMap.get(ticketData.ticket_type_id);
 
-      // 🆕 Procesar días autorizados y usados con timezone local consistente
-      const authorizedDays = (ticketData.authorized_days || []).map(formatDateToLocalString);
-      const usedDays = (ticketData.used_days || []).map(formatDateToLocalString);
+      // Procesar días autorizados y usados con timezone local consistente
+      let authorizedDays = (ticketData.authorized_days || []).map(formatDateToLocalString);
+      const originalUsedDays = (ticketData.used_days || []).map(formatDateToLocalString);
 
-      console.log('📅 Processing ticket dates (fixed timezone):', {
-        ticketId: doc.id,
-        attendeeName: ticketData.attendee_name,
-        rawAuthorizedDays: ticketData.authorized_days,
-        processedAuthorizedDays: authorizedDays,
-        rawUsedDays: ticketData.used_days,
-        processedUsedDays: usedDays
-      });
+      // PASO 1: Auto-corregir authorized_days para tickets all_days
+      // Validar contra fechas actuales del evento
+      if (ticketType?.access_type === 'all_days') {
+        const validAuthorizedDays = authorizedDays.filter(
+          (day: string) => day >= eventStartStr && day <= eventEndStr
+        );
+        
+        // Si no hay días válidos, regenerar basado en fechas actuales del evento
+        if (validAuthorizedDays.length === 0) {
+          authorizedDays = generateEventDays(eventStartStr, eventEndStr);
+          console.log('[Scanner] Auto-corrected authorized_days for all_days ticket:', {
+            ticketId: doc.id,
+            attendee: ticketData.attendee_name,
+            oldDays: (ticketData.authorized_days || []).map(formatDateToLocalString),
+            newDays: authorizedDays
+          });
+        }
+      }
 
-      // Determinar estado de check-in
+      // PASO 2: Filtrar used_days obsoletos (fuera del rango del evento actual)
+      const relevantUsedDays = originalUsedDays.filter(
+        (day: string) => day >= eventStartStr && day <= eventEndStr
+      );
+
+      if (relevantUsedDays.length !== originalUsedDays.length) {
+        console.log('[Scanner] Filtered obsolete used_days:', {
+          ticketId: doc.id,
+          attendee: ticketData.attendee_name,
+          originalUsedDays,
+          relevantUsedDays,
+          eventRange: `${eventStartStr} to ${eventEndStr}`
+        });
+      }
+
+      // PASO 3: Calcular estado de check-in con datos limpios
       let checkInStatus: AttendeeTicket['check_in_status'] = 'not_arrived';
       
-      if (usedDays.length > 0) {
-        if (usedDays.length >= authorizedDays.length) {
+      if (relevantUsedDays.length > 0) {
+        if (relevantUsedDays.length >= authorizedDays.length) {
           checkInStatus = 'checked_in'; // Completamente registrado
         } else {
           checkInStatus = 'partial'; // Parcialmente registrado (eventos multi-día)
@@ -174,13 +218,12 @@ export async function GET(
         status: ticketData.status || 'purchased',
         check_in_status: checkInStatus,
         authorized_days: authorizedDays,
-        used_days: usedDays,
+        used_days: relevantUsedDays, // Mostrar solo días relevantes
         last_checkin: ticketData.last_checkin?.toDate().toISOString(),
         can_undo_until: ticketData.can_undo_until?.toDate().toISOString(),
         qr_id: ticketData.qr_id,
         amount_paid: ticketData.amount_paid || 0,
         currency: ticketData.currency || 'MXN',
-        // 🆕 Incluir access_type para lógica inteligente de check-in
         access_type: ticketType?.access_type
       };
     });
