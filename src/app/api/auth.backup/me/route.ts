@@ -2,6 +2,9 @@
 import { NextResponse } from "next/server";
 import { getAuthFromRequest } from "@/lib/auth/server-auth";
 
+// Forzar renderizado dinámico
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: Request) {
   try {
     console.log("👤 GET /api/auth/me");

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useCourtesyOrders, useEvents, useTicketTypes } from '@/contexts/DataCacheContext'; // 🆕 Hooks de cache
-import { auth } from '@/lib/firebase/client'; // 🆕 Para operaciones manuales
+import { useCourtesyOrders, useEvents, useCachedTicketTypes } from '@/contexts/DataCacheContext';
+import { auth } from '@/lib/firebase/client';
 import { Gift } from 'lucide-react';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { PageContent } from '@/components/shared/PageContent';
@@ -58,21 +58,19 @@ export function CourtesyPageContent() {
     });
   }, [allEvents]);
   
-  // Estado para tipo de boletos selecionado (no cacheamos esto porque es dinámico)
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  // Estado para evento seleccionado
+  const [selectedEventId, setSelectedEventId] = useState<string>('');
+  
+  // Hook de ticket types con auto-carga cuando cambie el evento
   const {
-    ticketTypes: rawTicketTypes,
-    loadTicketTypes
-  } = useTicketTypes(); // No argumento
+    ticketTypes: rawTicketTypes
+  } = useCachedTicketTypes(selectedEventId || '');
 
-  // Adaptar ticketTypes para asegurar que tengan 'currency' (por compatibilidad)
+  // Adaptar ticketTypes para asegurar que tengan 'currency'
   const ticketTypes = useMemo(() => {
     if (!selectedEventId) return [];
-    // Buscar ticketTypes del evento seleccionado
-    const filtered = rawTicketTypes.filter(tt => tt.event_id === selectedEventId);
-    // Agregar currency si falta (puedes ajustar la lógica según tu fuente de datos)
-    return filtered.map(tt => ({
-      currency: 'MXN', // Valor por defecto o ajusta según tu lógica
+    return rawTicketTypes.map(tt => ({
+      currency: 'MXN' as const,
       ...tt,
     }));
   }, [rawTicketTypes, selectedEventId]);
@@ -90,24 +88,18 @@ export function CourtesyPageContent() {
 
   // Cargar datos iniciales usando cache
   useEffect(() => {
-    console.log('🚀 Initial load: loading courtesy orders and events...');
+    console.log('[CourtesyPage] Initial load: loading courtesy orders and events');
     loadCourtesyOrders();
     loadEvents();
   }, [loadCourtesyOrders, loadEvents]);
 
-  // 🆕 Función para cargar tipos de boletos cuando se selecciona un evento
+  // Función para manejar cambio de evento
   const handleEventChange = (eventId: string) => {
     setSelectedEventId(eventId);
+    // El hook useCachedTicketTypes se encarga de cargar automáticamente
   };
 
-  // 🆕 Effect para cargar tipos cuando cambia el evento seleccionado
-  useEffect(() => {
-    if (selectedEventId) {
-      loadTicketTypes();
-    }
-  }, [selectedEventId, loadTicketTypes]);
-
-  // 🆕 Crear cortesy (invalidar cache después)
+  // Crear cortesía (invalidar cache después)
   const createCourtesyTickets = async (formData: any) => {
     try {
       setCreating(true);
@@ -128,8 +120,8 @@ export function CourtesyPageContent() {
       });
 
       if (response.ok) {
-        // 🆕 Recarga inmediata y síncrona para ver cambios
-        console.log('✅ Courtesy created, reloading data immediately...');
+        // Recarga inmediata y síncrona para ver cambios
+        console.log('[CourtesyPage] Courtesy created, reloading data immediately');
         
         // Invalidar cache primero
         invalidateOrders();
@@ -137,7 +129,7 @@ export function CourtesyPageContent() {
         // Recarga inmediata
         await loadCourtesyOrders(true);
         
-        console.log('🔄 Data reloaded after courtesy creation');
+        console.log('[CourtesyPage] Data reloaded after courtesy creation');
       } else {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Error al crear cortesías');
@@ -150,11 +142,11 @@ export function CourtesyPageContent() {
     }
   };
 
-  // 🆕 Estadísticas calculadas (adaptadas para órdenes)
+  // Estadísticas calculadas (adaptadas para órdenes)
   const stats: StatsType = {
-    total: courtesyOrders.reduce((acc, order) => acc + order.total_tickets, 0), // Total de boletos
-    linked: courtesyOrders.reduce((acc, order) => acc + order.configured_tickets, 0), // Configurados
-    unlinked: courtesyOrders.reduce((acc, order) => acc + order.pending_tickets, 0), // Pendientes
+    total: courtesyOrders.reduce((acc, order) => acc + order.total_tickets, 0),
+    linked: courtesyOrders.reduce((acc, order) => acc + order.configured_tickets, 0),
+    unlinked: courtesyOrders.reduce((acc, order) => acc + order.pending_tickets, 0),
     byType: courtesyOrders.reduce((acc, order) => {
       const type = order.courtesy_type || 'otro';
       acc[type] = (acc[type] || 0) + order.total_tickets;
@@ -162,11 +154,11 @@ export function CourtesyPageContent() {
     }, {} as Record<string, number>)
   };
 
-  // 🆕 Agrupar órdenes por usuario + evento usando adapter
+  // Agrupar órdenes por usuario + evento usando adapter
   const eventGroups = useMemo(() => {
-    console.log(`📦 Grouping ${courtesyOrders.length} courtesy orders...`);
+    console.log(`[CourtesyPage] Grouping ${courtesyOrders.length} courtesy orders`);
     const groups = groupCourtesyOrdersByUserAndEvent(courtesyOrders);
-    console.log(`📁 Created ${groups.length} event groups`);
+    console.log(`[CourtesyPage] Created ${groups.length} event groups`);
     return groups;
   }, [courtesyOrders]);
 

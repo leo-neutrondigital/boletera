@@ -613,19 +613,19 @@ export function DataCacheProvider({ children }: { children: React.ReactNode }) {
         loadEvents();
       }
       
-      // 🆕 Auto-refresh usuarios en background
+      // Auto-refresh usuarios en background
       if (needsBackgroundRefresh(lastUpdated.users)) {
         loadUsers();
       }
       
-      // 🆕 Auto-refresh boletos huérfanos en background
+      // Auto-refresh boletos huérfanos en background
       if (needsBackgroundRefresh(lastUpdated.orphanTickets)) {
         loadOrphanTickets();
       }
-    }, 30000); // Verificar cada 30 segundos
+    }, 30000);
     
     return () => clearInterval(interval);
-  }, [isAuthenticated, lastUpdated]);
+  }, [isAuthenticated, lastUpdated, loadCourtesyOrders, loadEvents, loadUsers, loadOrphanTickets]);
 
   // Limpiar cache cuando el usuario cambia
   useEffect(() => {
@@ -850,24 +850,23 @@ export function useCachedUsers() {
   };
 }
 
-// Hook específico para ticket types
-export function useTicketTypes(eventId?: string) {
+// Hook para acceder a ticket types desde el cache
+// NOTA: Diferente de /hooks/use-ticket-types.ts que maneja estado local
+export function useCachedTicketTypes(eventId: string) {
   const { ticketTypesByEvent, loading, loadTicketTypes, invalidateCache } = useDataCache();
   
-  const ticketTypes = eventId ? ticketTypesByEvent[eventId] || [] : [];
-  const isLoading = eventId ? loading.ticketTypes[eventId] || false : false;
+  const ticketTypes = ticketTypesByEvent[eventId] || [];
+  const isLoading = loading.ticketTypes[eventId] || false;
   
-  // 🆕 Usar useCallback para evitar crear nuevas funciones en cada render
-  const load = useCallback(() => {
+  // Auto-cargar ticket types cuando cambie el eventId
+  useEffect(() => {
     if (eventId) {
       loadTicketTypes(eventId);
     }
   }, [eventId, loadTicketTypes]);
   
   const refresh = useCallback(() => {
-    if (eventId) {
-      loadTicketTypes(eventId, true);
-    }
+    loadTicketTypes(eventId, true);
   }, [eventId, loadTicketTypes]);
   
   const invalidate = useCallback(() => {
@@ -877,7 +876,6 @@ export function useTicketTypes(eventId?: string) {
   return {
     ticketTypes,
     loading: isLoading,
-    loadTicketTypes: load,
     refresh,
     invalidate
   };
