@@ -81,7 +81,7 @@ export function ManualCheckInModal({
         !attendee.used_days.includes(day)
       );
       
-      console.log('🐛 DEBUG: Date information:', {
+      console.log('[ManualCheckIn] DEBUG: Date information:', {
         todayFromFunction: today,
         todayMexicoTimezone: todayMexico,
         todayDirectly: new Date().toISOString().split('T')[0],
@@ -94,7 +94,7 @@ export function ManualCheckInModal({
       
       debugDate('Today for check-in', new Date());
       
-        console.log('🎯 Smart day selection:', {
+        console.log('[ManualCheckIn] Smart day selection:', {
           access_type: attendee.access_type,
           today,
           todayMexico,
@@ -105,7 +105,7 @@ export function ManualCheckInModal({
           attendeeName: attendee.attendee_name
         });
 
-        console.log('📋 Full attendee data:', {
+        console.log('[ManualCheckIn] Full attendee data:', {
           id: attendee.id,
           authorized_days: attendee.authorized_days,
           used_days: attendee.used_days,
@@ -120,25 +120,25 @@ export function ManualCheckInModal({
             // Para all_days y any_single_day: SIEMPRE usar hoy si está disponible
             if (availableDays.includes(todayToUse)) {
               setSelectedDay(todayToUse);
-              console.log('✅ Auto-selected TODAY (Mexico timezone) for', attendee.access_type, ':', todayToUse);
+              console.log('[ManualCheckIn] Auto-selected TODAY (Mexico timezone) for', attendee.access_type, ':', todayToUse);
             } else {
               // Si hoy no está disponible, usar el primer día disponible
               setSelectedDay(availableDays[0] || '');
-              console.log('📅 Today not available, selected first available day:', availableDays[0]);
+              console.log('[ManualCheckIn] Today not available, selected first available day:', availableDays[0]);
             }
             break;        case 'specific_days':
           // Para specific_days: preseleccionar hoy si está disponible
           if (availableDays.includes(todayToUse)) {
             setSelectedDay(todayToUse);
-            console.log('✅ Auto-selected TODAY (Mexico timezone) for specific_days:', todayToUse);
+            console.log('[ManualCheckIn] Auto-selected TODAY (Mexico timezone) for specific_days:', todayToUse);
           } else if (availableDays.length === 1) {
             // Si solo hay un día disponible, seleccionarlo
             setSelectedDay(availableDays[0]);
-            console.log('📅 Auto-selected only available day for specific_days:', availableDays[0]);
+            console.log('[ManualCheckIn] Auto-selected only available day for specific_days:', availableDays[0]);
           } else {
             // Para múltiples días específicos, dejar que el usuario elija
             setSelectedDay('');
-            console.log('🤔 Multiple specific days available, user must choose');
+            console.log('[ManualCheckIn] Multiple specific days available, user must choose');
           }
           break;
           
@@ -146,13 +146,13 @@ export function ManualCheckInModal({
           // Fallback para tipos desconocidos (mantener lógica anterior)
           if (availableDays.includes(todayToUse)) {
             setSelectedDay(todayToUse);
-            console.log('🔄 Fallback: Auto-selected today (Mexico timezone):', todayToUse);
+            console.log('[ManualCheckIn] Fallback: Auto-selected today (Mexico timezone):', todayToUse);
           } else if (availableDays.length === 1) {
             setSelectedDay(availableDays[0]);
-            console.log('🔄 Fallback: Auto-selected only available day:', availableDays[0]);
+            console.log('[ManualCheckIn] Fallback: Auto-selected only available day:', availableDays[0]);
           } else {
             setSelectedDay('');
-            console.log('🔄 Fallback: Multiple options, user must choose');
+            console.log('[ManualCheckIn] Fallback: Multiple options, user must choose');
           }
       }
     }
@@ -196,8 +196,8 @@ export function ManualCheckInModal({
       );
   }
 
-  // 🔍 DEBUG: Analizar disponibilidad de días
-  console.log('🔍 Day availability analysis (FIXED):', {
+  // DEBUG: Analizar disponibilidad de días
+  console.log('[ManualCheckIn] Day availability analysis (FIXED):', {
     access_type: attendee.access_type,
     authorized_days: attendee.authorized_days,
     used_days: attendee.used_days,
@@ -289,7 +289,7 @@ export function ManualCheckInModal({
         }
       }
 
-      console.log('🐛 Final check-in decision:', {
+      console.log('[ManualCheckIn] Final check-in decision:', {
         selectedDay,
         availableDaysForCheckIn,
         todayMexico: today,
@@ -301,7 +301,7 @@ export function ManualCheckInModal({
 
       debugDate('Day to check-in', dayToCheckIn);
 
-      console.log('✋ Manual check-in:', {
+      console.log('[ManualCheckIn] Manual check-in:', {
         ticketId: attendee.id,
         eventId,
         selectedDay: dayToCheckIn,
@@ -322,9 +322,9 @@ export function ManualCheckInModal({
         throw new Error(result.error || 'Error en el check-in manual');
       }
 
-      console.log('✅ Manual check-in successful:', result);
+      console.log('[ManualCheckIn] Manual check-in successful:', result);
 
-      // 🎯 Mostrar éxito con mensaje inteligente según access_type
+      // Mostrar éxito con mensaje inteligente según access_type
       const getSuccessMessage = () => {
         switch (attendee.access_type) {
           case 'all_days':
@@ -355,7 +355,7 @@ export function ManualCheckInModal({
       setNotes('');
 
     } catch (error) {
-      console.error('❌ Error in manual check-in:', error);
+      console.error('[ManualCheckIn] Error in manual check-in:', error);
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
       
       toast({
@@ -370,6 +370,14 @@ export function ManualCheckInModal({
 
   // Obtener color del estado
   const getStatusColor = () => {
+    // Para all_days: color basado en si hizo check-in hoy
+    if (attendee.access_type === 'all_days') {
+      const todayMexico = getTodayInMexicoTimezone();
+      const hasCheckedInToday = attendee.used_days.includes(todayMexico);
+      return hasCheckedInToday ? 'text-green-600' : 'text-blue-600';
+    }
+    
+    // Para otros tipos: usar estado tradicional
     switch (attendee.check_in_status) {
       case 'checked_in': return 'text-green-600';
       case 'partial': return 'text-yellow-600';
@@ -380,6 +388,21 @@ export function ManualCheckInModal({
 
   // Obtener texto del estado
   const getStatusText = () => {
+    // Para all_days: mostrar estado simplificado
+    if (attendee.access_type === 'all_days') {
+      const todayMexico = getTodayInMexicoTimezone();
+      const hasCheckedInToday = attendee.used_days.includes(todayMexico);
+      
+      if (hasCheckedInToday) {
+        return `Registrado hoy (${attendee.used_days.length} días asistidos)`;
+      } else if (attendee.used_days.length > 0) {
+        return `Disponible (${attendee.used_days.length} días asistidos)`;
+      } else {
+        return 'No ha llegado';
+      }
+    }
+    
+    // Para specific_days y any_single_day: mostrar conteo tradicional
     switch (attendee.check_in_status) {
       case 'checked_in': return 'Completamente registrado';
       case 'partial': return `Parcial (${attendee.used_days.length}/${attendee.authorized_days.length} días)`;
@@ -455,7 +478,7 @@ export function ManualCheckInModal({
             <h4 className="font-medium text-gray-900 mb-2">Días autorizados</h4>
             {attendee.access_type === 'all_days' ? (
               <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                🎫 Válido todos los días del evento
+                Válido todos los días del evento
               </Badge>
             ) : (
               <div className="flex flex-wrap gap-2">
@@ -657,8 +680,27 @@ export function ManualCheckInModal({
                 <Alert className="bg-yellow-50 border-yellow-200">
                   <AlertTriangle className="h-4 w-4" />
                   <AlertDescription className="text-yellow-800">
-                    <p className="font-medium">Sin días disponibles</p>
-                    <p>Este asistente ya usó todos sus días autorizados.</p>
+                    {attendee.access_type === 'all_days' ? (
+                      <>
+                        <p className="font-medium">Ya registrado hoy</p>
+                        <p>Este asistente ya hizo check-in el día de hoy.</p>
+                        {attendee.last_checkin && (
+                          <p className="text-sm mt-2">
+                            Registrado: {format(new Date(attendee.last_checkin), "d 'de' MMMM 'a las' HH:mm", { locale: es })}
+                          </p>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <p className="font-medium">Sin días disponibles</p>
+                        <p>Este asistente ya usó todos sus días autorizados.</p>
+                        {attendee.last_checkin && (
+                          <p className="text-xs mt-1">
+                            Último registro: {format(new Date(attendee.last_checkin), "d MMM 'a las' HH:mm", { locale: es })}
+                          </p>
+                        )}
+                      </>
+                    )}
                   </AlertDescription>
                 </Alert>
               )}

@@ -69,7 +69,10 @@ export function AttendeeCard({ attendee, onClick }: AttendeeCardProps) {
                   <div className="flex items-center gap-1 text-yellow-600">
                     <Minus className="w-3 h-3" />
                     <span className="text-xs">
-                      {attendee.used_days.length}/{attendee.authorized_days.length} días
+                      {attendee.access_type === 'all_days' 
+                        ? `${attendee.used_days.length} días asistidos`
+                        : `${attendee.used_days.length}/${attendee.authorized_days.length} días`
+                      }
                     </span>
                   </div>
                 )}

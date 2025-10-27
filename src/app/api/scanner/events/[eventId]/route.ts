@@ -200,10 +200,17 @@ export async function GET(
       let checkInStatus: AttendeeTicket['check_in_status'] = 'not_arrived';
       
       if (relevantUsedDays.length > 0) {
-        if (relevantUsedDays.length >= authorizedDays.length) {
-          checkInStatus = 'checked_in'; // Completamente registrado
+        // Para tickets all_days: NUNCA marcar como 'checked_in' completo
+        // porque pueden hacer check-in todos los días del evento
+        if (ticketType?.access_type === 'all_days') {
+          checkInStatus = 'partial'; // Siempre 'partial' si tiene check-ins
         } else {
-          checkInStatus = 'partial'; // Parcialmente registrado (eventos multi-día)
+          // Para specific_days y any_single_day: comparar con días autorizados
+          if (relevantUsedDays.length >= authorizedDays.length) {
+            checkInStatus = 'checked_in'; // Completamente registrado
+          } else {
+            checkInStatus = 'partial'; // Parcialmente registrado
+          }
         }
       }
 
