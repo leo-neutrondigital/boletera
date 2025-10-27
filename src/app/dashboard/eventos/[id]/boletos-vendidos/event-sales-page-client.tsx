@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSalesOrders } from "@/hooks/use-sales-orders"; // 🆕 Hook para órdenes agrupadas
 import { useCourtesyTickets } from "@/hooks/use-courtesy-tickets"; // 🆕 Hook unificado
+import { useOfflineSales } from "@/contexts/DataCacheContext"; // 🆕 Hook para ventas offline
 import { authenticatedGet } from "@/lib/utils/api"; // Para CSV con llamada directa
 import {
   
@@ -14,7 +15,8 @@ import {
   TrendingUp,
   Gift,
   AlertCircle,
-  ArrowRight
+  ArrowRight,
+  Banknote
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,6 +29,8 @@ import { OrderCard } from "@/components/shared/OrderCard";
 import { PaginationControls } from "@/components/shared/PaginationControls";
 import { useSalesPage } from "@/contexts/SalesPageContext";
 import { formatCurrency } from "@/lib/utils/currency";
+import { OfflineSalesTab } from "./components/tabs/OfflineSalesTab";
+import { CreateOfflineSaleDialog } from "./components/offline/CreateOfflineSaleDialog";
 import type { Event } from "@/types";
 
 interface EventSalesPageClientProps {
@@ -52,15 +56,25 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
     refreshCourtesyTickets
   } = useCourtesyTickets();
   
+  const {
+    offlineSales,
+    loading: offlineLoading,
+    stats: offlineStats,
+    refresh: refreshOfflineSales
+  } = useOfflineSales(event.id); // 🆕 Hook para ventas offline
+  
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [activeTab, setActiveTab] = useState<"sales" | "courtesies" | "all">("sales");
+  const [activeTab, setActiveTab] = useState<"sales" | "courtesies" | "offline" | "all">("sales");
+  const [showOfflineDialog, setShowOfflineDialog] = useState(false); // 🆕 Estado para dialog
   
   // 📄 Estados de paginación (mantener para cortesias)
   const [salesPage, setSalesPage] = useState(1);
   const [salesLimit, setSalesLimit] = useState(10);
   const [courtesyPage, setCourtesyPage] = useState(1);
   const [courtesyLimit, setCourtesyLimit] = useState(10);
+  const [offlinePage, setOfflinePage] = useState(1);
+  const [offlineLimit, setOfflineLimit] = useState(10);
 
   // Los datos se cargan automÃ¡ticamente por los hooks con cache
 
@@ -154,6 +168,15 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
   const handleCourtesyLimitChange = (limit: number) => {
     setCourtesyPage(1);
     setCourtesyLimit(limit);
+  };
+
+  const handleOfflinePageChange = (page: number) => {
+    setOfflinePage(page);
+  };
+
+  const handleOfflineLimitChange = (limit: number) => {
+    setOfflinePage(1);
+    setOfflineLimit(limit);
   };
 
   // 📊 Exportar datos a CSV
@@ -333,6 +356,7 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
         setIsRefreshing(true);
         await refreshSalesOrders(); // Cache de ventas
         await refreshCourtesyTickets(); // Cache de cortesías
+        await refreshOfflineSales(); // Cache de ventas offline
         setIsRefreshing(false);
       },
       onExport: handleExportCSV,
@@ -341,6 +365,7 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
 
     // Cleanup: quitar acciones cuando el componente se desmonta
     return () => setSalesActions(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRefreshing]); // Solo depender de isRefreshing
 
   // Filtrar órdenes según búsqueda
@@ -365,6 +390,17 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
       order.courtesy_type.toLowerCase().includes(searchLower)
     );
   }, [data?.courtesies.orders, searchTerm]);
+
+  const filteredOfflineSales = useMemo(() => {
+    if (!offlineSales || !searchTerm) return offlineSales;
+    
+    const searchLower = searchTerm.toLowerCase();
+    return offlineSales.filter(order => 
+      order.customer_name.toLowerCase().includes(searchLower) ||
+      order.customer_email.toLowerCase().includes(searchLower) ||
+      (order.payment_reference && order.payment_reference.toLowerCase().includes(searchLower))
+    );
+  }, [offlineSales, searchTerm]);
 
   // Estados de carga
   if (isLoading) {
@@ -554,7 +590,8 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
           {[
             { id: "sales", name: "Ventas", count: data?.sales.orders.length || 0 },
             { id: "courtesies", name: "Cortesías", count: data?.courtesies.orders.length || 0 },
-            { id: "all", name: "Todos", count: (data?.sales.orders.length || 0) + (data?.courtesies.orders.length || 0) }
+            { id: "offline", name: "Ventas Offline", count: offlineSales.length || 0, icon: Banknote },
+            { id: "all", name: "Todos", count: (data?.sales.orders.length || 0) + (data?.courtesies.orders.length || 0) + (offlineSales.length || 0) }
           ].map((tab) => (
             <button
               key={tab.id}
@@ -565,6 +602,7 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
               }`}
             >
+              {tab.icon && <tab.icon className="w-4 h-4 mr-2" />}
               {tab.name}
               {tab.count > 0 && (
                 <Badge variant="secondary" className="ml-2">
@@ -589,6 +627,15 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
             className="pl-10"
           />
         </div>
+        <Can do="create" on="ticketTypes">
+          <Button 
+            onClick={() => setShowOfflineDialog(true)}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+          >
+            <Plus className="w-4 h-4" />
+            Registrar Venta Offline
+          </Button>
+        </Can>
       </div>
       </div>
 
@@ -718,6 +765,109 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
             {/* Moved outside scroll area */}
           </div>
         )}
+
+        {activeTab === "offline" && (
+          <OfflineSalesTab 
+            eventId={event.id} 
+            searchTerm={searchTerm}
+            currentPage={offlinePage}
+            itemsPerPage={offlineLimit}
+          />
+        )}
+
+        {activeTab === "all" && (
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <Banknote className="w-5 h-5" />
+              Ventas Offline ({offlineSales.filter(order => 
+                !searchTerm || 
+                order.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                order.customer_email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (order.payment_reference && order.payment_reference.toLowerCase().includes(searchTerm.toLowerCase()))
+              ).length})
+            </h3>
+            
+            {offlineSales.filter(order => 
+              !searchTerm || 
+              order.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              order.customer_email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              (order.payment_reference && order.payment_reference.toLowerCase().includes(searchTerm.toLowerCase()))
+            ).length === 0 ? (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <Banknote className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    Sin ventas offline
+                  </h3>
+                  <p className="text-gray-600">
+                    Las ventas registradas manualmente aparecerán aquí.
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              offlineSales.filter(order => 
+                !searchTerm || 
+                order.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                order.customer_email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (order.payment_reference && order.payment_reference.toLowerCase().includes(searchTerm.toLowerCase()))
+              ).map((order) => {
+                const PAYMENT_METHOD_LABELS: Record<string, { label: string; icon: string }> = {
+                  cash: { label: 'Efectivo', icon: '💵' },
+                  transfer: { label: 'Transferencia', icon: '🏦' },
+                  card: { label: 'Tarjeta', icon: '💳' },
+                  other: { label: 'Otro', icon: '📋' }
+                };
+                const paymentMethodInfo = PAYMENT_METHOD_LABELS[order.payment_method] || PAYMENT_METHOD_LABELS.other;
+                
+                return (
+                  <OrderCard 
+                    key={order.order_id}
+                    order={{
+                      id: order.order_id,
+                      createdAt: order.created_at,
+                      ticketCount: order.total_tickets,
+                      configuredTickets: order.tickets.filter(t => t.status === 'configured').length,
+                      pendingTickets: order.tickets.filter(t => t.status === 'purchased').length,
+                      totalAmount: order.total_amount,
+                      currency: order.currency,
+                      tickets: order.tickets
+                    }}
+                    onAction={(orderId) => {
+                      window.location.href = `/dashboard/ventas/orden/${orderId}?eventId=${event.id}`;
+                    }}
+                    actionButton={{
+                      text: "Ver boletos",
+                      variant: "outline" as const,
+                      icon: <ArrowRight className="w-4 h-4" />
+                    }}
+                    borderColor="border-orange-500"
+                    additionalInfo={
+                      <div className="space-y-1">
+                        <p className="text-xs text-gray-500">
+                          Cliente: {order.customer_name} ({order.customer_email})
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-300">
+                            <Banknote className="w-3 h-3 mr-1 inline" />
+                            Venta Offline
+                          </Badge>
+                          <Badge variant="outline" className="text-xs">
+                            {paymentMethodInfo.icon} {paymentMethodInfo.label}
+                          </Badge>
+                          {order.payment_reference && (
+                            <span className="text-xs text-gray-500">
+                              Ref: {order.payment_reference}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    }
+                  />
+                );
+              })
+            )}
+          </div>
+        )}
         
         {/* Mensaje cuando no hay resultados - DENTRO DEL SCROLL */}
         {searchTerm && (
@@ -750,8 +900,8 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
       {/* 📄 PAGINACIÓN */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
         <div className="border-t bg-white pt-4 space-y-4">
-          {/* Paginación para Ventas */}
-          {(activeTab === "sales" || activeTab === "all") && filteredSalesOrders.length > 0 && data?.sales && (
+          {/* Paginación para Ventas - Solo en tab "sales" */}
+          {activeTab === "sales" && filteredSalesOrders.length > 0 && data?.sales && (
             <PaginationControls
               currentPage={salesPage}
               totalPages={data.sales.pagination?.totalPages || 1}
@@ -763,8 +913,8 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
             />
           )}
           
-          {/* Paginación para Cortesías */}
-          {(activeTab === "courtesies" || activeTab === "all") && filteredCourtesyOrders.length > 0 && data?.courtesies && (
+          {/* Paginación para Cortesías - Solo en tab "courtesies" */}
+          {activeTab === "courtesies" && filteredCourtesyOrders.length > 0 && data?.courtesies && (
             <PaginationControls
               currentPage={courtesyPage}
               totalPages={data.courtesies.pagination?.totalPages || 1}
@@ -775,8 +925,32 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
               label="cortesías"
             />
           )}
+
+          {/* Paginación para Ventas Offline - Solo en tab "offline" */}
+          {activeTab === "offline" && filteredOfflineSales.length > 0 && (
+            <PaginationControls
+              currentPage={offlinePage}
+              totalPages={Math.ceil(filteredOfflineSales.length / offlineLimit)}
+              totalItems={filteredOfflineSales.length}
+              itemsPerPage={offlineLimit}
+              onPageChange={handleOfflinePageChange}
+              onItemsPerPageChange={handleOfflineLimitChange}
+              label="ventas offline"
+            />
+          )}
         </div>
       </div>
+
+      {/* Dialog para crear venta offline */}
+      <CreateOfflineSaleDialog 
+        eventId={event.id}
+        isOpen={showOfflineDialog}
+        onClose={() => setShowOfflineDialog(false)}
+        onSuccess={() => {
+          refreshOfflineSales();
+          setShowOfflineDialog(false);
+        }}
+      />
     </>
   );
 }

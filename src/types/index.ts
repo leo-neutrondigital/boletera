@@ -104,6 +104,17 @@ export interface Ticket {
   used_days: Date[];
   selected_days?: Date[]; // Para boletos "any_single_day"
   
+  // Cortesías
+  is_courtesy?: boolean;
+  courtesy_type?: string;
+  
+  // Ventas offline (manuales)
+  is_manual_sale?: boolean;
+  payment_method?: string;
+  payment_reference?: string;
+  sale_date?: Date;
+  manual_sale_notes?: string;
+  
   // Información del evento (cuando se hace join)
   event?: {
     id: string;
@@ -311,9 +322,43 @@ export interface Cart {
 
 export type SessionCart = CartItem[];
 
-// 🆕 Tipo para información de fechas de eventos
+// Tipo para información de fechas de eventos
 export interface EventDateInfo {
   isMultiDay: boolean;
   duration: number;
   dateRange: string;
 }
+
+// Métodos de pago para ventas offline
+export type PaymentMethod = 
+  | 'cash'          // Efectivo
+  | 'transfer'      // Transferencia
+  | 'card'          // Tarjeta
+  | 'other';        // Otro
+
+// Interface para orden de venta offline
+export interface OfflineSaleOrder {
+  order_id: string;
+  event_id: string;
+  tickets: Ticket[];
+  total_tickets: number;
+  total_amount: number;
+  payment_method: PaymentMethod;
+  payment_reference?: string;
+  sale_date: Date;
+  customer_name: string;
+  customer_email: string;
+  created_by: string;
+  created_at: Date;
+  currency: string;
+}
+
+// Estadísticas de ventas offline
+export interface OfflineSalesStats {
+  total_revenue: number;
+  total_tickets: number;
+  total_orders: number;
+  by_payment_method: Record<PaymentMethod, number>;
+  currency: string;
+}
+

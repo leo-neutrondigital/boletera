@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { useAuth } from './AuthContext';
 import { auth } from '@/lib/firebase/client';
 import { Currency } from '@/lib/utils/currency';
+import type { OfflineSaleOrder, OfflineSalesStats } from '@/types';
 
 // Tipos para el cache
 interface CourtesyOrder {
@@ -140,11 +141,12 @@ interface CacheState {
   // Datos en cache
   courtesyOrders: CourtesyOrder[];
   events: Event[];
-  users: User[]; // 🆕 Nuevo: usuarios en cache
-  orphanTickets: OrphanTicket[]; // 🆕 Nuevo: boletos huérfanos
+  users: User[];
+  orphanTickets: OrphanTicket[];
   ticketTypesByEvent: Record<string, TicketType[]>;
+  offlineSales: OfflineSaleOrder[]; // Ventas offline
   
-  // 🆕 Nuevos datos del scanner
+  // Nuevos datos del scanner
   eventAttendees: Record<string, AttendeeTicket[]>;
   eventDetails: Record<string, EventData>;
   eventStats: Record<string, EventStats>;
@@ -153,10 +155,11 @@ interface CacheState {
   loading: {
     courtesyOrders: boolean;
     events: boolean;
-    users: boolean; // 🆕 Nuevo: loading de usuarios
-    orphanTickets: boolean; // 🆕 Nuevo: loading de boletos huérfanos
+    users: boolean;
+    orphanTickets: boolean;
     ticketTypes: Record<string, boolean>;
-    // 🆕 Estados de carga del scanner
+    offlineSales: boolean; // Loading de ventas offline
+    // Estados de carga del scanner
     eventAttendees: Record<string, boolean>;
     eventDetails: Record<string, boolean>;
   };
@@ -165,10 +168,11 @@ interface CacheState {
   lastUpdated: {
     courtesyOrders: number | null;
     events: number | null;
-    users: number | null; // 🆕 Nuevo: timestamp de usuarios
-    orphanTickets: number | null; // 🆕 Nuevo: timestamp de boletos huérfanos
+    users: number | null;
+    orphanTickets: number | null;
     ticketTypes: Record<string, number>;
-    // 🆕 Timestamps del scanner
+    offlineSales: number | null; // Timestamp de ventas offline
+    // Timestamps del scanner
     eventAttendees: Record<string, number>;
     eventDetails: Record<string, number>;
   };
@@ -176,15 +180,17 @@ interface CacheState {
   // Acciones
   loadCourtesyOrders: (force?: boolean) => Promise<void>;
   loadEvents: (force?: boolean) => Promise<void>;
-  loadUsers: (force?: boolean) => Promise<void>; // 🆕 Nuevo: cargar usuarios
-  loadOrphanTickets: (force?: boolean) => Promise<void>; // 🆕 Nuevo: cargar boletos huérfanos
+  loadUsers: (force?: boolean) => Promise<void>;
+  loadOrphanTickets: (force?: boolean) => Promise<void>;
   loadTicketTypes: (eventId: string, force?: boolean) => Promise<void>;
-  // 🆕 Nuevas acciones del scanner
+  loadOfflineSales: (eventId: string, force?: boolean) => Promise<void>; // Cargar ventas offline
+  // Nuevas acciones del scanner
   loadEventAttendees: (eventId: string, force?: boolean) => Promise<void>;
   invalidateCache: (keys?: string[]) => void;
-  invalidateEvent: (eventId: string) => void; // 🆕 Invalidación granular
+  invalidateEvent: (eventId: string) => void;
   refreshAll: () => Promise<void>;
 }
+
 
 const DataCacheContext = createContext<CacheState | null>(null);
 
@@ -198,11 +204,12 @@ export function DataCacheProvider({ children }: { children: React.ReactNode }) {
   // Estados del cache
   const [courtesyOrders, setCourtesyOrders] = useState<CourtesyOrder[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
-  const [users, setUsers] = useState<User[]>([]); // 🆕 Nuevo: estado de usuarios
-  const [orphanTickets, setOrphanTickets] = useState<OrphanTicket[]>([]); // 🆕 Nuevo: boletos huérfanos
+  const [users, setUsers] = useState<User[]>([]);
+  const [orphanTickets, setOrphanTickets] = useState<OrphanTicket[]>([]);
   const [ticketTypesByEvent, setTicketTypesByEvent] = useState<Record<string, TicketType[]>>({});
+  const [offlineSales, setOfflineSales] = useState<OfflineSaleOrder[]>([]); // Estado de ventas offline
   
-  // 🆕 Nuevos estados del scanner
+  // Nuevos estados del scanner
   const [eventAttendees, setEventAttendees] = useState<Record<string, AttendeeTicket[]>>({});
   const [eventDetails, setEventDetails] = useState<Record<string, EventData>>({});
   const [eventStats, setEventStats] = useState<Record<string, EventStats>>({});
@@ -211,10 +218,11 @@ export function DataCacheProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState({
     courtesyOrders: false,
     events: false,
-    users: false, // 🆕 Nuevo: loading de usuarios
-    orphanTickets: false, // 🆕 Nuevo: loading de boletos huérfanos
+    users: false,
+    orphanTickets: false,
     ticketTypes: {} as Record<string, boolean>,
-    // 🆕 Estados de carga del scanner
+    offlineSales: false, // Loading de ventas offline
+    // Estados de carga del scanner
     eventAttendees: {} as Record<string, boolean>,
     eventDetails: {} as Record<string, boolean>
   });
@@ -223,10 +231,11 @@ export function DataCacheProvider({ children }: { children: React.ReactNode }) {
   const [lastUpdated, setLastUpdated] = useState({
     courtesyOrders: null as number | null,
     events: null as number | null,
-    users: null as number | null, // 🆕 Nuevo: timestamp de usuarios
-    orphanTickets: null as number | null, // 🆕 Nuevo: timestamp de boletos huérfanos
+    users: null as number | null,
+    orphanTickets: null as number | null,
     ticketTypes: {} as Record<string, number>,
-    // 🆕 Timestamps del scanner
+    offlineSales: null as number | null, // Timestamp de ventas offline
+    // Timestamps del scanner
     eventAttendees: {} as Record<string, number>,
     eventDetails: {} as Record<string, number>
   });
@@ -422,6 +431,44 @@ export function DataCacheProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isAuthenticated, user, lastUpdated.orphanTickets, orphanTickets.length]);
 
+  // Cargar ventas offline por evento
+  const loadOfflineSales = useCallback(async (eventId: string, force = false) => {
+    if (!isAuthenticated || !user) return;
+    
+    if (!force && isCacheValid(lastUpdated.offlineSales)) {
+      console.log('[Cache] Using cached offline sales');
+      return;
+    }
+    
+    const inBackground = !force && offlineSales.length > 0;
+    
+    if (!inBackground) {
+      setLoading(prev => ({ ...prev, offlineSales: true }));
+    }
+    
+    try {
+      console.log(inBackground ? '[Cache] Background loading offline sales' : '[Cache] Loading offline sales');
+      
+      const token = await user.getIdToken();
+      const response = await fetch(`/api/admin/offline-sales?eventId=${eventId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setOfflineSales(data.orders || []);
+        setLastUpdated(prev => ({ ...prev, offlineSales: Date.now() }));
+        console.log('[Cache] Offline sales loaded:', data.orders?.length || 0);
+      }
+    } catch (error) {
+      console.error('[Cache] Error loading offline sales:', error);
+    } finally {
+      if (!inBackground) {
+        setLoading(prev => ({ ...prev, offlineSales: false }));
+      }
+    }
+  }, [isAuthenticated, user, lastUpdated.offlineSales, offlineSales.length]);
+
   // Cargar tipos de boletos por evento
   const loadTicketTypes = useCallback(async (eventId: string, force = false) => {
     if (!isAuthenticated || !user) return;
@@ -539,7 +586,7 @@ export function DataCacheProvider({ children }: { children: React.ReactNode }) {
 
   // Invalidar cache específico
   const invalidateCache = useCallback((keys?: string[]) => {
-    console.log('🗑️ Invalidating cache:', keys || 'all');
+    console.log('[Cache] Invalidating cache:', keys || 'all');
     
     if (!keys || keys.includes('courtesyOrders')) {
       setLastUpdated(prev => ({ ...prev, courtesyOrders: null }));
@@ -549,14 +596,17 @@ export function DataCacheProvider({ children }: { children: React.ReactNode }) {
       setLastUpdated(prev => ({ ...prev, events: null }));
     }
     
-    // 🆕 Invalidar usuarios
     if (!keys || keys.includes('users')) {
       setLastUpdated(prev => ({ ...prev, users: null }));
     }
     
-    // 🆕 Invalidar boletos huérfanos
     if (!keys || keys.includes('orphanTickets')) {
       setLastUpdated(prev => ({ ...prev, orphanTickets: null }));
+    }
+    
+    // Invalidar ventas offline
+    if (!keys || keys.includes('offlineSales')) {
+      setLastUpdated(prev => ({ ...prev, offlineSales: null }));
     }
     
     if (!keys || keys.includes('ticketTypes')) {
@@ -564,7 +614,7 @@ export function DataCacheProvider({ children }: { children: React.ReactNode }) {
       setTicketTypesByEvent({});
     }
     
-    // 🆕 Invalidar datos del scanner
+    // Invalidar datos del scanner
     if (!keys || keys.includes('eventAttendees')) {
       setLastUpdated(prev => ({ ...prev, eventAttendees: {} }));
       setEventAttendees({});
@@ -630,23 +680,25 @@ export function DataCacheProvider({ children }: { children: React.ReactNode }) {
   // Limpiar cache cuando el usuario cambia
   useEffect(() => {
     if (!isAuthenticated) {
-      console.log('🧹 Clearing cache - user logged out');
+      console.log('[Cache] Clearing cache - user logged out');
       setCourtesyOrders([]);
       setEvents([]);
-      setUsers([]); // 🆕 Limpiar usuarios
-      setOrphanTickets([]); // 🆕 Limpiar boletos huérfanos
+      setUsers([]);
+      setOrphanTickets([]);
       setTicketTypesByEvent({});
-      // 🆕 Limpiar datos del scanner
+      setOfflineSales([]); // Limpiar ventas offline
+      // Limpiar datos del scanner
       setEventAttendees({});
       setEventDetails({});
       setEventStats({});
       setLastUpdated({
         courtesyOrders: null,
         events: null,
-        users: null, // 🆕 Timestamp de usuarios
-        orphanTickets: null, // 🆕 Timestamp de boletos huérfanos
+        users: null,
+        orphanTickets: null,
         ticketTypes: {},
-        // 🆕 Limpiar timestamps del scanner
+        offlineSales: null, // Limpiar timestamp de ventas offline
+        // Limpiar timestamps del scanner
         eventAttendees: {},
         eventDetails: {}
       });
@@ -657,10 +709,11 @@ export function DataCacheProvider({ children }: { children: React.ReactNode }) {
     // Datos
     courtesyOrders,
     events,
-    users, // 🆕 Usuarios
-    orphanTickets, // 🆕 Boletos huérfanos
+    users,
+    orphanTickets,
     ticketTypesByEvent,
-    // 🆕 Nuevos datos del scanner
+    offlineSales, // Ventas offline
+    // Nuevos datos del scanner
     eventAttendees,
     eventDetails,
     eventStats,
@@ -672,10 +725,11 @@ export function DataCacheProvider({ children }: { children: React.ReactNode }) {
     // Acciones
     loadCourtesyOrders,
     loadEvents,
-    loadUsers, // 🆕 Nueva acción
-    loadOrphanTickets, // 🆕 Nueva acción para boletos huérfanos
+    loadUsers,
+    loadOrphanTickets,
     loadTicketTypes,
-    // 🆕 Nuevas acciones del scanner
+    loadOfflineSales, // Nueva acción para ventas offline
+    // Nuevas acciones del scanner
     loadEventAttendees,
     invalidateCache,
     invalidateEvent,
@@ -711,7 +765,65 @@ export function useCourtesyOrders() {
   };
 }
 
-// 🆕 Exportar tipos para uso en componentes
+// Hook específico para ventas offline
+export function useOfflineSales(eventId: string) {
+  const { offlineSales, loading, loadOfflineSales, invalidateCache } = useDataCache();
+  
+  // Auto-cargar ventas offline al montar con eventId
+  useEffect(() => {
+    if (eventId) {
+      console.log('[useOfflineSales] Auto-loading offline sales for event:', eventId);
+      loadOfflineSales(eventId);
+    }
+  }, [eventId, loadOfflineSales]);
+  
+  // Filtrar ventas por evento
+  const eventOfflineSales = React.useMemo(() => {
+    return offlineSales.filter(order => order.event_id === eventId);
+  }, [offlineSales, eventId]);
+  
+  // Calcular stats para el evento
+  const stats = React.useMemo(() => {
+    const eventOrders = eventOfflineSales;
+    if (eventOrders.length === 0) return null;
+    
+    const totalRevenue = eventOrders.reduce((sum, order) => sum + order.total_amount, 0);
+    const totalTickets = eventOrders.reduce((sum, order) => sum + order.total_tickets, 0);
+    const byPaymentMethod = {
+      cash: 0,
+      transfer: 0,
+      card: 0,
+      other: 0
+    };
+    
+    eventOrders.forEach(order => {
+      if (order.payment_method && byPaymentMethod[order.payment_method] !== undefined) {
+        byPaymentMethod[order.payment_method] += order.total_amount;
+      }
+    });
+    
+    return {
+      total_revenue: totalRevenue,
+      total_tickets: totalTickets,
+      total_orders: eventOrders.length,
+      by_payment_method: byPaymentMethod,
+      currency: eventOrders[0]?.currency || 'MXN'
+    };
+  }, [eventOfflineSales]);
+  
+  return {
+    offlineSales: eventOfflineSales,
+    loading: loading.offlineSales,
+    stats,
+    refresh: () => {
+      invalidateCache(['offlineSales']);
+      loadOfflineSales(eventId, true);
+    },
+    invalidate: () => invalidateCache(['offlineSales'])
+  };
+}
+
+// Exportar tipos para uso en componentes
 export type { AttendeeTicket, EventData, EventStats, User, OrphanTicket, UserOption };
 
 // Hook específico para events
