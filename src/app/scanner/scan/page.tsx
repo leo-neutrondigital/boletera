@@ -12,6 +12,8 @@ function extractQRId(qrUrl: string): string | null {
   try {
     // Formatos esperados:
     // https://boletera.com/validate/qr_1234567890_abc123
+    // https://boletera.com/validate/courtesy_1234567890_abc123
+    // https://boletera.com/validate/offline_1234567890_abc123
     // http://localhost:3000/validate/qr_1234567890_abc123
     // qr_1234567890_abc123
     
@@ -19,8 +21,8 @@ function extractQRId(qrUrl: string): string | null {
     const pathParts = url.pathname.split('/');
     const qrId = pathParts[pathParts.length - 1];
     
-    // Validar formato del QR ID
-    if (qrId && qrId.startsWith('qr_')) {
+    // Validar formato del QR ID - aceptar 3 formatos válidos
+    if (qrId && (qrId.startsWith('qr_') || qrId.startsWith('courtesy_') || qrId.startsWith('offline_'))) {
       return qrId;
     }
     
