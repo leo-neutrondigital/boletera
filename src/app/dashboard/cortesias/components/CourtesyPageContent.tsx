@@ -270,8 +270,7 @@ export function CourtesyPageContent() {
           <CreateCourtesyDialog
             events={events}
             ticketTypes={ticketTypes}
-            courtesyTypes={COURTESY_TYPES}
-            onEventChange={handleEventChange} // 🆕 Usar nueva función
+            onEventChange={handleEventChange}
             onCreateCourtesy={createCourtesyTickets}
             isCreating={creating}
           />

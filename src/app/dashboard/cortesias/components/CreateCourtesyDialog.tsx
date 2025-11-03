@@ -23,7 +23,7 @@ import { Gift, Plus, User, CheckCircle, AlertCircle, Search, AlertTriangle } fro
 import { auth } from '@/lib/firebase/client';
 import { useToast } from '@/hooks/use-toast';
 
-import type { Event, TicketType, CourtesyType } from './types';
+import type { Event, TicketType } from './types';
 
 // Tipo para usuario encontrado
 interface FoundUser {
@@ -35,7 +35,6 @@ interface FoundUser {
 interface CreateCourtesyDialogProps {
   events: Event[];
   ticketTypes: TicketType[];
-  courtesyTypes: CourtesyType[];
   onEventChange: (eventId: string) => void;
   onCreateCourtesy: (formData: any) => Promise<void>;
   isCreating: boolean;
@@ -44,7 +43,6 @@ interface CreateCourtesyDialogProps {
 export function CreateCourtesyDialog({
   events,
   ticketTypes,
-  courtesyTypes,
   onEventChange,
   onCreateCourtesy,
   isCreating
@@ -393,21 +391,18 @@ export function CreateCourtesyDialog({
           {/* Fila 4: Tipo de Cortesía */}
           <div>
             <Label className="text-sm font-medium">Tipo de Cortesía *</Label>
-            <Select 
-              value={form.courtesyType} 
-              onValueChange={(value) => setForm(prev => ({ ...prev, courtesyType: value }))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Seleccionar tipo..." />
-              </SelectTrigger>
-              <SelectContent>
-                {courtesyTypes.map((type) => (
-                  <SelectItem key={type.value} value={type.value}>
-                    {type.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Input
+              value={form.courtesyType}
+              onChange={(e) => {
+                setForm(prev => ({ ...prev, courtesyType: e.target.value }));
+                setValidationErrors([]);
+              }}
+              placeholder="Ej: Empresa - Stand 23 - Gafete 150"
+              className="text-sm"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Especifica empresa, stand, gafete, espacio, etc.
+            </p>
           </div>
 
           {/* Notas */}

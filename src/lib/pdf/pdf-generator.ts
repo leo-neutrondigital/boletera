@@ -157,6 +157,26 @@ async function designTicketPDF(pdf: jsPDF, ticket: Ticket, qrCodeBuffer: Buffer)
   
   yPos += 25;
   
+  // Tipo de cortesía (si es cortesía y tiene tipo especificado)
+  if (ticket.is_courtesy && ticket.courtesy_type) {
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(...grayColor);
+    pdf.text('TIPO DE CORTESÍA', 20, yPos);
+    
+    pdf.setFontSize(12);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setTextColor(...darkColor);
+    
+    // Truncar si es muy largo
+    const truncatedType = ticket.courtesy_type.length > 80 ? 
+      ticket.courtesy_type.substring(0, 80) + '...' : 
+      ticket.courtesy_type;
+    pdf.text(truncatedType, 20, yPos + 8);
+    
+    yPos += 20;
+  }
+  
   // Requerimientos especiales (si existen)
   if (ticket.special_requirements) {
     pdf.setFontSize(10);
