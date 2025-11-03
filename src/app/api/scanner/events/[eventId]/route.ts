@@ -162,41 +162,17 @@ export async function GET(
       let authorizedDays = (ticketData.authorized_days || []).map(formatDateToLocalString);
       const originalUsedDays = (ticketData.used_days || []).map(formatDateToLocalString);
 
-      // PASO 1: Auto-corregir authorized_days para tickets all_days
-      // Validar contra fechas actuales del evento
+      // Para all_days: generar rango completo del evento (sin validación)
       if (ticketType?.access_type === 'all_days') {
-        const validAuthorizedDays = authorizedDays.filter(
-          (day: string) => day >= eventStartStr && day <= eventEndStr
-        );
-        
-        // Si no hay días válidos, regenerar basado en fechas actuales del evento
-        if (validAuthorizedDays.length === 0) {
-          authorizedDays = generateEventDays(eventStartStr, eventEndStr);
-          console.log('[Scanner] Auto-corrected authorized_days for all_days ticket:', {
-            ticketId: doc.id,
-            attendee: ticketData.attendee_name,
-            oldDays: (ticketData.authorized_days || []).map(formatDateToLocalString),
-            newDays: authorizedDays
-          });
-        }
+        authorizedDays = generateEventDays(eventStartStr, eventEndStr);
       }
 
-      // PASO 2: Filtrar used_days obsoletos (fuera del rango del evento actual)
+      // Filtrar used_days al rango del evento actual
       const relevantUsedDays = originalUsedDays.filter(
         (day: string) => day >= eventStartStr && day <= eventEndStr
       );
 
-      if (relevantUsedDays.length !== originalUsedDays.length) {
-        console.log('[Scanner] Filtered obsolete used_days:', {
-          ticketId: doc.id,
-          attendee: ticketData.attendee_name,
-          originalUsedDays,
-          relevantUsedDays,
-          eventRange: `${eventStartStr} to ${eventEndStr}`
-        });
-      }
-
-      // PASO 3: Calcular estado de check-in con datos limpios
+      // Calcular estado de check-in con datos limpios
       let checkInStatus: AttendeeTicket['check_in_status'] = 'not_arrived';
       
       if (relevantUsedDays.length > 0) {
@@ -242,15 +218,16 @@ export async function GET(
       return nameA.localeCompare(nameB, 'es', { sensitivity: 'base' });
     });
 
-    // 8. Calcular estadísticas
-    const totalTickets = attendees.length;
-    const configuredTickets = attendees.filter(a => 
+    // 8. Calcular estadísticas (solo boletos configurados, sin 'purchased')
+    const configuredAttendees = attendees.filter(a => a.status !== 'purchased');
+    const totalTickets = configuredAttendees.length;
+    const configuredTickets = configuredAttendees.filter(a => 
       a.status === 'configured' || a.status === 'generated' || a.attendee_name !== 'Sin asignar'
     ).length;
-    const checkedInCount = attendees.filter(a => 
+    const checkedInCount = configuredAttendees.filter(a => 
       a.check_in_status === 'checked_in' || a.check_in_status === 'partial'
     ).length;
-    const notArrivedCount = attendees.filter(a => 
+    const notArrivedCount = configuredAttendees.filter(a => 
       a.check_in_status === 'not_arrived'
     ).length;
     const attendanceRate = totalTickets > 0 ? Math.round((checkedInCount / totalTickets) * 100) : 0;

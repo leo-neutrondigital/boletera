@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { QRCamera } from '@/components/scanner/QRCamera';
 import { AuthGuard } from '@/components/auth/AuthGuard';
@@ -27,7 +27,7 @@ function extractQRId(qrUrl: string): string | null {
     }
     
     return null;
-  } catch (error) {
+  } catch {
     console.warn('⚠️ Invalid QR URL format:', qrUrl);
     return null;
   }
@@ -226,7 +226,7 @@ export default function ScanPage() {
       
       setIsProcessing(false);
     }
-  }, [router, isProcessing]);
+  }, [router, isProcessing, scanStats, toast]);
 
   const handleClose = useCallback(() => {
     router.push('/scanner');

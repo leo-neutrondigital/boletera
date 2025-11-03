@@ -4,7 +4,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { useAuth } from './AuthContext';
 import { auth } from '@/lib/firebase/client';
 import { Currency } from '@/lib/utils/currency';
-import type { OfflineSaleOrder, OfflineSalesStats } from '@/types';
+import type { OfflineSaleOrder } from '@/types';
 
 // Tipos para el cache
 interface CourtesyOrder {

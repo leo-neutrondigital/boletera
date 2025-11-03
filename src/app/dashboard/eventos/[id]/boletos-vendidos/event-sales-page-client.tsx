@@ -403,12 +403,12 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
   }, [offlineSales, searchTerm]);
 
   // Estados de carga
-  if (isLoading) {
+  if (isLoading || offlineLoading) {
     return (
       <>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            {[1, 2, 3, 4].map(i => (
+            {[1, 2, 3, 4, 5].map(i => (
               <Card key={i}>
                 <CardContent className="p-6">
                   <Skeleton className="h-8 w-16 mb-2" />
@@ -439,7 +439,7 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
     <>
       {/* Stats Cards */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center">
@@ -448,7 +448,7 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
                 </div>
                 <div className="ml-4">
                   <p className="text-2xl font-bold text-gray-900">
-                    {formatCurrency(data.sales.stats?.total_revenue || 0, 'MXN')}
+                    {formatCurrency((data.sales.stats?.total_revenue || 0) + (offlineStats?.total_revenue || 0), 'MXN')}
                   </p>
                   <p className="text-sm text-gray-600">Ingresos totales</p>
                 </div>
@@ -464,7 +464,7 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
                 </div>
                 <div className="ml-4">
                   <p className="text-2xl font-bold text-gray-900">
-                    {data.sales.stats?.total_tickets || 0}
+                    {(data.sales.stats?.total_tickets || 0) + (offlineStats?.total_tickets || 0)}
                   </p>
                   <p className="text-sm text-gray-600">Boletos vendidos</p>
                 </div>
@@ -499,6 +499,22 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
                     {courtesyStatsSummary.total_courtesy_tickets}
                   </p>
                   <p className="text-sm text-gray-600">Cortesías</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center">
+                <div className="p-2 bg-orange-100 rounded-full">
+                  <Banknote className="w-6 h-6 text-orange-600" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-2xl font-bold text-gray-900">
+                    {formatCurrency(offlineStats?.total_revenue || 0, 'MXN')}
+                  </p>
+                  <p className="text-sm text-gray-600">Offline</p>
                 </div>
               </div>
             </CardContent>

@@ -15,10 +15,9 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-// 🆕 Usar el nuevo hook de cache
-import { useEventAttendees } from '@/contexts/DataCacheContext';
+// 🆕 Usar SWR para cache eficiente
+import { useScannerAttendees } from '@/hooks/use-scanner-attendees';
 
 // Importar componentes específicos
 import { AttendeesList } from './components/AttendeesList';
@@ -27,35 +26,37 @@ import { EventDetailsTab } from './components/EventDetailsTab';
 export default function EventAttendeesPage() {
   const params = useParams();
   const router = useRouter();
-  const { toast } = useToast();
   const { user, loading: isAuthLoading } = useAuth();
   const eventId = params.eventId as string;
   
-  // 🆕 Usar el nuevo hook de cache
+  // 🆕 Usar SWR para cache automático
   const {
     attendees,
     event,
     stats,
-    loading: isLoading,
-    loadEventAttendees,
+    isLoading,
+    error: swrError,
     refresh,
-    invalidate
-  } = useEventAttendees(eventId);
+    updateAttendee
+  } = useScannerAttendees(eventId);
   
-  // Estado local solo para errores críticos
+  // Estado local
   const [error, setError] = useState<string | null>(null);
 
-  // Cargar datos cuando la autenticación esté lista
+  // Verificar autenticación
   useEffect(() => {
-    if (!isAuthLoading && user && eventId) {
-      console.log('🔐 Auth ready, loading event data for:', eventId);
-      setError(null);
-      loadEventAttendees();
-    } else if (!isAuthLoading && !user) {
+    if (!isAuthLoading && !user) {
       console.log('⚠️ No authenticated user found');
       setError('Usuario no autenticado');
     }
-  }, [isAuthLoading, user, eventId, loadEventAttendees]);
+  }, [isAuthLoading, user]);
+  
+  // Actualizar error si SWR falla
+  useEffect(() => {
+    if (swrError) {
+      setError(swrError.message || 'Error al cargar datos');
+    }
+  }, [swrError]);
 
   // Formatear fecha para header
   const formatEventDate = (dateStr: string) => {
@@ -184,6 +185,7 @@ export default function EventAttendeesPage() {
                 stats={stats}
                 isLoading={isLoading}
                 onRefresh={handleDataRefresh}
+                onAttendeeUpdate={updateAttendee}
                 eventId={eventId}
                 eventName={event?.name || 'Evento'}
               />

@@ -7,7 +7,7 @@ import {
   Search,
   Users,
   CheckCircle2,
-  Circle,
+  UserX,
   Minus,
   ChevronRight,
   Zap
@@ -27,6 +27,7 @@ interface AttendeesListProps {
   stats: EventStats | null;
   isLoading: boolean;
   onRefresh: () => void;
+  onAttendeeUpdate?: (ticketId: string, updates: any) => void; // 🆕 Actualización optimista
   eventId: string;
   eventName: string;
 }
@@ -36,6 +37,7 @@ export function AttendeesList({
   stats, 
   isLoading, 
   onRefresh,
+  onAttendeeUpdate,
   eventId,
   eventName 
 }: AttendeesListProps) {
@@ -83,9 +85,10 @@ export function AttendeesList({
 
   // Filtrar asistentes
   const filteredAttendees = useMemo(() => {
-    let filtered = attendees;
+    // 1. Primero filtrar boletos sin asignar (status === 'purchased')
+    let filtered = attendees.filter(attendee => attendee.status !== 'purchased');
 
-    // Filtrar por término de búsqueda
+    // 2. Filtrar por término de búsqueda
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(attendee => 
@@ -97,7 +100,7 @@ export function AttendeesList({
       );
     }
 
-    // Filtrar por estado de check-in (usando estado del día actual)
+    // 3. Filtrar por estado de check-in (usando estado del día actual)
     if (statusFilter !== 'all') {
       filtered = filtered.filter(attendee => {
         const todayStatus = getTodayCheckInStatus(attendee);
@@ -108,19 +111,32 @@ export function AttendeesList({
     return filtered;
   }, [attendees, searchTerm, statusFilter]);
 
-  // 🆕 Calcular estadísticas del día actual
+  // 🆕 Calcular estadísticas del día actual (solo boletos configurados)
   const todayStats = useMemo(() => {
-    const todayCheckedIn = attendees.filter(attendee => {
+    // Filtrar solo boletos configurados
+    const configuredAttendees = attendees.filter(a => a.status !== 'purchased');
+    
+    const todayCheckedIn = configuredAttendees.filter(attendee => {
       const status = getTodayCheckInStatus(attendee);
       return status === 'checked_in';
     }).length;
     
-    const todayPending = attendees.filter(attendee => {
+    const todayPending = configuredAttendees.filter(attendee => {
       const status = getTodayCheckInStatus(attendee);
       return status === 'not_arrived';
     }).length;
     
-    return { todayCheckedIn, todayPending };
+    const todayPartial = configuredAttendees.filter(attendee => {
+      const status = getTodayCheckInStatus(attendee);
+      return status === 'partial';
+    }).length;
+    
+    return { 
+      todayCheckedIn, 
+      todayPending, 
+      todayPartial,
+      totalConfigured: configuredAttendees.length 
+    };
   }, [attendees]);
 
   // Agrupar asistentes alfabéticamente
@@ -172,7 +188,8 @@ export function AttendeesList({
   };
 
   const handleCheckInSuccess = () => {
-    onRefresh();
+    // ✅ Ya NO recargar (actualización optimista)
+    // onRefresh();
   };
 
   // Componente de tarjeta de asistente
@@ -314,7 +331,7 @@ export function AttendeesList({
             className="flex items-center gap-2"
           >
             <Users className="w-4 h-4" />
-            Todos ({attendees.length})
+            Todos ({todayStats.totalConfigured})
           </Button>
           
           <Button
@@ -333,26 +350,29 @@ export function AttendeesList({
             size="sm"
             className="flex items-center gap-2"
           >
-            <Circle className="w-4 h-4 text-gray-400" />
+            <UserX className="w-4 h-4 text-red-600" />
             Hoy pendientes ({todayStats.todayPending})
           </Button>
           
-          <Button
-            variant={statusFilter === 'partial' ? 'default' : 'outline'}
-            onClick={() => setStatusFilter('partial')}
-            size="sm"
-            className="flex items-center gap-2"
-          >
-            <Minus className="w-4 h-4 text-yellow-600" />
-            Otros días
-          </Button>
+          {/* Solo mostrar "Otros días" si hay boletos con estado partial */}
+          {todayStats.todayPartial > 0 && (
+            <Button
+              variant={statusFilter === 'partial' ? 'default' : 'outline'}
+              onClick={() => setStatusFilter('partial')}
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              <Minus className="w-4 h-4 text-yellow-600" />
+              Otros días ({todayStats.todayPartial})
+            </Button>
+          )}
         </div>
       </div>
 
       {/* Results Info */}
       {searchTerm || statusFilter !== 'all' ? (
         <div className="text-sm text-gray-600">
-          Mostrando {filteredAttendees.length} de {attendees.length} asistentes
+          Mostrando {filteredAttendees.length} de {todayStats.totalConfigured} asistentes
           {searchTerm && ` con "${searchTerm}"`}
         </div>
       ) : null}
@@ -434,6 +454,7 @@ export function AttendeesList({
         eventId={eventId}
         eventName={eventName}
         onSuccess={handleCheckInSuccess}
+        onTicketUpdated={onAttendeeUpdate}
       />
 
     </div>

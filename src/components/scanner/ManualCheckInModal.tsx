@@ -24,8 +24,6 @@ import { useToast } from '@/hooks/use-toast';
 import { authenticatedPost } from '@/lib/utils/api';
 import { formatCurrency, Currency } from '@/lib/utils/currency';
 import { getTodayAsLocalString, getTodayInMexicoTimezone, debugDate, formatDateForDisplayMexico } from '@/lib/utils/date-utils';
-// 🆕 Importar invalidación de cache
-import { useDataCache } from '@/contexts/DataCacheContext';
 
 interface AttendeeTicket {
   id: string;
@@ -55,6 +53,7 @@ interface ManualCheckInModalProps {
   eventId: string;
   eventName: string;
   onSuccess: () => void; // Para recargar la lista después del check-in
+  onTicketUpdated?: (ticketId: string, updates: any) => void; // 🆕 Actualización optimista
 }
 
 export function ManualCheckInModal({
@@ -63,11 +62,10 @@ export function ManualCheckInModal({
   attendee,
   eventId,
   eventName,
-  onSuccess
+  onSuccess, // Mantener por compatibilidad con otros usos
+  onTicketUpdated
 }: ManualCheckInModalProps) {
   const { toast } = useToast();
-  // 🆕 Obtener invalidación de cache
-  const { invalidateEvent } = useDataCache();
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedDay, setSelectedDay] = useState<string>('');
   const [notes, setNotes] = useState('');
@@ -201,11 +199,20 @@ export function ManualCheckInModal({
     access_type: attendee.access_type,
     authorized_days: attendee.authorized_days,
     used_days: attendee.used_days,
+    used_days_types: attendee.used_days.map(d => typeof d),
     availableDays,
     todayMexico: todayMexicoForAnalysis,
+    todayMexicoType: typeof todayMexicoForAnalysis,
     hasUsedAllDays: attendee.used_days.length === attendee.authorized_days.length,
     todayIsAuthorized: attendee.authorized_days.includes(todayMexicoForAnalysis),
-    todayIsUsed: attendee.used_days.includes(todayMexicoForAnalysis)
+    todayIsUsed: attendee.used_days.includes(todayMexicoForAnalysis),
+    // Comparación exacta string por string
+    comparisonResults: attendee.used_days.map(day => ({
+      day,
+      equals: day === todayMexicoForAnalysis,
+      dayLength: day.length,
+      todayLength: todayMexicoForAnalysis.length
+    }))
   });
 
   // Formatear fecha para mostrar (ya no necesario, usar formatDateForDisplayMexico directamente)
@@ -344,11 +351,22 @@ export function ManualCheckInModal({
         className: "bg-green-50 border-green-200",
       });
 
-      // Cerrar modal y recargar datos
+      // ✅ Actualización optimista local
+      if (onTicketUpdated && result.checkin_data) {
+        onTicketUpdated(attendee.id, {
+          used_days: [...attendee.used_days, result.checkin_data.day_checked],
+          last_checkin: result.checkin_data.check_in_time,
+          can_undo_until: result.checkin_data.can_undo_until,
+          check_in_status: 'checked_in'
+        });
+      }
+
+      // Cerrar modal
       onClose();
-      // 🆕 Invalidar cache del evento para refrescar datos
-      invalidateEvent(eventId);
-      onSuccess();
+      
+      // ❌ Ya NO invalidar cache ni llamar onSuccess (doble recarga)
+      // invalidateEvent(eventId);
+      // onSuccess();
 
       // Limpiar formulario
       setSelectedDay('');
@@ -500,7 +518,42 @@ export function ManualCheckInModal({
           </div>
 
           {/* Check-in Form */}
-          {availableDays.length > 0 && attendee.check_in_status !== 'checked_in' ? (
+          {(() => {
+            // 🔧 FIX: Para tickets all_days, verificar si ya hizo check-in HOY específicamente
+            // No usar check_in_status porque all_days siempre es 'partial'
+            const todayMexico = getTodayInMexicoTimezone();
+            const hasCheckedInToday = attendee.used_days.includes(todayMexico);
+            
+            // DEBUG: Log detallado de la validación
+            console.log('[ManualCheckIn] 🔍 FORM VISIBILITY CHECK:', {
+              attendee_name: attendee.attendee_name,
+              access_type: attendee.access_type,
+              todayMexico,
+              used_days: attendee.used_days,
+              hasCheckedInToday,
+              availableDays_length: availableDays.length,
+              check_in_status: attendee.check_in_status,
+              // Comparación detallada
+              used_days_comparison: attendee.used_days.map(day => ({
+                day,
+                matches_today: day === todayMexico
+              }))
+            });
+            
+            // Mostrar formulario si:
+            // 1. Hay días disponibles Y
+            // 2. (Para all_days: no ha hecho check-in hoy) O (Para otros: no está completamente registrado)
+            const shouldShowForm = availableDays.length > 0 && (
+              attendee.access_type === 'all_days' 
+                ? !hasCheckedInToday  // Para all_days: verificar si ya registró HOY
+                : attendee.check_in_status !== 'checked_in' // Para otros: usar estado tradicional
+            );
+            
+            console.log('[ManualCheckIn] ➡️ shouldShowForm:', shouldShowForm);
+            
+            if (!shouldShowForm) return null;
+            
+            return (
             <div className="space-y-4">
               
               {/* 🎯 Smart Day Selection Logic */}
@@ -660,10 +713,28 @@ export function ManualCheckInModal({
                 </Button>
               </div>
             </div>
-          ) : (
-            /* Already checked in or no available days */
+            );
+          })()}
+
+          {/* Already checked in or no available days */}
+          {(() => {
+            const todayMexico = getTodayInMexicoTimezone();
+            const hasCheckedInToday = attendee.used_days.includes(todayMexico);
+            
+            // Mostrar mensaje si:
+            // 1. (Para all_days: ya hizo check-in hoy) O
+            // 2. (Para otros: está completamente registrado O no hay días disponibles)
+            const shouldShowMessage = (
+              attendee.access_type === 'all_days' 
+                ? hasCheckedInToday  // Para all_days: mostrar si ya registró HOY
+                : (attendee.check_in_status === 'checked_in' || availableDays.length === 0)
+            );
+            
+            if (!shouldShowMessage) return null;
+            
+            return (
             <div className="text-center py-4">
-              {attendee.check_in_status === 'checked_in' ? (
+              {(attendee.check_in_status === 'checked_in' || hasCheckedInToday) ? (
                 <Alert className="bg-green-50 border-green-200">
                   <CheckCircle2 className="h-4 w-4" />
                   <AlertDescription className="text-green-800">
@@ -713,8 +784,8 @@ export function ManualCheckInModal({
                 Cerrar
               </Button>
             </div>
-          )}
-
+            );
+          })()}
         </div>
       </DialogContent>
     </Dialog>
