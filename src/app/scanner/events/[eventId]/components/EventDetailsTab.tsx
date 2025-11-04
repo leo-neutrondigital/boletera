@@ -27,7 +27,6 @@ interface EventDetailsTabProps {
   attendees: AttendeeTicket[];
   stats: EventStats | null;
   isLoading: boolean;
-  onRefresh: () => void;
   eventId: string;
 }
 
@@ -35,8 +34,7 @@ export function EventDetailsTab({
   event, 
   attendees, 
   stats, 
-  isLoading, 
-  onRefresh,
+  isLoading,
   eventId 
 }: EventDetailsTabProps) {
   
@@ -82,11 +80,6 @@ export function EventDetailsTab({
   const closeCheckInModal = () => {
     setIsModalOpen(false);
     setSelectedAttendee(null);
-  };
-
-  const handleCheckInSuccess = () => {
-    onRefresh();
-    setManualSearchTerm(''); // Limpiar búsqueda después del check-in
   };
 
   // Funciones de estilo
@@ -340,7 +333,6 @@ export function EventDetailsTab({
         attendee={selectedAttendee}
         eventId={eventId}
         eventName={event?.name || 'Evento'}
-        onSuccess={handleCheckInSuccess}
       />
 
     </div>

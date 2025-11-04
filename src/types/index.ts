@@ -79,7 +79,7 @@ export interface Ticket {
   ticket_type_name: string;
   
   // Estado del boleto
-  status: 'purchased' | 'configured' | 'used';
+  status: 'purchased' | 'configured' | 'generated' | 'used';
   
   // Datos de pago
   order_id: string;

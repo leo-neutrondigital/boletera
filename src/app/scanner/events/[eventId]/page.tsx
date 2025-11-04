@@ -198,7 +198,6 @@ export default function EventAttendeesPage() {
                 attendees={attendees}
                 stats={stats}
                 isLoading={isLoading}
-                onRefresh={handleDataRefresh}
                 eventId={eventId}
               />
             </TabsContent>

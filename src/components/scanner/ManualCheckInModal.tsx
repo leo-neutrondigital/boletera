@@ -52,8 +52,7 @@ interface ManualCheckInModalProps {
   attendee: AttendeeTicket | null;
   eventId: string;
   eventName: string;
-  onSuccess: () => void; // Para recargar la lista después del check-in
-  onTicketUpdated?: (ticketId: string, updates: any) => void; // 🆕 Actualización optimista
+  onTicketUpdated?: (ticketId: string, updates: any) => void;
 }
 
 export function ManualCheckInModal({
@@ -62,7 +61,6 @@ export function ManualCheckInModal({
   attendee,
   eventId,
   eventName,
-  onSuccess, // Mantener por compatibilidad con otros usos
   onTicketUpdated
 }: ManualCheckInModalProps) {
   const { toast } = useToast();
@@ -154,7 +152,7 @@ export function ManualCheckInModal({
           }
       }
     }
-  }, [attendee, isOpen]);
+  }, [attendee, isOpen, selectedDay]);
 
   if (!attendee) return null;
 

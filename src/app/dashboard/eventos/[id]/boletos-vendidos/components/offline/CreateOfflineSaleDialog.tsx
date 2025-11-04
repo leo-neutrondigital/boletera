@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,7 +17,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Banknote, User, AlertTriangle, Calendar, CreditCard } from 'lucide-react';
+import { Banknote, User, AlertTriangle, Calendar } from 'lucide-react';
 import { auth } from '@/lib/firebase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useCachedTicketTypes } from '@/contexts/DataCacheContext';
@@ -53,15 +53,28 @@ export function CreateOfflineSaleDialog({
   const { toast } = useToast();
   const { ticketTypes, loading: loadingTicketTypes } = useCachedTicketTypes(eventId);
   
+  // Fecha por defecto: ayer a las 12:00 PM (formato local, sin conversión UTC)
+  const getDefaultSaleDate = () => {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1); // Día anterior
+    yesterday.setHours(12, 0, 0, 0); // 12:00 PM local
+    
+    // Formatear manualmente para evitar conversión de zona horaria
+    const year = yesterday.getFullYear();
+    const month = String(yesterday.getMonth() + 1).padStart(2, '0');
+    const day = String(yesterday.getDate()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}T12:00`; // formato yyyy-MM-ddTHH:mm
+  };
+
   const [form, setForm] = useState({
     ticketTypeId: '',
     attendeeName: '',
     attendeeEmail: '',
     attendeePhone: '',
-    amount_paid: '',
     payment_method: '' as PaymentMethod | '',
     payment_reference: '',
-    sale_date: new Date().toISOString().slice(0, 16), // formato yyyy-MM-ddTHH:mm
+    sale_date: getDefaultSaleDate(),
     quantity: 1,
     notes: '',
     sendEmail: true,
@@ -74,10 +87,10 @@ export function CreateOfflineSaleDialog({
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Calcular precio total automáticamente
+  // Calcular precio automáticamente desde el tipo de boleto
   const selectedTicketType = ticketTypes.find(t => t.id === form.ticketTypeId);
-  const calculatedTotal = selectedTicketType 
-    ? (selectedTicketType.price * form.quantity)
+  const calculatedAmount = selectedTicketType 
+    ? selectedTicketType.price // Precio unitario del tipo de boleto
     : 0;
 
   // Validación del formulario
@@ -92,9 +105,9 @@ export function CreateOfflineSaleDialog({
       errors.push('Debe ingresar el nombre del cliente');
     }
     
-    const amount = parseFloat(form.amount_paid);
-    if (!form.amount_paid || isNaN(amount) || amount <= 0) {
-      errors.push('El monto debe ser mayor a 0');
+    // Validar que haya un tipo de boleto seleccionado (el monto se toma de ahí)
+    if (!selectedTicketType) {
+      errors.push('Debe seleccionar un tipo de boleto válido');
     }
     
     if (!form.payment_method) {
@@ -180,15 +193,7 @@ export function CreateOfflineSaleDialog({
     setSearchTimeout(newTimeout);
   };
 
-  // Auto-llenar monto con precio sugerido
-  useEffect(() => {
-    if (selectedTicketType && !form.amount_paid) {
-      setForm(prev => ({ 
-        ...prev, 
-        amount_paid: (selectedTicketType.price * form.quantity).toString()
-      }));
-    }
-  }, [selectedTicketType, form.quantity, form.amount_paid]);
+  // Ya no necesitamos auto-llenar amount_paid porque se toma directamente del tipo de boleto
 
   const handleCreate = async () => {
     if (!validateForm()) {
@@ -216,7 +221,7 @@ export function CreateOfflineSaleDialog({
         attendeeEmail: form.attendeeEmail,
         attendeeName: form.attendeeName,
         attendeePhone: form.attendeePhone || undefined,
-        amount_paid: parseFloat(form.amount_paid),
+        amount_paid: calculatedAmount, // Tomar directamente del tipo de boleto
         payment_method: form.payment_method,
         payment_reference: form.payment_reference || undefined,
         sale_date: new Date(form.sale_date).toISOString(),
@@ -255,10 +260,9 @@ export function CreateOfflineSaleDialog({
         attendeeName: '',
         attendeeEmail: '',
         attendeePhone: '',
-        amount_paid: '',
         payment_method: '',
         payment_reference: '',
-        sale_date: new Date().toISOString().slice(0, 16),
+        sale_date: getDefaultSaleDate(), // Ayer a las 12:00 PM
         quantity: 1,
         notes: '',
         sendEmail: true,
@@ -358,9 +362,9 @@ export function CreateOfflineSaleDialog({
               value={form.quantity}
               onChange={(e) => setForm(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
             />
-            {calculatedTotal > 0 && (
+            {selectedTicketType && (
               <p className="text-sm text-gray-600 mt-1">
-                Precio sugerido: ${calculatedTotal.toFixed(2)}
+                Precio por boleto: ${calculatedAmount.toFixed(2)} • Total: ${(calculatedAmount * form.quantity).toFixed(2)}
               </p>
             )}
           </div>
@@ -401,43 +405,31 @@ export function CreateOfflineSaleDialog({
             />
           </div>
 
-          {/* Grid: Monto y Método de Pago */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label className="text-sm font-medium flex items-center gap-1">
-                <CreditCard className="w-4 h-4" />
-                Monto Pagado *
-              </Label>
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder="0.00"
-                value={form.amount_paid}
-                onChange={(e) => setForm(prev => ({ ...prev, amount_paid: e.target.value }))}
-              />
-            </div>
-
-            <div>
-              <Label className="text-sm font-medium">Método de Pago *</Label>
-              <Select 
-                value={form.payment_method} 
-                onValueChange={(value) => setForm(prev => ({ ...prev, payment_method: value as PaymentMethod }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar método..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {PAYMENT_METHODS.map((method) => (
-                    <SelectItem key={method.value} value={method.value}>
-                      <span className="flex items-center gap-2">
-                        {method.icon} {method.label}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          {/* Método de Pago */}
+          <div>
+            <Label className="text-sm font-medium">Método de Pago *</Label>
+            <Select 
+              value={form.payment_method} 
+              onValueChange={(value) => setForm(prev => ({ ...prev, payment_method: value as PaymentMethod }))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Seleccionar método..." />
+              </SelectTrigger>
+              <SelectContent>
+                {PAYMENT_METHODS.map((method) => (
+                  <SelectItem key={method.value} value={method.value}>
+                    <span className="flex items-center gap-2">
+                      {method.icon} {method.label}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {selectedTicketType && (
+              <p className="text-xs text-gray-500 mt-1">
+                Se registrará ${calculatedAmount.toFixed(2)} por boleto (Total: ${(calculatedAmount * form.quantity).toFixed(2)})
+              </p>
+            )}
           </div>
 
           {/* Grid: Referencia y Fecha */}

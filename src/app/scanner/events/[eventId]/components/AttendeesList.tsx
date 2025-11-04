@@ -36,7 +36,7 @@ export function AttendeesList({
   attendees, 
   stats, 
   isLoading, 
-  onRefresh,
+  //onRefresh,
   onAttendeeUpdate,
   eventId,
   eventName 
@@ -185,11 +185,6 @@ export function AttendeesList({
   const closeCheckInModal = () => {
     setIsModalOpen(false);
     setSelectedAttendee(null);
-  };
-
-  const handleCheckInSuccess = () => {
-    // ✅ Ya NO recargar (actualización optimista)
-    // onRefresh();
   };
 
   // Componente de tarjeta de asistente
@@ -453,7 +448,6 @@ export function AttendeesList({
         attendee={selectedAttendee}
         eventId={eventId}
         eventName={eventName}
-        onSuccess={handleCheckInSuccess}
         onTicketUpdated={onAttendeeUpdate}
       />
 

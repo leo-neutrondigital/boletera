@@ -161,6 +161,8 @@ export function TicketCard({
         return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-300">Pendiente configuración</Badge>;
       case 'configured':
         return <Badge className="bg-green-100 text-green-800">Configurado</Badge>;
+      case 'generated':
+        return <Badge className="bg-purple-100 text-purple-800">PDF Generado</Badge>;
       case 'used':
         return <Badge className="bg-blue-100 text-blue-800">Usado</Badge>;
       default:

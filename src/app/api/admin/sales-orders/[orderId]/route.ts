@@ -159,6 +159,13 @@ export async function GET(
     const firstTicket = tickets[0];
     const totalAmount = tickets.reduce((sum: number, t: any) => sum + (t.amount_paid || 0), 0);
 
+    // Detectar método de pago
+    let paymentMethod = 'Pago con tarjeta'; // Default para pagos online
+    if (firstTicket.is_manual_sale && firstTicket.payment_method) {
+      // Ventas manuales tienen payment_method definido
+      paymentMethod = firstTicket.payment_method;
+    }
+
     const stats = {
       total_tickets: totalTickets,
       configured_tickets: configuredTickets,
@@ -170,6 +177,7 @@ export async function GET(
       created_at: firstTicket.purchase_date || firstTicket.created_at,
       customer_name: firstTicket.customer_name,
       customer_email: firstTicket.customer_email,
+      payment_method: paymentMethod,
     };
 
     console.log('✅ Sales order loaded:', {
