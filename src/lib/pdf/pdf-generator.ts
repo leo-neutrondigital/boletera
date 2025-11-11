@@ -1,5 +1,7 @@
 import QRCode from 'qrcode';
 import jsPDF from 'jspdf';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import type { Ticket } from '@/types';
@@ -33,6 +35,20 @@ export async function generateTicketPDF(ticket: Ticket): Promise<Buffer> {
   }
 }
 
+// Helper para cargar imágenes desde el filesystem y convertir a base64
+function loadImageAsBase64(imageName: string): string {
+  try {
+    // Ruta absoluta al directorio public/img
+    const imagePath = join(process.cwd(), 'public', 'img', imageName);
+    const imageBuffer = readFileSync(imagePath);
+    const base64 = imageBuffer.toString('base64');
+    return `data:image/jpeg;base64,${base64}`;
+  } catch (error) {
+    console.error(`❌ Error loading image ${imageName}:`, error);
+    throw new Error(`Failed to load image: ${imageName}`);
+  }
+}
+
 async function generateQRCode(ticket: Ticket): Promise<Buffer> {
   try {
     // URL de validación del QR
@@ -62,67 +78,49 @@ async function generateQRCode(ticket: Ticket): Promise<Buffer> {
 
 async function designTicketPDF(pdf: jsPDF, ticket: Ticket, qrCodeBuffer: Buffer) {
   // Configuración de colores como tuplas constantes
-  const headerColor = [11, 105, 70] as const;    // #0B6946 - Verde solicitado
   const accessCodeColor = [227, 6, 19] as const; // #E30613 - Rojo solicitado
   const grayColor = [100, 116, 139] as const;    // #64748b
   const darkColor = [30, 41, 59] as const;       // #1e293b
   
   // ========================================
-  // SECCIÓN 1: GAFETE (Cuadrante superior izquierdo)
+  // SECCIÓN 1: GAFETE (Cuadrante superior izquierdo) - 105mm × 148.5mm
   // ========================================
   const BADGE = {
     x: 0,
     y: 0,
     width: 105,
     height: 148.5,
-    margin: 4  // Margen interno reducido
+    margin: 4
   };
   
-  // Dibujar borde del gafete (opcional, para visualizar área)
+  // Dibujar borde del gafete
   pdf.setDrawColor(...grayColor);
   pdf.setLineWidth(0.3);
   pdf.rect(BADGE.x, BADGE.y, BADGE.width, BADGE.height);
   
-  // Header compacto con color verde
-  pdf.setFillColor(...headerColor);
-  pdf.rect(BADGE.x, BADGE.y, BADGE.width, 18, 'F');
+  // 🆕 IMAGEN DE CABECERA (105mm × 17.8mm)
+  const headerImageBase64 = loadImageAsBase64('boleto_cabeza_cidth.jpg');
+  const headerHeight = 17.8;
+  pdf.addImage(headerImageBase64, 'JPEG', BADGE.x, BADGE.y, BADGE.width, headerHeight);
   
-  // Título del evento (compacto)
-  pdf.setTextColor(255, 255, 255);
-  pdf.setFontSize(14);
-  pdf.setFont('helvetica', 'bold');
-  const eventName = ticket.event?.name || 'Evento';
-  // Truncar nombre si es muy largo
-  const maxEventNameWidth = BADGE.width - (BADGE.margin * 2);
-  let truncatedEventName = eventName;
-  pdf.setFontSize(14);
-  while (pdf.getTextWidth(truncatedEventName) > maxEventNameWidth && truncatedEventName.length > 0) {
-    truncatedEventName = truncatedEventName.slice(0, -1);
-  }
-  if (truncatedEventName.length < eventName.length) {
-    truncatedEventName = truncatedEventName.trim() + '...';
-  }
-  pdf.text(truncatedEventName, BADGE.width / 2, 8, { align: 'center' });
-  
-  // Subtítulo - tipo de boleto (compacto)
-  pdf.setFontSize(9);
-  pdf.setFont('helvetica', 'normal');
-  let truncatedTicketType = ticket.ticket_type_name;
-  while (pdf.getTextWidth(truncatedTicketType) > maxEventNameWidth && truncatedTicketType.length > 0) {
-    truncatedTicketType = truncatedTicketType.slice(0, -1);
-  }
-  if (truncatedTicketType.length < ticket.ticket_type_name.length) {
-    truncatedTicketType = truncatedTicketType.trim() + '...';
-  }
-  pdf.text(truncatedTicketType, BADGE.width / 2, 14, { align: 'center' });
-  
-  // Resetear color de texto
-  pdf.setTextColor(...darkColor);
-  
-  // Contenido del gafete (layout compacto y centrado)
-  let yPos = BADGE.y + 22; // Después del header
+  let yPos = BADGE.y + headerHeight + 3;
   const centerX = BADGE.width / 2;
   const contentWidth = BADGE.width - (BADGE.margin * 2);
+  
+  // 🆕 TIPO DE BOLETO (debajo de la cabecera, centrado)
+  pdf.setFontSize(10);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setTextColor(...darkColor);
+  let ticketType = ticket.ticket_type_name;
+  while (pdf.getTextWidth(ticketType) > contentWidth && ticketType.length > 0) {
+    ticketType = ticketType.slice(0, -1);
+  }
+  if (ticketType.length < ticket.ticket_type_name.length) {
+    ticketType = ticketType.trim() + '...';
+  }
+  pdf.text(ticketType, centerX, yPos, { align: 'center' });
+  
+  yPos += 8;
   
   // ASISTENTE (centrado)
   pdf.setFontSize(7);
@@ -134,7 +132,6 @@ async function designTicketPDF(pdf: jsPDF, ticket: Ticket, qrCodeBuffer: Buffer)
   pdf.setFont('helvetica', 'bold');
   pdf.setTextColor(...darkColor);
   let attendeeName = ticket.attendee_name || 'Por asignar';
-  // Truncar nombre si es muy largo
   while (pdf.getTextWidth(attendeeName) > contentWidth && attendeeName.length > 0) {
     attendeeName = attendeeName.slice(0, -1);
   }
@@ -145,7 +142,7 @@ async function designTicketPDF(pdf: jsPDF, ticket: Ticket, qrCodeBuffer: Buffer)
   
   yPos += 12;
   
-  // FECHA DEL EVENTO (formato completo: "25 de oct al 4 de nov, 2025")
+  // FECHA DEL EVENTO
   pdf.setFontSize(7);
   pdf.setFont('helvetica', 'bold');
   pdf.setTextColor(...grayColor);
@@ -157,11 +154,9 @@ async function designTicketPDF(pdf: jsPDF, ticket: Ticket, qrCodeBuffer: Buffer)
   
   let eventDateRange = 'Por confirmar';
   if (ticket.event?.start_date && ticket.event?.end_date) {
-    // Si es el mismo día
     if (format(ticket.event.start_date, 'yyyy-MM-dd') === format(ticket.event.end_date, 'yyyy-MM-dd')) {
       eventDateRange = format(ticket.event.start_date, "d 'de' MMM, yyyy", { locale: es });
     } else {
-      // Formato: "25 de oct al 4 de nov, 2025"
       const startDate = format(ticket.event.start_date, "d 'de' MMM", { locale: es });
       const endDate = format(ticket.event.end_date, "d 'de' MMM, yyyy", { locale: es });
       eventDateRange = `${startDate} al ${endDate}`;
@@ -173,7 +168,7 @@ async function designTicketPDF(pdf: jsPDF, ticket: Ticket, qrCodeBuffer: Buffer)
   
   yPos += 10;
   
-  // UBICACIÓN (centrada)
+  // UBICACIÓN
   pdf.setFontSize(7);
   pdf.setFont('helvetica', 'bold');
   pdf.setTextColor(...grayColor);
@@ -183,7 +178,6 @@ async function designTicketPDF(pdf: jsPDF, ticket: Ticket, qrCodeBuffer: Buffer)
   pdf.setFont('helvetica', 'normal');
   pdf.setTextColor(...darkColor);
   let location = ticket.event?.location || 'Por confirmar';
-  // Truncar ubicación
   while (pdf.getTextWidth(location) > contentWidth && location.length > 0) {
     location = location.slice(0, -1);
   }
@@ -194,7 +188,7 @@ async function designTicketPDF(pdf: jsPDF, ticket: Ticket, qrCodeBuffer: Buffer)
   
   yPos += 10;
   
-  // CORREO (centrado)
+  // CORREO
   pdf.setFontSize(7);
   pdf.setFont('helvetica', 'bold');
   pdf.setTextColor(...grayColor);
@@ -204,7 +198,6 @@ async function designTicketPDF(pdf: jsPDF, ticket: Ticket, qrCodeBuffer: Buffer)
   pdf.setFont('helvetica', 'normal');
   pdf.setTextColor(...darkColor);
   let email = ticket.attendee_email || 'No especificado';
-  // Truncar email si es muy largo
   while (pdf.getTextWidth(email) > contentWidth && email.length > 0) {
     email = email.slice(0, -1);
   }
@@ -215,43 +208,18 @@ async function designTicketPDF(pdf: jsPDF, ticket: Ticket, qrCodeBuffer: Buffer)
   
   yPos += 10;
   
-  // TIPO DE CORTESÍA (si aplica - CRÍTICO, centrado)
-  if (ticket.is_courtesy && ticket.courtesy_type) {
-    pdf.setFontSize(7);
-    pdf.setFont('helvetica', 'bold');
-    pdf.setTextColor(...grayColor);
-    pdf.text('TIPO CORTESÍA', centerX, yPos, { align: 'center' });
-    
-    pdf.setFontSize(8);
-    pdf.setFont('helvetica', 'normal');
-    pdf.setTextColor(...darkColor);
-    
-    const courtesyType = ticket.courtesy_type;
-    // Truncar en 2 líneas si es necesario
-    const lines = pdf.splitTextToSize(courtesyType, contentWidth);
-    const maxLines = 2;
-    for (let i = 0; i < Math.min(lines.length, maxLines); i++) {
-      let line = lines[i];
-      if (i === maxLines - 1 && lines.length > maxLines) {
-        line = line.substring(0, line.length - 3) + '...';
-      }
-      pdf.text(line, centerX, yPos + 4.5 + (i * 4), { align: 'center' });
-    }
-    
-    yPos += 10 + (Math.min(lines.length, maxLines) * 4);
-  }
+
   
-  // QR CODE (reducido para dejar espacio a instrucciones)
+  // QR CODE
   yPos += 2;
   pdf.setFontSize(10);
   pdf.setFont('helvetica', 'bold');
   pdf.setTextColor(...accessCodeColor);
-  pdf.text('Código de acceso', BADGE.width / 2, yPos, { align: 'center' });
+  pdf.text('Código de acceso', centerX, yPos, { align: 'center' });
   
   yPos += 4;
   
-  // QR reducido para dejar espacio a instrucciones
-  const qrSize = 38; // 38mm para dejar espacio
+  const qrSize = 38;
   const qrX = (BADGE.width - qrSize) / 2;
   
   try {
@@ -262,20 +230,26 @@ async function designTicketPDF(pdf: jsPDF, ticket: Ticket, qrCodeBuffer: Buffer)
     console.error('Error adding QR to PDF:', error);
     pdf.setFontSize(9);
     pdf.setTextColor(...grayColor);
-    pdf.text('QR no disponible', BADGE.width / 2, yPos + 20, { align: 'center' });
+    pdf.text('QR no disponible', centerX, yPos + 20, { align: 'center' });
     yPos += 40;
   }
   
-  // ID del boleto (compacto)
+  // ID del boleto
   pdf.setFontSize(6);
   pdf.setFont('helvetica', 'normal');
   pdf.setTextColor(...grayColor);
-  pdf.text(`ID: ${ticket.id}`, BADGE.width / 2, yPos, { align: 'center' });
+  pdf.text(`ID: ${ticket.id}`, centerX, yPos, { align: 'center' });
+  
+  // 🆕 IMAGEN DE PIE (105mm × 17.8mm al final del gafete)
+  const footerImageBase64 = loadImageAsBase64('boleto_pie_cidth.jpg');
+  const footerHeight = 17.8;
+  const footerY = BADGE.height - footerHeight;
+  pdf.addImage(footerImageBase64, 'JPEG', BADGE.x, footerY, BADGE.width, footerHeight);
   
   // ========================================
   // SECCIÓN 2: LÍNEAS DE DOBLEZ
   // ========================================
-  const foldLineColor = [180, 180, 180] as const; // Gris medio
+  const foldLineColor = [180, 180, 180] as const;
   pdf.setDrawColor(...foldLineColor);
   pdf.setLineDashPattern([3, 2], 0);
   pdf.setLineWidth(0.5);
@@ -286,13 +260,12 @@ async function designTicketPDF(pdf: jsPDF, ticket: Ticket, qrCodeBuffer: Buffer)
   // Línea horizontal (mitad de altura)
   pdf.line(0, 148.5, 210, 148.5);
   
-  // Resetear
   pdf.setLineDashPattern([], 0);
   
   // ========================================
   // SECCIÓN 3: INSTRUCCIONES (Lado derecho)
   // ========================================
-  const instrX = 115; // Lado derecho
+  const instrX = 115;
   const instrY = 30;
   
   pdf.setFontSize(12);
@@ -323,7 +296,6 @@ async function designTicketPDF(pdf: jsPDF, ticket: Ticket, qrCodeBuffer: Buffer)
     pdf.text(instruction, instrX, instrY + 6 + (index * 5));
   });
   
-  // Nota adicional
   pdf.setFontSize(8);
   pdf.setFont('helvetica', 'italic');
   pdf.text('Generado el ' + format(new Date(), "d MMM yyyy", { locale: es }), instrX, instrY + 80);

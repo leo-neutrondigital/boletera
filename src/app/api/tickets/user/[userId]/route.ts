@@ -130,36 +130,14 @@ export async function GET(
       }
       
     } catch (error) {
-      console.error('❌ Query error:', error);
-      
-      // Fallback: obtener todos los tickets y filtrar manualmente
-      console.log('🔄 Fallback: manual filtering...');
-      const allTicketsSnapshot = await adminDb.collection('tickets').get();
-      
-      const matchingDocs: any[] = [];
-      allTicketsSnapshot.forEach(doc => {
-        const data = doc.data();
-        const matchesUserId = data.user_id === userId;
-        const matchesEmail = authUser.email && 
-          data.customer_email?.toLowerCase() === authUser.email.toLowerCase();
-          
-        if (matchesUserId || matchesEmail) {
-          matchingDocs.push(doc);
-        }
-      });
-      
-      // Crear mock snapshot
-      ticketsSnapshot = {
-        size: matchingDocs.length,
-        empty: matchingDocs.length === 0,
-        forEach: (callback: (doc: any) => void) => {
-          matchingDocs.forEach(callback);
-        }
-      } as any;
-      
-      console.log(`📋 Manual filtering found ${matchingDocs.length} tickets`);
+      console.error('❌ Database query failed:', error);
+      return NextResponse.json({ 
+        error: 'Database query failed. Please check Firestore indexes.',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      }, { status: 500 });
     }
-
+    
+    // Si no hay tickets, retornar respuesta vacía
     if (ticketsSnapshot.empty) {
       console.log('📭 No tickets found for user:', userId);
       

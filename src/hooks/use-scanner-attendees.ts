@@ -27,7 +27,7 @@ export function useScannerAttendees(eventId: string) {
       revalidateOnFocus: false,      // No revalidar al cambiar de tab
       revalidateOnReconnect: true,   // Sí revalidar al reconectar
       dedupingInterval: 60000,       // Deduplicar requests por 60s
-      refreshInterval: 120000,       // Background refresh cada 2 min
+      refreshInterval: 600000,       // Background refresh cada 10 min (reducido 80%)
       
       onError: (err) => console.error('[Scanner] Error:', err),
       onSuccess: (data) => console.log(`✅ ${data?.attendees?.length || 0} attendees loaded`)
