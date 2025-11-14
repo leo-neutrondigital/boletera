@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
-import { DataCacheProvider } from "@/contexts/DataCacheContext"; // 🆕 Cache provider
+import { DataCacheProvider } from "@/contexts/DataCacheContext"; // Cache viejo (preregistros, usuarios, etc)
+import { SWRProvider } from "@/lib/swr-provider"; // 🆕 Cache SWR persistente (ventas, cortesías, offline)
 import { Toaster } from "@/components/ui/toaster";
 import { QueryProvider } from "@/components/providers/QueryProvider";
 import { PayPalProvider } from "@/components/providers/PayPalProvider";
@@ -24,12 +25,14 @@ export default function RootLayout({
       <body className={inter.className}>
         <PayPalProvider>
           <QueryProvider>
-            <AuthProvider>
-              <DataCacheProvider>
-                {children}
-                <Toaster />
-              </DataCacheProvider>
-            </AuthProvider>
+            <SWRProvider>
+              <AuthProvider>
+                <DataCacheProvider>
+                  {children}
+                  <Toaster />
+                </DataCacheProvider>
+              </AuthProvider>
+            </SWRProvider>
           </QueryProvider>
         </PayPalProvider>
       </body>
