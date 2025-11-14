@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
 import useSWR from 'swr';
 import { authenticatedGet } from '@/lib/utils/api';
 
@@ -115,16 +115,16 @@ export function useSalesOrders(eventId?: string) {
   }, [data]);
   
   // Función para refrescar manualmente (botón de recarga)
-  const refreshSalesOrders = () => {
+  const refreshSalesOrders = useCallback(() => {
     console.log('🔄 Manually refreshing sales orders...');
     mutate();
-  };
+  }, [mutate]);
   
   // Función para invalidar caché (cuando se actualiza un boleto desde otra página)
-  const invalidateSalesCache = () => {
+  const invalidateSalesCache = useCallback(() => {
     console.log('🗑️ Invalidating sales orders cache...');
     mutate(undefined, { revalidate: false });
-  };
+  }, [mutate]);
   
   return {
     salesOrders,

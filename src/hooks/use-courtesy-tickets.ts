@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback } from 'react';
 import { useEventCache } from './use-event-cache';
 
 // Hook específico para boletos de cortesía
@@ -18,9 +19,9 @@ export function useCourtesyTickets() {
   //   loadCourtesyTickets();
   // }, [loadCourtesyTickets]);
   
-  // Funciones específicas para cortesías
-  const refreshCourtesyTickets = () => loadCourtesyTickets(true);
-  const invalidateCourtesyTickets = () => invalidateCache(['courtesyTickets']);
+  // Funciones específicas para cortesías (memoizadas para evitar loops)
+  const refreshCourtesyTickets = useCallback(() => loadCourtesyTickets(true), [loadCourtesyTickets]);
+  const invalidateCourtesyTickets = useCallback(() => invalidateCache(['courtesyTickets']), [invalidateCache]);
   
   // Estadísticas calculadas
   const stats = {

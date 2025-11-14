@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { useSalesOrders } from "@/hooks/use-sales-orders"; // 🆕 Hook para órdenes agrupadas
-import { useCourtesyTickets } from "@/hooks/use-courtesy-tickets"; // 🆕 Hook unificado
-import { useOfflineSales } from "@/contexts/DataCacheContext"; // 🆕 Hook para ventas offline
+import { useSalesOrders } from "@/hooks/use-sales-orders"; // 🆕 Hook SWR ventas
+import { useCourtesyOrders } from "@/hooks/use-courtesy-orders"; // 🆕 Hook SWR cortesías
+import { useOfflineSalesOrders } from "@/hooks/use-offline-sales-orders"; // 🆕 Hook SWR offline
 import { authenticatedGet } from "@/lib/utils/api"; // Para CSV con llamada directa
 import {
   Search,
@@ -35,25 +35,27 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
   const { toast } = useToast();
   const { setSalesActions } = useSalesPage();
   
-  // Hooks con cache especializado unificado (LAZY LOADING - no cargan automáticamente)
-  // 🆕 SWR: Hooks cargan automáticamente según activeTab
+  // 🆕 Hooks SWR: Cache automático, funciones memoizadas estables
   const { 
     salesOrders, 
-    loading: salesLoading, 
+    loading: salesLoading,
+    stats: salesStats,
     refreshSalesOrders 
   } = useSalesOrders(event.id);
   
   const { 
-    courtesyTickets, 
-    loading: courtesyLoading, 
-    refreshCourtesyTickets
-  } = useCourtesyTickets();
+    courtesyOrders, 
+    loading: courtesyLoading,
+    stats: courtesyStats,
+    refreshCourtesyOrders
+  } = useCourtesyOrders(event.id);
   
   const {
     offlineSales,
     loading: offlineLoading,
-    refresh: refreshOfflineSales
-  } = useOfflineSales(event.id);
+    stats: offlineStats,
+    refreshOfflineSales
+  } = useOfflineSalesOrders(event.id);
   
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -64,18 +66,9 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
   const [offlinePage, setOfflinePage] = useState(1);
   const [offlineLimit, setOfflineLimit] = useState(10);
   
-  console.log('🔍 DEBUG: activeTab =', activeTab, '| loadedTabs =', Array.from(loadedTabs), '| salesOrders.length =', salesOrders.length);
-  
   // Calcular paginación localmente
   const salesTotalPages = Math.ceil((salesOrders?.length || 0) / salesLimit);
   const salesTotalItems = salesOrders?.length || 0;
-  
-  console.log('📄 DEBUG pagination:', { 
-    currentPage: salesPage, 
-    totalPages: salesTotalPages, 
-    totalItems: salesTotalItems,
-    itemsPerPage: salesLimit 
-  });
 
   // 🆕 SWR carga automáticamente al montar - no necesita useEffect manual
   // El caché persiste entre navegaciones de tabs
@@ -116,6 +109,21 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
     setOfflinePage(1);
     setOfflineLimit(limit);
   };
+
+  // 🔄 Handler unificado para refrescar según el tab activo
+  const handleRefresh = useCallback(() => {
+    switch (activeTab) {
+      case 'sales':
+        refreshSalesOrders();
+        break;
+      case 'courtesies':
+        refreshCourtesyOrders();
+        break;
+      case 'offline':
+        refreshOfflineSales();
+        break;
+    }
+  }, [activeTab, refreshSalesOrders, refreshCourtesyOrders, refreshOfflineSales]);
 
   // 📊 Exportar datos a CSV
   const handleExportCSV = useCallback(async () => {
@@ -290,21 +298,12 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
   // Configurar acciones para el header (DESPUÉS de handleExportCSV)
   useEffect(() => {
     setSalesActions({
-      onRefresh: async () => {
-        setIsRefreshing(true);
-        await refreshSalesOrders(); // Cache de ventas (trae todas)
-        await refreshCourtesyTickets(); // Cache de cortesías
-        await refreshOfflineSales(); // Cache de ventas offline
-        setIsRefreshing(false);
-      },
+      onRefresh: handleRefresh,
       onExport: handleExportCSV,
       isRefreshing
     });
-
-    // Cleanup: quitar acciones cuando el componente se desmonta
     return () => setSalesActions(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isRefreshing]); // Solo depender de isRefreshing
+  }, [handleRefresh, handleExportCSV, isRefreshing, setSalesActions]);
 
   // Filtrar y paginar órdenes en memoria
   const filteredSalesOrders = useMemo(() => {
@@ -327,8 +326,8 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
 
   // 🎁 Mostrar TODAS las cortesías (ya vienen completas de Firestore, no paginar)
   const filteredCourtesyOrders = useMemo(() => {
-    // Usar courtesyTickets directamente (tiene TODAS las 243 cortesías)
-    const allCourtesies = courtesyTickets.map(courtesy => ({
+    // Usar courtesyOrders directamente (tiene TODAS las 243 cortesías)
+    const allCourtesies = courtesyOrders.map(courtesy => ({
       id: courtesy.id,
       customer_name: courtesy.customer_name,
       customer_email: courtesy.customer_email,
@@ -348,7 +347,7 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
       order.customer_email.toLowerCase().includes(searchLower) ||
       order.courtesy_type.toLowerCase().includes(searchLower)
     );
-  }, [courtesyTickets, searchTerm]);
+  }, [courtesyOrders, searchTerm]);
 
   const filteredOfflineSales = useMemo(() => {
     if (!offlineSales || !searchTerm) return offlineSales;
@@ -557,7 +556,7 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
         <nav className="-mb-px flex space-x-8">
           {[
             { id: "sales", name: "Ventas", count: salesOrders.length || 0 },
-            { id: "courtesies", name: "Cortesías", count: courtesyTickets.length || 0 },
+            { id: "courtesies", name: "Cortesías", count: courtesyOrders.length || 0 },
             { id: "offline", name: "Ventas Offline", count: offlineSales.length || 0, icon: Banknote }
           ].map((tab) => (
             <button
