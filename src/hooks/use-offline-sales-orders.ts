@@ -57,7 +57,7 @@ export function useOfflineSalesOrders(eventId?: string) {
     revalidateOnFocus: false,
     revalidateOnReconnect: false,
     revalidateIfStale: false,
-    dedupingInterval: 2 * 60 * 1000, // 2 minutos
+    dedupingInterval: 2 * 60 * 1000,
     shouldRetryOnError: false,
   });
 

@@ -49,7 +49,7 @@ export async function GET(
 
     // 🎯 Variables para almacenar resultados
     let salesOrders: any[] = [];
-    let salesStats = {
+    const salesStats = {
       total_revenue: 0,
       total_tickets: 0,
       configured_tickets: 0,
@@ -215,7 +215,7 @@ export async function GET(
 
     // 🎁 Variables para cortesías
     let courtesyOrders: any[] = [];
-    let courtesyStats = {
+    const courtesyStats = {
       total_courtesy_tickets: 0,
       configured_courtesy: 0,
       pending_courtesy: 0,

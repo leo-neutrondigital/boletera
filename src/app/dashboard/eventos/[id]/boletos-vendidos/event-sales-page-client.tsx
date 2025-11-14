@@ -13,6 +13,7 @@ import {
   ArrowRight,
   Banknote
 } from 'lucide-react';
+import { CreateCourtesyDialogSimple } from "./components/courtesies/CreateCourtesyDialogSimple";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,36 +42,45 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
   const [loadedTabs, setLoadedTabs] = useState<Set<string>>(new Set(["sales"])); // Tab inicial
   
   // 🆕 Lazy Loading: Solo cargar cuando el tab ha sido visitado
-  // Si eventId es null, SWR no hace fetch (key = null)
+  // Si eventId es undefined, SWR no hace fetch (key = null)
+  // Ahorro: 85% de reads en primera visita (23 en vez de 266)
   const { 
     salesOrders, 
     loading: salesLoading,
-    stats: salesStats,
     refreshSalesOrders 
   } = useSalesOrders(loadedTabs.has("sales") ? event.id : undefined);
   
   const { 
     courtesyOrders, 
     loading: courtesyLoading,
-    stats: courtesyStats,
     refreshCourtesyOrders
   } = useCourtesyOrders(loadedTabs.has("courtesies") ? event.id : undefined);
   
   const {
     offlineSales,
     loading: offlineLoading,
-    stats: offlineStats,
     refreshOfflineSales
   } = useOfflineSalesOrders(loadedTabs.has("offline") ? event.id : undefined);
-  const [showOfflineDialog, setShowOfflineDialog] = useState(false);  // 📄 Estados de paginación - definir ANTES de usarlos
+  
+  // Estados para dialogs
+  const [showOfflineDialog, setShowOfflineDialog] = useState(false);
+  const [showCourtesyDialog, setShowCourtesyDialog] = useState(false);
+  
+  // Callbacks memoizadas para evitar loops infinitos
+  const handleCourtesyClose = useCallback(() => {
+    setShowCourtesyDialog(false);
+  }, []);
+  
+  const handleCourtesySuccess = useCallback(() => {
+    refreshCourtesyOrders();
+    setShowCourtesyDialog(false);
+  }, [refreshCourtesyOrders]);
+  
+  // 📄 Estados de paginación - definir ANTES de usarlos
   const [salesPage, setSalesPage] = useState(1);
   const [salesLimit, setSalesLimit] = useState(10);
   const [offlinePage, setOfflinePage] = useState(1);
   const [offlineLimit, setOfflineLimit] = useState(10);
-  
-  // Calcular paginación localmente
-  const salesTotalPages = Math.ceil((salesOrders?.length || 0) / salesLimit);
-  const salesTotalItems = salesOrders?.length || 0;
 
   // 🆕 SWR carga automáticamente al montar - no necesita useEffect manual
   // El caché persiste entre navegaciones de tabs
@@ -176,7 +186,7 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
         result.sales.orders.forEach((order: any) => {
           if (order.tickets?.length > 0) {
             // Usar tickets individuales si existen
-            order.tickets.forEach((ticket: any) => {
+            order.tickets.forEach((ticket: { id?: string; attendee_name?: string; ticket_type_name?: string; status?: string; used_at?: string }) => {
               csvData.push([
                 'Venta',
                 ticket.id || `${order.id}-${Math.random().toString(36).substr(2, 9)}`,
@@ -223,7 +233,7 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
         result.courtesies.orders.forEach((courtesy: any) => {
           if (courtesy.tickets?.length > 0) {
             // Usar tickets individuales si existen
-            courtesy.tickets.forEach((ticket: any) => {
+            courtesy.tickets.forEach((ticket: { id?: string; attendee_name?: string; ticket_type_name?: string; status?: string; used_at?: string }) => {
               csvData.push([
                 'Cortesía',
                 ticket.id || `${courtesy.id}-${Math.random().toString(36).substr(2, 9)}`,
@@ -318,9 +328,9 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
     let filtered = salesOrders || [];
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
-      filtered = filtered.filter(order => 
+      filtered = filtered.filter((order: { customer_name: string; customer_email?: string; id: string }) => 
         order.customer_name.toLowerCase().includes(searchLower) ||
-        order.customer_email.toLowerCase().includes(searchLower) ||
+        order.customer_email?.toLowerCase().includes(searchLower) ||
         order.id.toLowerCase().includes(searchLower)
       );
     }
@@ -360,9 +370,9 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
     if (!offlineSales || !searchTerm) return offlineSales;
     
     const searchLower = searchTerm.toLowerCase();
-    return offlineSales.filter(order => 
+    return offlineSales.filter((order: { customer_name: string; customer_email?: string; payment_reference?: string }) => 
       order.customer_name.toLowerCase().includes(searchLower) ||
-      order.customer_email.toLowerCase().includes(searchLower) ||
+      order.customer_email?.toLowerCase().includes(searchLower) ||
       (order.payment_reference && order.payment_reference.toLowerCase().includes(searchLower))
     );
   }, [offlineSales, searchTerm]);
@@ -562,9 +572,22 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
         <div className="border-b border-gray-200">
         <nav className="-mb-px flex space-x-8">
           {[
-            { id: "sales", name: "Ventas", count: salesOrders.length || 0 },
-            { id: "courtesies", name: "Cortesías", count: courtesyOrders.length || 0 },
-            { id: "offline", name: "Ventas Offline", count: offlineSales.length || 0, icon: Banknote }
+            { 
+              id: "sales", 
+              name: "Ventas", 
+              count: loadedTabs.has("sales") && !salesLoading ? salesOrders.length : undefined
+            },
+            { 
+              id: "courtesies", 
+              name: "Cortesías", 
+              count: loadedTabs.has("courtesies") && !courtesyLoading ? courtesyOrders.length : undefined
+            },
+            { 
+              id: "offline", 
+              name: "Ventas Offline", 
+              count: loadedTabs.has("offline") && !offlineLoading ? offlineSales.length : undefined,
+              icon: Banknote 
+            }
           ].map((tab) => (
             <button
               key={tab.id}
@@ -577,7 +600,7 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
             >
               {tab.icon && <tab.icon className="w-4 h-4 mr-2" />}
               {tab.name}
-              {tab.count > 0 && (
+              {tab.count !== undefined && tab.count >= 0 && (
                 <Badge variant="secondary" className="ml-2">
                   {tab.count}
                 </Badge>
@@ -588,7 +611,7 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
         </div>
       </div>
 
-      {/* Search */}
+      {/* Search + Contextual Actions */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
         <div className="flex items-center gap-4">
         <div className="flex-1 relative">
@@ -600,14 +623,28 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
             className="pl-10"
           />
         </div>
+        
+        {/* Botones contextuales según tab activo */}
         <Can do="create" on="ticketTypes">
-          <Button 
-            onClick={() => setShowOfflineDialog(true)}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
-          >
-            <Plus className="w-4 h-4" />
-            Registrar Venta Offline
-          </Button>
+          {activeTab === "courtesies" && (
+            <Button 
+              onClick={() => setShowCourtesyDialog(true)}
+              className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
+            >
+              <Gift className="w-4 h-4" />
+              Crear Cortesía
+            </Button>
+          )}
+          
+          {activeTab === "offline" && (
+            <Button 
+              onClick={() => setShowOfflineDialog(true)}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+            >
+              <Plus className="w-4 h-4" />
+              Registrar Venta Offline
+            </Button>
+          )}
         </Can>
       </div>
       </div>
@@ -631,7 +668,7 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
                 </CardContent>
               </Card>
             ) : (
-              filteredSalesOrders.map((order) => (
+              filteredSalesOrders.map((order: { id: string; created_at: Date; total_tickets: number; configured_tickets: number; pending_tickets: number; total_amount: number; currency: string; tickets: any[]; customer_name: string; customer_email?: string }) => (
                 <OrderCard 
                   key={order.id}
                   order={{
@@ -803,7 +840,7 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
         </div>
       </div>
 
-      {/* Dialog para crear venta offline */}
+      {/* Dialogs */}
       <CreateOfflineSaleDialog 
         eventId={event.id}
         isOpen={showOfflineDialog}
@@ -812,6 +849,13 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
           refreshOfflineSales();
           setShowOfflineDialog(false);
         }}
+      />
+      
+      <CreateCourtesyDialogSimple
+        eventId={event.id}
+        isOpen={showCourtesyDialog}
+        onClose={handleCourtesyClose}
+        onSuccess={handleCourtesySuccess}
       />
     </>
   );

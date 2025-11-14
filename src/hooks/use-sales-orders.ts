@@ -4,26 +4,6 @@ import { useMemo, useCallback } from 'react';
 import useSWR from 'swr';
 import { authenticatedGet } from '@/lib/utils/api';
 
-// Interfaz para órdenes de ventas (agrupadas)
-interface SalesOrder {
-  id: string;            // order_id
-  customer_name: string;
-  customer_email: string;
-  total_tickets: number;
-  configured_tickets: number;
-  pending_tickets: number;
-  used_tickets: number;
-  total_amount: number;
-  currency: string;
-  created_at: Date;
-  tickets: Array<{
-    id: string;
-    ticket_type_name: string;
-    attendee_name?: string;
-    status?: string;
-  }>;
-}
-
 interface SalesOrdersStats {
   total_orders: number;
   total_tickets: number;
@@ -48,7 +28,7 @@ const fetcher = async (url: string) => {
 
 // Hook específico para órdenes de ventas con SWR
 export function useSalesOrders(eventId?: string) {
-  // Construir key de SWR - solo si hay eventId
+  // Construir key de SWR - siempre construir si hay eventId (para leer cache)
   const swrKey = eventId 
     ? `/api/admin/events/${eventId}/sales?dataType=sales&salesLimit=10000`
     : null;
@@ -60,7 +40,7 @@ export function useSalesOrders(eventId?: string) {
     {
       revalidateOnFocus: false,      // No revalidar al volver a la ventana
       revalidateOnReconnect: false,  // No revalidar al reconectar internet
-      revalidateIfStale: false,      // No revalidar automáticamente
+      revalidateIfStale: false,      // No revalidar automáticamente (lee cache sin fetch)
       dedupingInterval: 2 * 60 * 1000, // 2 minutos - evita requests duplicados
       shouldRetryOnError: false,     // No reintentar en caso de error
     }

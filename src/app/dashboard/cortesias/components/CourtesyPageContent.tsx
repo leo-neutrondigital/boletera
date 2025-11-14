@@ -12,7 +12,7 @@ import { CourtesyStats } from './CourtesyStats';
 import { CourtesyFilters } from './CourtesyFilters';
 import { EventGroupCard } from '@/components/shared/EventGroupCard';
 import { CourtesyEmptyState } from './CourtesyEmptyState';
-import { CreateCourtesyDialog } from './CreateCourtesyDialog';
+// import { CreateCourtesyDialog } from './CreateCourtesyDialog'; // DEPRECATED: Ahora se crea desde cada evento
 import { CourtesyGuide } from './CourtesyGuide';
 import { CourtesyPageSkeleton } from '@/components/shared/CourtesySkeletons'; // 🆕 Skeletons mejorados
 import { 
@@ -266,15 +266,7 @@ export function CourtesyPageContent() {
         description="Crear y gestionar boletos de cortesía gratuitos"
         iconColor="green"
         badgeColor="green"
-        actions={
-          <CreateCourtesyDialog
-            events={events}
-            ticketTypes={ticketTypes}
-            onEventChange={handleEventChange}
-            onCreateCourtesy={createCourtesyTickets}
-            isCreating={creating}
-          />
-        }
+        actions={undefined /* CreateCourtesyDialog DEPRECATED: Ahora se crea desde cada evento */}
       />
 
       {/* Main Content */}

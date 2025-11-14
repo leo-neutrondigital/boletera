@@ -1,0 +1,24 @@
+
+> boletera@0.1.0 build
+> next build
+
+  ▲ Next.js 14.2.31
+  - Environments: .env.local
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully
+   Skipping linting
+   Checking validity of types ...
+Failed to compile.
+
+./src/app/dashboard/cortesias/components/CreateCourtesyDialog.tsx:399:37
+Type error: Parameter 'type' implicitly has an 'any' type.
+
+[0m [90m 397 |[39m                 [33m<[39m[33m/[39m[33mSelectTrigger[39m[33m>[39m[0m
+[0m [90m 398 |[39m                 [33m<[39m[33mSelectContent[39m[33m>[39m[0m
+[0m[31m[1m>[22m[39m[90m 399 |[39m                   {ticketTypes[33m.[39mmap((type) [33m=>[39m ([0m
+[0m [90m     |[39m                                     [31m[1m^[22m[39m[0m
+[0m [90m 400 |[39m                     [33m<[39m[33mSelectItem[39m key[33m=[39m{type[33m.[39mid} value[33m=[39m{type[33m.[39mid}[33m>[39m[0m
+[0m [90m 401 |[39m                       {type[33m.[39mname} [33m-[39m ${type[33m.[39mprice} {type[33m.[39mcurrency}[0m
+[0m [90m 402 |[39m                     [33m<[39m[33m/[39m[33mSelectItem[39m[33m>[39m[0m
+Next.js build worker exited with code: 1 and signal: null

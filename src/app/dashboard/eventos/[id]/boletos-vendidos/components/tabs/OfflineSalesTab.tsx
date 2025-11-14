@@ -76,18 +76,18 @@ export function OfflineSalesTab({ eventId, searchTerm, currentPage, itemsPerPage
           </CardContent>
         </Card>
       ) : (
-        paginatedSales.map((order) => {
+        paginatedSales.map((order, index) => {
           const paymentMethodInfo = PAYMENT_METHOD_LABELS[order.payment_method] || PAYMENT_METHOD_LABELS.other;
           
           return (
             <OrderCard 
-              key={order.order_id}
+              key={order.order_id || `offline-${index}`}
               order={{
                 id: order.order_id,
                 createdAt: order.created_at,
                 ticketCount: order.total_tickets,
-                configuredTickets: order.tickets.filter(t => t.status === 'configured').length,
-                pendingTickets: order.tickets.filter(t => t.status === 'purchased').length,
+                configuredTickets: order.tickets.filter((t: { status: string }) => t.status === 'configured').length,
+                pendingTickets: order.tickets.filter((t: { status: string }) => t.status === 'purchased').length,
                 totalAmount: order.total_amount,
                 currency: order.currency,
                 tickets: order.tickets
@@ -102,20 +102,20 @@ export function OfflineSalesTab({ eventId, searchTerm, currentPage, itemsPerPage
               }}
               borderColor="border-orange-500"
               additionalInfo={
-                <div className="space-y-1">
+                <div className="space-y-1" key={`info-${order.order_id}`}>
                   <p className="text-xs text-gray-500">
                     Cliente: {order.customer_name} ({order.customer_email})
                   </p>
                   <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-300">
+                    <Badge key="offline-badge" variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-300">
                       <Banknote className="w-3 h-3 mr-1 inline" />
                       Venta Offline
                     </Badge>
-                    <Badge variant="outline" className="text-xs">
+                    <Badge key="payment-badge" variant="outline" className="text-xs">
                       {paymentMethodInfo.icon} {paymentMethodInfo.label}
                     </Badge>
                     {order.payment_reference && (
-                      <span className="text-xs text-gray-500">
+                      <span key="ref-badge" className="text-xs text-gray-500">
                         Ref: {order.payment_reference}
                       </span>
                     )}

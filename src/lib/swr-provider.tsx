@@ -19,6 +19,12 @@ function localStorageProvider() {
   // Clave única para evitar conflictos con otros sistemas de cache
   const CACHE_KEY = 'swr-cache';
   
+  // ✅ Verificar que estamos en el cliente antes de usar localStorage
+  if (typeof window === 'undefined') {
+    // En servidor, devolver Map vacío sin persistencia
+    return new Map();
+  }
+  
   // Al iniciar, restaurar cache desde localStorage
   let map: Map<string, any>;
   
@@ -47,16 +53,16 @@ function localStorageProvider() {
     }
   };
 
-  // Auto-guardar cada 30 segundos
+  // Auto-guardar cada 30 segundos (solo en cliente)
   const interval = setInterval(saveToStorage, 30000);
 
-  // Guardar antes de cerrar la página
-  if (typeof window !== 'undefined') {
-    window.addEventListener('beforeunload', () => {
-      clearInterval(interval);
-      saveToStorage();
-    });
-  }
+  // Guardar antes de cerrar la página (una sola vez)
+  const handleBeforeUnload = () => {
+    clearInterval(interval);
+    saveToStorage();
+  };
+  
+  window.addEventListener('beforeunload', handleBeforeUnload, { once: true });
 
   return map;
 }

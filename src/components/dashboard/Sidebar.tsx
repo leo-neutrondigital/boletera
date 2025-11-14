@@ -34,12 +34,6 @@ const links: NavLink[] = [
     roles: ["admin", "gestor", "comprobador"] // Eventos visibles para estos roles
   },
   { 
-    href: "/dashboard/cortesias", 
-    label: "Cortesías", 
-    icon: Gift,
-    roles: ["admin", "gestor"] // Solo admin y gestor pueden gestionar cortesías
-  },
-  { 
     href: "/scanner", 
     label: "Scanner QR", 
     icon: QrCode,
