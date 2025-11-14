@@ -36,34 +36,29 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
   const { setSalesActions } = useSalesPage();
   
   // Hooks con cache especializado unificado (LAZY LOADING - no cargan automáticamente)
+  // 🆕 SWR: Hooks cargan automáticamente según activeTab
   const { 
     salesOrders, 
     loading: salesLoading, 
-    loadSalesOrders, // 🆕 Función manual para lazy loading
     refreshSalesOrders 
   } = useSalesOrders(event.id);
   
-  const {
-    courtesyTickets,
-    loading: courtesyLoading,
-    loadCourtesyTickets, // 🆕 Función manual para lazy loading
+  const { 
+    courtesyTickets, 
+    loading: courtesyLoading, 
     refreshCourtesyTickets
   } = useCourtesyTickets();
   
   const {
     offlineSales,
     loading: offlineLoading,
-    loadOfflineSales, // 🆕 Función manual para lazy loading
     refresh: refreshOfflineSales
   } = useOfflineSales(event.id);
   
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState<"sales" | "courtesies" | "offline">("sales");
-  const [showOfflineDialog, setShowOfflineDialog] = useState(false);
-  const [loadedTabs, setLoadedTabs] = useState<Set<string>>(new Set()); // 🆕 Tracking de pestañas cargadas
-  
-  // 📄 Estados de paginación - definir ANTES de usarlos
+  const [showOfflineDialog, setShowOfflineDialog] = useState(false);  // 📄 Estados de paginación - definir ANTES de usarlos
   const [salesPage, setSalesPage] = useState(1);
   const [salesLimit, setSalesLimit] = useState(10);
   const [offlinePage, setOfflinePage] = useState(1);
@@ -82,40 +77,8 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
     itemsPerPage: salesLimit 
   });
 
-  // 🔄 LAZY LOADING: Cargar datos solo cuando se activa la pestaña correspondiente por primera vez
-  useEffect(() => {
-    const tabKey = activeTab;
-    
-    // Si la pestaña ya fue cargada, no hacer nada
-    if (loadedTabs.has(tabKey)) {
-      console.log(`✅ Tab "${tabKey}" already loaded, skipping...`);
-      return;
-    }
-    
-    console.log(`📥 Loading data for tab: "${tabKey}"`);
-    
-    // Cargar datos según la pestaña activa
-    // Sales: traer TODAS una sola vez, paginar en frontend
-    switch (activeTab) {
-      case 'sales':
-        console.log('🔵 Calling loadSalesOrders (will load ALL orders)');
-        loadSalesOrders?.(false); // Sin parámetros - trae todas
-        break;
-      case 'courtesies':
-        console.log('🟢 Calling loadCourtesyTickets()...');
-        loadCourtesyTickets?.();
-        break;
-      case 'offline':
-        console.log('🟠 Calling loadOfflineSales()...');
-        loadOfflineSales?.();
-        break;
-    }
-    
-    // Marcar pestaña como cargada
-    setLoadedTabs(prev => new Set(prev).add(tabKey));
-    
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab]); // Solo reaccionar a cambios en activeTab (carga inicial solamente)
+  // 🆕 SWR carga automáticamente al montar - no necesita useEffect manual
+  // El caché persiste entre navegaciones de tabs
 
   // Estado de carga combinado
   const isLoading = salesLoading || courtesyLoading;
