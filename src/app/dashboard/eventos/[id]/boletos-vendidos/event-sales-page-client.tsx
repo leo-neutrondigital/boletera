@@ -35,31 +35,33 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
   const { toast } = useToast();
   const { setSalesActions } = useSalesPage();
   
-  // 🆕 Hooks SWR: Cache automático, funciones memoizadas estables
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [activeTab, setActiveTab] = useState<"sales" | "courtesies" | "offline">("sales");
+  const [loadedTabs, setLoadedTabs] = useState<Set<string>>(new Set(["sales"])); // Tab inicial
+  
+  // 🆕 Lazy Loading: Solo cargar cuando el tab ha sido visitado
+  // Si eventId es null, SWR no hace fetch (key = null)
   const { 
     salesOrders, 
     loading: salesLoading,
     stats: salesStats,
     refreshSalesOrders 
-  } = useSalesOrders(event.id);
+  } = useSalesOrders(loadedTabs.has("sales") ? event.id : undefined);
   
   const { 
     courtesyOrders, 
     loading: courtesyLoading,
     stats: courtesyStats,
     refreshCourtesyOrders
-  } = useCourtesyOrders(event.id);
+  } = useCourtesyOrders(loadedTabs.has("courtesies") ? event.id : undefined);
   
   const {
     offlineSales,
     loading: offlineLoading,
     stats: offlineStats,
     refreshOfflineSales
-  } = useOfflineSalesOrders(event.id);
-  
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [activeTab, setActiveTab] = useState<"sales" | "courtesies" | "offline">("sales");
+  } = useOfflineSalesOrders(loadedTabs.has("offline") ? event.id : undefined);
   const [showOfflineDialog, setShowOfflineDialog] = useState(false);  // 📄 Estados de paginación - definir ANTES de usarlos
   const [salesPage, setSalesPage] = useState(1);
   const [salesLimit, setSalesLimit] = useState(10);
@@ -109,6 +111,11 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
     setOfflinePage(1);
     setOfflineLimit(limit);
   };
+
+  // 🆕 Marcar tab como "cargado" cuando se visita
+  useEffect(() => {
+    setLoadedTabs(prev => new Set(prev).add(activeTab));
+  }, [activeTab]);
 
   // 🔄 Handler unificado para refrescar según el tab activo
   const handleRefresh = useCallback(() => {

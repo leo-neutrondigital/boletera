@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSWRConfig } from 'swr';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -51,6 +52,7 @@ export function CreateOfflineSaleDialog({
   onSuccess
 }: CreateOfflineSaleDialogProps) {
   const { toast } = useToast();
+  const { mutate } = useSWRConfig(); // 🆕 Mutate global de SWR
   const { ticketTypes, loading: loadingTicketTypes } = useCachedTicketTypes(eventId);
   
   // Fecha por defecto: ayer a las 12:00 PM (formato local, sin conversión UTC)
@@ -248,6 +250,11 @@ export function CreateOfflineSaleDialog({
       }
       
       await response.json(); // Venta creada exitosamente
+      
+      // 🆕 Invalidar SOLO cache de offline sales (granular)
+      const offlineSalesKey = `/api/admin/offline-sales?eventId=${eventId}`;
+      console.log('🔄 Invalidating offline sales cache:', offlineSalesKey);
+      await mutate(offlineSalesKey);
       
       toast({
         title: "Venta offline registrada exitosamente",
