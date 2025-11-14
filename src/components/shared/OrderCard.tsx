@@ -54,7 +54,7 @@ export function OrderCard({
           <div className="flex items-center gap-2 mb-2">
             <Package className="w-4 h-4 text-gray-500" />
             <p className="font-medium text-gray-900">
-              Orden #{order.id.slice(-8).toUpperCase()}
+              Orden #{order.id ? order.id.slice(-8).toUpperCase() : 'N/A'}
             </p>
             <Badge variant="outline" className="text-xs">
               {format(order.createdAt, "d MMM yyyy", { locale: es })}

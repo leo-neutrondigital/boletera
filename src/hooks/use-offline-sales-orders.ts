@@ -51,7 +51,7 @@ const fetcher = async (url: string) => {
 };
 
 export function useOfflineSalesOrders(eventId?: string) {
-  const swrKey = eventId ? `/api/admin/events/offline-sales?eventId=${eventId}` : null;
+  const swrKey = eventId ? `/api/admin/offline-sales?eventId=${eventId}` : null;
   
   const { data, error, isLoading, mutate } = useSWR(swrKey, fetcher, {
     revalidateOnFocus: false,
@@ -63,24 +63,26 @@ export function useOfflineSalesOrders(eventId?: string) {
 
   // Procesar ventas offline
   const offlineSales = useMemo((): OfflineSale[] => {
-    if (!data?.offlineSales) return [];
+    if (!data?.orders) return [];
     
-    return data.offlineSales.map((sale: any) => ({
-      id: sale.id,
-      event_id: sale.event_id,
-      customer_name: sale.customer_name,
-      customer_email: sale.customer_email,
-      customer_phone: sale.customer_phone,
-      total_amount: sale.total_amount,
-      currency: sale.currency || 'MXN',
-      payment_method: sale.payment_method,
-      payment_reference: sale.payment_reference,
-      total_tickets: sale.total_tickets,
-      notes: sale.notes,
-      created_at: new Date(sale.created_at),
-      created_by: sale.created_by,
-      tickets: sale.tickets || [],
-    }));
+    return data.orders
+      .filter((sale: any) => sale.order_id) // Filtrar órdenes sin ID
+      .map((sale: any) => ({
+        id: sale.order_id,
+        event_id: sale.event_id,
+        customer_name: sale.customer_name,
+        customer_email: sale.customer_email,
+        customer_phone: sale.customer_phone,
+        total_amount: sale.total_amount || 0,
+        currency: sale.currency || 'MXN',
+        payment_method: sale.payment_method,
+        payment_reference: sale.payment_reference,
+        total_tickets: sale.total_tickets || 0,
+        notes: sale.notes,
+        created_at: new Date(sale.created_at || sale.sale_date || Date.now()),
+        created_by: sale.created_by,
+        tickets: sale.tickets || [],
+      }));
   }, [data]);
 
   const stats = useMemo((): OfflineSalesStats => {
