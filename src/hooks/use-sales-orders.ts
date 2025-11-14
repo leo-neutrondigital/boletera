@@ -1,8 +1,11 @@
 "use client";
 
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useDataCache } from '@/contexts/DataCacheContext';
 import { authenticatedGet } from '@/lib/utils/api';
+
+// Cache configuration
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
 
 // Interfaz para órdenes de ventas (agrupadas)
 interface SalesOrder {
@@ -50,14 +53,13 @@ export function useSalesOrders(eventId?: string) {
   });
   const [error, setError] = useState<string | null>(null);
   
-  // Cache configuration
-  const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
+  // Cache keys
   const getCacheKey = (eventId: string) => `sales_orders_${eventId}`;
   const getStatsKey = (eventId: string) => `sales_orders_stats_${eventId}`;
   const getTimestampKey = (eventId: string) => `sales_orders_timestamp_${eventId}`;
   
   // Verificar si el cache es válido
-  const isCacheValid = (eventId: string): boolean => {
+  const isCacheValid = useCallback((eventId: string): boolean => {
     try {
       const timestamp = localStorage.getItem(getTimestampKey(eventId));
       if (!timestamp) return false;
@@ -65,10 +67,10 @@ export function useSalesOrders(eventId?: string) {
     } catch {
       return false;
     }
-  };
+  }, []);
   
   // Cargar desde cache
-  const loadFromCache = (eventId: string): boolean => {
+  const loadFromCache = useCallback((eventId: string): boolean => {
     try {
       const cachedOrders = localStorage.getItem(getCacheKey(eventId));
       const cachedStats = localStorage.getItem(getStatsKey(eventId));
@@ -88,10 +90,10 @@ export function useSalesOrders(eventId?: string) {
       console.warn('⚠️ Error loading sales orders from cache:', error);
     }
     return false;
-  };
+  }, []);
   
   // Guardar en cache
-  const saveToCache = (eventId: string, orders: SalesOrder[], orderStats: SalesOrdersStats) => {
+  const saveToCache = useCallback((eventId: string, orders: SalesOrder[], orderStats: SalesOrdersStats) => {
     try {
       localStorage.setItem(getCacheKey(eventId), JSON.stringify(orders));
       localStorage.setItem(getStatsKey(eventId), JSON.stringify(orderStats));
@@ -100,7 +102,7 @@ export function useSalesOrders(eventId?: string) {
     } catch (error) {
       console.warn('⚠️ Error saving sales orders to cache:', error);
     }
-  };
+  }, []);
   
   // Limpiar cache
   const clearCache = (eventId: string) => {
@@ -114,7 +116,7 @@ export function useSalesOrders(eventId?: string) {
     }
   };
   
-  // Función para cargar órdenes de ventas
+  // Función para cargar TODAS las órdenes de ventas (sin paginación)
   const loadSalesOrders = useCallback(async (force = false) => {
     if (!eventId) return;
     
@@ -129,10 +131,11 @@ export function useSalesOrders(eventId?: string) {
     setError(null);
     
     try {
-      console.log('📥 Loading sales orders from API for event:', eventId);
+      console.log('📥 Loading ALL sales orders from API for event:', eventId);
       
-      // Usar API existente que ya agrupa por órdenes
-      const response = await authenticatedGet(`/api/admin/events/${eventId}/sales`);
+      // Traer TODAS las órdenes (sin límite) - paginación en frontend
+      // dataType=sales → solo trae ventas, no cortesías (optimización)
+      const response = await authenticatedGet(`/api/admin/events/${eventId}/sales?salesLimit=10000&dataType=sales`);
       const result = await response.json();
       
       if (!response.ok) {
@@ -161,25 +164,26 @@ export function useSalesOrders(eventId?: string) {
       
       setSalesOrders(orders);
       
-      // Calcular estadísticas
+      // Usar estadísticas del API (calculadas con TODAS las órdenes, no solo la página actual)
       const orderStats: SalesOrdersStats = {
-        total_orders: orders.length,
-        total_tickets: orders.reduce((sum, order) => sum + order.total_tickets, 0),
-        total_revenue: orders.reduce((sum, order) => sum + order.total_amount, 0),
-        configured_tickets: orders.reduce((sum, order) => sum + order.configured_tickets, 0),
-        pending_tickets: orders.reduce((sum, order) => sum + order.pending_tickets, 0),
-        used_tickets: orders.reduce((sum, order) => sum + order.used_tickets, 0),
-        avg_order_value: orders.length > 0 
-          ? orders.reduce((sum, order) => sum + order.total_amount, 0) / orders.length 
-          : 0,
+        total_orders: result.sales.stats.total_orders || result.sales.pagination.totalItems || 0,
+        total_tickets: result.sales.stats.total_tickets || 0,
+        total_revenue: result.sales.stats.total_revenue || 0,
+        configured_tickets: result.sales.stats.configured_tickets || 0,
+        pending_tickets: result.sales.stats.pending_tickets || 0,
+        used_tickets: result.sales.stats.used_tickets || 0,
+        avg_order_value: result.sales.stats.avg_order_value || 0,
       };
       
       setStats(orderStats);
       
+      // Ya no necesitamos guardar pagination - se calcula en frontend
+      
       // Guardar en cache
       saveToCache(eventId, orders, orderStats);
       
-      console.log('✅ Sales orders loaded from API:', orders.length, 'orders');
+      console.log('✅ ALL sales orders loaded from API:', orders.length, 'orders');
+      console.log('📊 Frontend will paginate in memory');
       
     } catch (error) {
       console.error('❌ Error loading sales orders:', error);
@@ -187,19 +191,18 @@ export function useSalesOrders(eventId?: string) {
     } finally {
       setLoading(false);
     }
-  }, [eventId]);
+  }, [eventId, isCacheValid, loadFromCache, saveToCache]);
   
-  // Auto-cargar al montar el hook
-  useEffect(() => {
-    if (eventId) {
-      console.log('📦 useSalesOrders: Auto-loading sales orders...');
-      // Primero intentar cargar desde cache
-      if (!loadFromCache(eventId)) {
-        // Si no hay cache válido, cargar desde API
-        loadSalesOrders();
-      }
-    }
-  }, [eventId]); // Removido loadSalesOrders de dependencias para evitar re-renders
+  // 🔒 LAZY LOADING: NO auto-cargar al montar
+  // El componente debe llamar loadSalesOrders() manualmente cuando sea necesario
+  // useEffect(() => {
+  //   if (eventId) {
+  //     console.log('📦 useSalesOrders: Auto-loading sales orders...');
+  //     if (!loadFromCache(eventId)) {
+  //       loadSalesOrders();
+  //     }
+  //   }
+  // }, [eventId]);
   
   // Funciones de utilidad
   const refreshSalesOrders = () => {
@@ -222,6 +225,7 @@ export function useSalesOrders(eventId?: string) {
     loading,
     stats,
     error,
+    loadSalesOrders, // 🆕 Expuesto para lazy loading manual
     refreshSalesOrders,
     invalidateSalesCache,
   };

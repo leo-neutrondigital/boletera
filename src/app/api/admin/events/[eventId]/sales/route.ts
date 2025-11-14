@@ -34,8 +34,9 @@ export async function GET(
 
     const { eventId } = params;
     
-    // 📄 Parámetros de paginación
+    // 📄 Parámetros de paginación y tipo de datos
     const url = new URL(request.url);
+    const dataType = url.searchParams.get('dataType'); // 'sales' | 'courtesies' | undefined (all)
     const salesPage = parseInt(url.searchParams.get('salesPage') || '1');
     const salesLimit = parseInt(url.searchParams.get('salesLimit') || '10');
     const courtesyPage = parseInt(url.searchParams.get('courtesyPage') || '1');
@@ -43,51 +44,12 @@ export async function GET(
     
     console.log(`📈 Loading sales data for event: ${eventId}`);
     console.log(`👤 Requested by user: ${user.email} (roles: ${user.roles.join(', ')})`);
+    console.log(`📊 Data type requested: ${dataType || 'all (default)'}`);
     console.log(`📄 Pagination: Sales(${salesPage}/${salesLimit}) Courtesy(${courtesyPage}/${courtesyLimit})`);
 
-    // 📈 Obtener todos los tickets VENDIDOS del evento
-    // Intentar primero con is_courtesy = false, si no encuentra nada, buscar sin ese filtro
-    let salesTicketsSnapshot;
-    
-    try {
-      // Intentar con filtro is_courtesy = false
-      salesTicketsSnapshot = await adminDb
-        .collection("tickets")
-        .where("event_id", "==", eventId)
-        .where("is_courtesy", "==", false)
-        .orderBy("created_at", "desc")
-        .get();
-        
-      console.log(`🎫 Found ${salesTicketsSnapshot.size} sales tickets (with is_courtesy filter)`);
-      
-      // Si no encuentra tickets con ese filtro, buscar todos los tickets del evento
-      if (salesTicketsSnapshot.empty) {
-        console.log('🔄 No tickets found with is_courtesy=false filter, trying all tickets...');
-        
-        salesTicketsSnapshot = await adminDb
-          .collection("tickets")
-          .where("event_id", "==", eventId)
-          .orderBy("created_at", "desc")
-          .get();
-          
-        console.log(`🎫 Found ${salesTicketsSnapshot.size} total tickets (no courtesy filter)`);
-      }
-    } catch (error) {
-      console.warn('⚠️ Error with is_courtesy filter, falling back to all tickets:', error);
-      
-      // Fallback: buscar todos los tickets del evento
-      salesTicketsSnapshot = await adminDb
-        .collection("tickets")
-        .where("event_id", "==", eventId)
-        .orderBy("created_at", "desc")
-        .get();
-        
-      console.log(`🎫 Found ${salesTicketsSnapshot.size} tickets (fallback)`);
-    }
-
-    // Agrupar tickets por order_id para crear órdenes
-    const salesOrdersMap = new Map();
-    const salesStats = {
+    // 🎯 Variables para almacenar resultados
+    let salesOrders: any[] = [];
+    let salesStats = {
       total_revenue: 0,
       total_tickets: 0,
       configured_tickets: 0,
@@ -98,23 +60,72 @@ export async function GET(
       currency: 'MXN',
       by_ticket_type: {} as Record<string, { sold: number; revenue: number; avg_price: number }>
     };
+    let salesTotalOrders = 0;
+    let salesTotalPages = 0;
+    let courtesyTotalOrders = 0;
+    let courtesyTotalPages = 0;
+
+    // 📈 VENTAS: Solo ejecutar si se solicitan (dataType='sales' o sin especificar)
+    if (!dataType || dataType === 'sales') {
+    console.log('🎫 Fetching SALES data...');
+    
+    // Obtener todos los tickets VENDIDOS del evento
+    // 🎯 QUERY SUPER OPTIMIZADA: Filtrar por prefijo de order_id en Firestore
+    // Ventas online tienen order_id que comienza con:
+    // - "pi_" → Stripe Payment Intents (método principal)
+    // - "cs_" → Stripe Checkout Sessions (usado por PayPal)
+    // Esto excluye automáticamente cortesías (courtesy_*) y offline (offline_sale_*)
+    
+    console.log(`🔍 Fetching online sales with order_id prefixes: pi_, cs_`);
+    
+    const [stripePayments, checkoutSessions] = await Promise.all([
+      // Query 1: Stripe Payment Intents (pi_)
+      adminDb
+        .collection("tickets")
+        .where("event_id", "==", eventId)
+        .where("order_id", ">=", "pi_")
+        .where("order_id", "<", "pj") // Siguiente prefijo alfabéticamente
+        .orderBy("order_id")
+        .get(),
+      
+      // Query 2: Checkout Sessions (cs_) - PayPal a través de Stripe
+      adminDb
+        .collection("tickets")
+        .where("event_id", "==", eventId)
+        .where("order_id", ">=", "cs_")
+        .where("order_id", "<", "ct")
+        .orderBy("order_id")
+        .get()
+    ]);
+    
+    // Combinar resultados
+    const allDocs = [...stripePayments.docs, ...checkoutSessions.docs];
+    
+    const salesTicketsSnapshot = {
+      docs: allDocs,
+      size: allDocs.length,
+      empty: allDocs.length === 0
+    };
+      
+    console.log(`🎫 Found ${stripePayments.size} Stripe + ${checkoutSessions.size} PayPal = ${salesTicketsSnapshot.size} total online sales`);
+
+    // Agrupar tickets por order_id para crear órdenes
+    const salesOrdersMap = new Map();
 
     // Procesar tickets de ventas y agrupar por order_id
+    // Ya vienen filtrados por order_id (pi_* o cs_*) desde Firestore
+    let processedCount = 0;
+    
     salesTicketsSnapshot.docs.forEach(ticketDoc => {
       const ticketData = ticketDoc.data();
       const orderId = ticketData.order_id;
       
-      // Solo procesar tickets que NO sean cortesías
-      const isCourtesy = ticketData.is_courtesy === true || ticketData.courtesy_type;
-      if (isCourtesy) {
-        console.log(`🎁 Skipping courtesy ticket ${ticketDoc.id} in sales processing`);
-        return;
-      }
-      
+      // Validación básica: debe tener order_id
       if (!orderId) {
-        console.warn(`⚠️ Ticket ${ticketDoc.id} has no order_id`);
         return;
       }
+
+      processedCount++;
 
       // Crear orden si no existe
       if (!salesOrdersMap.has(orderId)) {
@@ -169,16 +180,18 @@ export async function GET(
       salesStats.by_ticket_type[typeName].revenue += amount;
     });
 
+    console.log(`📊 Processed ${processedCount} online sales tickets into ${salesOrdersMap.size} orders`);
+
     // Convertir Map a Array y ordenar por fecha
     const allSalesOrders = Array.from(salesOrdersMap.values())
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     
     // 📄 Aplicar paginación a ventas
-    const salesTotalOrders = allSalesOrders.length;
-    const salesTotalPages = Math.ceil(salesTotalOrders / salesLimit);
+    salesTotalOrders = allSalesOrders.length;
+    salesTotalPages = Math.ceil(salesTotalOrders / salesLimit);
     const salesStartIndex = (salesPage - 1) * salesLimit;
     const salesEndIndex = salesStartIndex + salesLimit;
-    const salesOrders = allSalesOrders.slice(salesStartIndex, salesEndIndex);
+    salesOrders = allSalesOrders.slice(salesStartIndex, salesEndIndex);
     
     salesStats.total_orders = salesTotalOrders; // Total real, no paginado
 
@@ -198,8 +211,22 @@ export async function GET(
       tickets: salesStats.total_tickets,
       revenue: salesStats.total_revenue
     });
+    } // Fin del bloque de ventas
 
-    // 🎁 Obtener cortesías del evento
+    // 🎁 Variables para cortesías
+    let courtesyOrders: any[] = [];
+    let courtesyStats = {
+      total_courtesy_tickets: 0,
+      configured_courtesy: 0,
+      pending_courtesy: 0,
+      by_courtesy_type: {} as Record<string, number>
+    };
+
+    // 🎁 CORTESÍAS: Solo ejecutar si se solicitan (dataType='courtesies' o sin especificar)
+    if (!dataType || dataType === 'courtesies') {
+    console.log('🎁 Fetching COURTESY data...');
+    
+    // Obtener cortesías del evento
     // Si no tiene el campo is_courtesy, usaremos un enfoque diferente
     let courtesyTicketsSnapshot;
     
@@ -240,12 +267,6 @@ export async function GET(
 
     // Agrupar cortesías por order_id
     const courtesyOrdersMap = new Map();
-    const courtesyStats = {
-      total_courtesy_tickets: 0,
-      configured_courtesy: 0,
-      pending_courtesy: 0,
-      by_courtesy_type: {} as Record<string, number>
-    };
 
     (courtesyTicketsSnapshot.docs || []).forEach(ticketDoc => {
       const ticketData = ticketDoc.data();
@@ -303,16 +324,17 @@ export async function GET(
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     
     // 📄 Aplicar paginación a cortesías
-    const courtesyTotalOrders = allCourtesyOrders.length;
-    const courtesyTotalPages = Math.ceil(courtesyTotalOrders / courtesyLimit);
+    courtesyTotalOrders = allCourtesyOrders.length;
+    courtesyTotalPages = Math.ceil(courtesyTotalOrders / courtesyLimit);
     const courtesyStartIndex = (courtesyPage - 1) * courtesyLimit;
     const courtesyEndIndex = courtesyStartIndex + courtesyLimit;
-    const courtesyOrders = allCourtesyOrders.slice(courtesyStartIndex, courtesyEndIndex);
+    courtesyOrders = allCourtesyOrders.slice(courtesyStartIndex, courtesyEndIndex);
 
     console.log(`🎁 Courtesy stats:`, {
       orders: courtesyOrders.length,
       tickets: courtesyStats.total_courtesy_tickets
     });
+    } // Fin del bloque de cortesías
 
     // 📄 Respuesta estructurada con paginación
     const response = {

@@ -251,7 +251,8 @@ export function EventCacheProvider({
       console.log(inBackground ? `🔄 Background loading courtesy tickets for ${eventId}` : `📥 Loading courtesy tickets for ${eventId}`);
       
       // Usar la misma API server-side que ya tenemos
-      const response = await authenticatedGet(`/api/admin/events/${eventId}/sales`);
+      // dataType=courtesies → solo trae cortesías, no ventas (optimización)
+      const response = await authenticatedGet(`/api/admin/events/${eventId}/sales?dataType=courtesies&courtesyLimit=10000`);
       const result = await response.json();
       
       if (!response.ok) {

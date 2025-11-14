@@ -769,13 +769,14 @@ export function useCourtesyOrders() {
 export function useOfflineSales(eventId: string) {
   const { offlineSales, loading, loadOfflineSales, invalidateCache } = useDataCache();
   
-  // Auto-cargar ventas offline al montar con eventId
-  useEffect(() => {
-    if (eventId) {
-      console.log('[useOfflineSales] Auto-loading offline sales for event:', eventId);
-      loadOfflineSales(eventId);
-    }
-  }, [eventId, loadOfflineSales]);
+  // 🔒 LAZY LOADING: NO auto-cargar al montar
+  // El componente debe llamar loadOfflineSales(eventId) manualmente cuando sea necesario
+  // useEffect(() => {
+  //   if (eventId) {
+  //     console.log('[useOfflineSales] Auto-loading offline sales for event:', eventId);
+  //     loadOfflineSales(eventId);
+  //   }
+  // }, [eventId, loadOfflineSales]);
   
   // Filtrar ventas por evento
   const eventOfflineSales = React.useMemo(() => {
@@ -815,6 +816,7 @@ export function useOfflineSales(eventId: string) {
     offlineSales: eventOfflineSales,
     loading: loading.offlineSales,
     stats,
+    loadOfflineSales: () => loadOfflineSales(eventId), // 🆕 Expuesto para lazy loading manual
     refresh: () => {
       invalidateCache(['offlineSales']);
       loadOfflineSales(eventId, true);

@@ -33,14 +33,26 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    console.log('🔍 Loading courtesy orders grouped by order_id...');
+    // Obtener eventId de los query params (opcional para retrocompatibilidad)
+    const { searchParams } = new URL(request.url);
+    const eventId = searchParams.get('eventId');
 
-    // Buscar todas las cortesías
-    const courtesyTicketsSnapshot = await adminDb
+    console.log(eventId 
+      ? `🔍 Loading courtesy orders for event: ${eventId}` 
+      : '🔍 Loading ALL courtesy orders (no eventId filter)');
+
+    // 🆕 OPTIMIZADO: Filtrar cortesías por evento si se proporciona
+    let query = adminDb
       .collection('tickets')
-      .where('is_courtesy', '==', true)
+      .where('is_courtesy', '==', true);
+    
+    if (eventId) {
+      query = query.where('event_id', '==', eventId);
+    }
+    
+    const courtesyTicketsSnapshot = await query
       .orderBy('created_at', 'desc')
-      .limit(500) // Aumentar límite para manejar múltiples órdenes
+      .limit(eventId ? 1000 : 5000) // Sin eventId, traer hasta 5000 para no limitar
       .get();
 
     const allTickets = courtesyTicketsSnapshot.docs.map(doc => ({

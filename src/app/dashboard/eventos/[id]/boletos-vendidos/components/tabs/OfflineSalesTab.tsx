@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-import { useOfflineSales } from '@/contexts/DataCacheContext';
 import { OrderCard } from '@/components/shared/OrderCard';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,6 +11,8 @@ interface OfflineSalesTabProps {
   searchTerm: string;
   currentPage: number;
   itemsPerPage: number;
+  offlineSales: any[]; // 🆕 Recibir datos como prop
+  loading: boolean; // 🆕 Recibir loading como prop
 }
 
 const PAYMENT_METHOD_LABELS: Record<string, { label: string; icon: string }> = {
@@ -21,8 +22,8 @@ const PAYMENT_METHOD_LABELS: Record<string, { label: string; icon: string }> = {
   other: { label: 'Otro', icon: '📋' }
 };
 
-export function OfflineSalesTab({ eventId, searchTerm, currentPage, itemsPerPage }: OfflineSalesTabProps) {
-  const { offlineSales, loading } = useOfflineSales(eventId);
+export function OfflineSalesTab({ eventId, searchTerm, currentPage, itemsPerPage, offlineSales, loading }: OfflineSalesTabProps) {
+  // 🔒 Ya no usa useOfflineSales aquí - recibe datos del padre
 
   // Filtrar por término de búsqueda
   const filteredSales = useMemo(() => {

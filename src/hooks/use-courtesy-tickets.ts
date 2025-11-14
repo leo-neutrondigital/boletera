@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect } from 'react';
-import { useEventCache, type CourtesyTicket } from './use-event-cache';
+import { useEventCache } from './use-event-cache';
 
 // Hook específico para boletos de cortesía
 export function useCourtesyTickets() {
@@ -12,11 +11,12 @@ export function useCourtesyTickets() {
     invalidateCache 
   } = useEventCache();
   
-  // Auto-cargar cortesías al montar el hook
-  useEffect(() => {
-    console.log('📦 useCourtesyTickets: Auto-loading courtesy tickets...');
-    loadCourtesyTickets();
-  }, [loadCourtesyTickets]);
+  // 🔒 LAZY LOADING: NO auto-cargar al montar
+  // El componente debe llamar loadCourtesyTickets() manualmente cuando sea necesario
+  // useEffect(() => {
+  //   console.log('📦 useCourtesyTickets: Auto-loading courtesy tickets...');
+  //   loadCourtesyTickets();
+  // }, [loadCourtesyTickets]);
   
   // Funciones específicas para cortesías
   const refreshCourtesyTickets = () => loadCourtesyTickets(true);
@@ -38,6 +38,7 @@ export function useCourtesyTickets() {
     courtesyTickets,
     loading: loading.courtesyTickets,
     stats,
+    loadCourtesyTickets, // 🆕 Expuesto para lazy loading manual
     refreshCourtesyTickets,
     invalidateCourtesyTickets,
     error: null // Por compatibilidad

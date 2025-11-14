@@ -6,19 +6,14 @@ import { useCourtesyTickets } from "@/hooks/use-courtesy-tickets"; // 🆕 Hook 
 import { useOfflineSales } from "@/contexts/DataCacheContext"; // 🆕 Hook para ventas offline
 import { authenticatedGet } from "@/lib/utils/api"; // Para CSV con llamada directa
 import {
-  
   Search,
   Plus,
-  
-  DollarSign,
-  TicketIcon,
-  TrendingUp,
   Gift,
   AlertCircle,
   ArrowRight,
   Banknote
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -28,7 +23,6 @@ import { Can } from "@/components/auth/Can";
 import { OrderCard } from "@/components/shared/OrderCard";
 import { PaginationControls } from "@/components/shared/PaginationControls";
 import { useSalesPage } from "@/contexts/SalesPageContext";
-import { formatCurrency } from "@/lib/utils/currency";
 import { OfflineSalesTab } from "./components/tabs/OfflineSalesTab";
 import { CreateOfflineSaleDialog } from "./components/offline/CreateOfflineSaleDialog";
 import type { Event } from "@/types";
@@ -41,103 +35,87 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
   const { toast } = useToast();
   const { setSalesActions } = useSalesPage();
   
-  // Hooks con cache especializado unificado
+  // Hooks con cache especializado unificado (LAZY LOADING - no cargan automáticamente)
   const { 
     salesOrders, 
     loading: salesLoading, 
-    stats: salesStats, 
+    loadSalesOrders, // 🆕 Función manual para lazy loading
     refreshSalesOrders 
-  } = useSalesOrders(event.id); // 🆕 Pasar eventId como parámetro
+  } = useSalesOrders(event.id);
   
   const {
     courtesyTickets,
     loading: courtesyLoading,
-    stats: courtesyStats,
+    loadCourtesyTickets, // 🆕 Función manual para lazy loading
     refreshCourtesyTickets
   } = useCourtesyTickets();
   
   const {
     offlineSales,
     loading: offlineLoading,
-    stats: offlineStats,
+    loadOfflineSales, // 🆕 Función manual para lazy loading
     refresh: refreshOfflineSales
-  } = useOfflineSales(event.id); // 🆕 Hook para ventas offline
+  } = useOfflineSales(event.id);
   
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [activeTab, setActiveTab] = useState<"sales" | "courtesies" | "offline" | "all">("sales");
-  const [showOfflineDialog, setShowOfflineDialog] = useState(false); // 🆕 Estado para dialog
+  const [activeTab, setActiveTab] = useState<"sales" | "courtesies" | "offline">("sales");
+  const [showOfflineDialog, setShowOfflineDialog] = useState(false);
+  const [loadedTabs, setLoadedTabs] = useState<Set<string>>(new Set()); // 🆕 Tracking de pestañas cargadas
   
-  // 📄 Estados de paginación (mantener para cortesias)
+  // 📄 Estados de paginación - definir ANTES de usarlos
   const [salesPage, setSalesPage] = useState(1);
   const [salesLimit, setSalesLimit] = useState(10);
-  const [courtesyPage, setCourtesyPage] = useState(1);
-  const [courtesyLimit, setCourtesyLimit] = useState(10);
   const [offlinePage, setOfflinePage] = useState(1);
   const [offlineLimit, setOfflineLimit] = useState(10);
+  
+  console.log('🔍 DEBUG: activeTab =', activeTab, '| loadedTabs =', Array.from(loadedTabs), '| salesOrders.length =', salesOrders.length);
+  
+  // Calcular paginación localmente
+  const salesTotalPages = Math.ceil((salesOrders?.length || 0) / salesLimit);
+  const salesTotalItems = salesOrders?.length || 0;
+  
+  console.log('📄 DEBUG pagination:', { 
+    currentPage: salesPage, 
+    totalPages: salesTotalPages, 
+    totalItems: salesTotalItems,
+    itemsPerPage: salesLimit 
+  });
 
-  // Los datos se cargan automÃ¡ticamente por los hooks con cache
-
-  // 📈 Datos unificados del cache - Usando órdenes reales, no boletos individuales
-  const data = useMemo(() => {
-    // Las órdenes de ventas ya vienen agrupadas correctamente del nuevo hook
-    const salesOrdersData = salesOrders;
-
-    // Transformar cortesías para compatibilidad con UI
-    const courtesyOrders = courtesyTickets.map(courtesy => ({
-      id: courtesy.id,
-      customer_name: courtesy.customer_name,
-      customer_email: courtesy.customer_email,
-      total_tickets: courtesy.total_tickets,
-      configured_tickets: courtesy.configured_tickets,
-      pending_tickets: courtesy.pending_tickets,
-      courtesy_type: courtesy.courtesy_type,
-      created_at: courtesy.created_at,
-      tickets: courtesy.tickets
-    }));
-
-    return {
-      sales: {
-        orders: salesOrdersData,
-        stats: {
-          total_revenue: salesStats?.total_revenue || 0,
-          total_tickets: salesStats?.total_tickets || 0,
-          configured_tickets: salesStats?.configured_tickets || 0,
-          pending_tickets: salesStats?.pending_tickets || 0,
-          used_tickets: salesStats?.used_tickets || 0,
-          avg_order_value: salesStats?.avg_order_value || 0,
-          total_orders: salesStats?.total_orders || 0,
-          currency: 'MXN',
-          by_ticket_type: {}
-        },
-        pagination: {
-          currentPage: salesPage,
-          totalPages: Math.ceil((salesStats?.total_orders || 0) / salesLimit),
-          totalItems: salesStats?.total_orders || 0,
-          itemsPerPage: salesLimit,
-          hasNextPage: false,
-          hasPrevPage: false
-        }
-      },
-      courtesies: {
-        orders: courtesyOrders,
-        stats: {
-          total_courtesy_tickets: courtesyStats?.totalTickets || 0,
-          configured_courtesy: courtesyStats?.configured || 0,
-          pending_courtesy: courtesyStats?.pending || 0,
-          by_courtesy_type: courtesyStats?.byType || {}
-        },
-        pagination: {
-          currentPage: courtesyPage,
-          totalPages: Math.ceil((courtesyStats?.total || 0) / courtesyLimit),
-          totalItems: courtesyStats?.total || 0,
-          itemsPerPage: courtesyLimit,
-          hasNextPage: false,
-          hasPrevPage: false
-        }
-      }
-    };
-  }, [salesOrders, salesStats, courtesyTickets, courtesyStats, salesPage, salesLimit, courtesyPage, courtesyLimit]);
+  // 🔄 LAZY LOADING: Cargar datos solo cuando se activa la pestaña correspondiente por primera vez
+  useEffect(() => {
+    const tabKey = activeTab;
+    
+    // Si la pestaña ya fue cargada, no hacer nada
+    if (loadedTabs.has(tabKey)) {
+      console.log(`✅ Tab "${tabKey}" already loaded, skipping...`);
+      return;
+    }
+    
+    console.log(`📥 Loading data for tab: "${tabKey}"`);
+    
+    // Cargar datos según la pestaña activa
+    // Sales: traer TODAS una sola vez, paginar en frontend
+    switch (activeTab) {
+      case 'sales':
+        console.log('🔵 Calling loadSalesOrders (will load ALL orders)');
+        loadSalesOrders?.(false); // Sin parámetros - trae todas
+        break;
+      case 'courtesies':
+        console.log('🟢 Calling loadCourtesyTickets()...');
+        loadCourtesyTickets?.();
+        break;
+      case 'offline':
+        console.log('🟠 Calling loadOfflineSales()...');
+        loadOfflineSales?.();
+        break;
+    }
+    
+    // Marcar pestaña como cargada
+    setLoadedTabs(prev => new Set(prev).add(tabKey));
+    
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]); // Solo reaccionar a cambios en activeTab (carga inicial solamente)
 
   // Estado de carga combinado
   const isLoading = salesLoading || courtesyLoading;
@@ -153,22 +131,19 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
 
   // 📄 Handlers de paginación
   const handleSalesPageChange = (page: number) => {
+    console.log('📄 Changing to page:', page, '(no query - paginating in memory)');
     setSalesPage(page);
+    // NO llamar loadSalesOrders - solo cambiar estado para paginar en memoria
   };
 
   const handleSalesLimitChange = (limit: number) => {
+    console.log('📄 Changing limit to:', limit, '(no query - paginating in memory)');
     setSalesPage(1); // Reset a página 1
     setSalesLimit(limit);
+    // NO llamar loadSalesOrders - solo cambiar estado para paginar en memoria
   };
 
-  const handleCourtesyPageChange = (page: number) => {
-    setCourtesyPage(page);
-  };
-
-  const handleCourtesyLimitChange = (limit: number) => {
-    setCourtesyPage(1);
-    setCourtesyLimit(limit);
-  };
+  // 🎁 Cortesías: paginación removida (se muestran todas)
 
   const handleOfflinePageChange = (page: number) => {
     setOfflinePage(page);
@@ -354,7 +329,7 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
     setSalesActions({
       onRefresh: async () => {
         setIsRefreshing(true);
-        await refreshSalesOrders(); // Cache de ventas
+        await refreshSalesOrders(); // Cache de ventas (trae todas)
         await refreshCourtesyTickets(); // Cache de cortesías
         await refreshOfflineSales(); // Cache de ventas offline
         setIsRefreshing(false);
@@ -368,28 +343,49 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRefreshing]); // Solo depender de isRefreshing
 
-  // Filtrar órdenes según búsqueda
+  // Filtrar y paginar órdenes en memoria
   const filteredSalesOrders = useMemo(() => {
-    if (!data?.sales.orders || !searchTerm) return data?.sales.orders || [];
+    // 1. Filtrar por búsqueda si hay
+    let filtered = salesOrders || [];
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase();
+      filtered = filtered.filter(order => 
+        order.customer_name.toLowerCase().includes(searchLower) ||
+        order.customer_email.toLowerCase().includes(searchLower) ||
+        order.id.toLowerCase().includes(searchLower)
+      );
+    }
     
-    const searchLower = searchTerm.toLowerCase();
-    return data.sales.orders.filter(order => 
-      order.customer_name.toLowerCase().includes(searchLower) ||
-      order.customer_email.toLowerCase().includes(searchLower) ||
-      order.id.toLowerCase().includes(searchLower)
-    );
-  }, [data?.sales.orders, searchTerm]);
+    // 2. Paginar en memoria (slice)
+    const startIndex = (salesPage - 1) * salesLimit;
+    const endIndex = startIndex + salesLimit;
+    return filtered.slice(startIndex, endIndex);
+  }, [salesOrders, searchTerm, salesPage, salesLimit]);
 
+  // 🎁 Mostrar TODAS las cortesías (ya vienen completas de Firestore, no paginar)
   const filteredCourtesyOrders = useMemo(() => {
-    if (!data?.courtesies.orders || !searchTerm) return data?.courtesies.orders || [];
+    // Usar courtesyTickets directamente (tiene TODAS las 243 cortesías)
+    const allCourtesies = courtesyTickets.map(courtesy => ({
+      id: courtesy.id,
+      customer_name: courtesy.customer_name,
+      customer_email: courtesy.customer_email,
+      total_tickets: courtesy.total_tickets,
+      configured_tickets: courtesy.configured_tickets,
+      pending_tickets: courtesy.pending_tickets,
+      courtesy_type: courtesy.courtesy_type,
+      created_at: courtesy.created_at,
+      tickets: courtesy.tickets
+    }));
+    
+    if (!searchTerm) return allCourtesies;
     
     const searchLower = searchTerm.toLowerCase();
-    return data.courtesies.orders.filter(order => 
+    return allCourtesies.filter(order => 
       order.customer_name.toLowerCase().includes(searchLower) ||
       order.customer_email.toLowerCase().includes(searchLower) ||
       order.courtesy_type.toLowerCase().includes(searchLower)
     );
-  }, [data?.courtesies.orders, searchTerm]);
+  }, [courtesyTickets, searchTerm]);
 
   const filteredOfflineSales = useMemo(() => {
     if (!offlineSales || !searchTerm) return offlineSales;
@@ -427,18 +423,11 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
     );
   }
 
-  // Stats directos del cache unificado - usando data.sales.stats
-  const courtesyStatsSummary = {
-    total_courtesy_tickets: courtesyStats?.totalTickets || 0,
-    configured_courtesy: courtesyStats?.configured || 0,
-    pending_courtesy: courtesyStats?.pending || 0,
-    by_courtesy_type: courtesyStats?.byType || {}
-  };
-
   return (
     <>
-      {/* Stats Cards */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+      {/* 🔒 STATS CARDS OCULTADOS - Requieren múltiples queries al cargar página
+          Descomentar solo si se implementa query agregada separada y ligera */}
+      {/* <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <Card>
             <CardContent className="p-6">
@@ -520,10 +509,11 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
             </CardContent>
           </Card>
         </div>
-      </div>
+      </div> */}
 
-      {/* Estado de Ventas y Cortesías */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+      {/* 🔒 ESTADO DE VENTAS Y CORTESÍAS OCULTADO - Requiere queries adicionales
+          Descomentar si se necesita visibilidad de stats por pestaña */}
+      {/* <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
@@ -546,7 +536,6 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
                 </p>
                 <p className="text-xs text-gray-600">Pendientes</p>
               </div>
-              {/* Usados oculto por complejidad de múltiples días */}
             </div>
 
             <div className="pt-4 border-t">
@@ -597,17 +586,16 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
           </CardContent>
         </Card>
       </div>
-      </div>
+      </div> */}
 
       {/* Tabs */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
         <div className="border-b border-gray-200">
         <nav className="-mb-px flex space-x-8">
           {[
-            { id: "sales", name: "Ventas", count: data?.sales.orders.length || 0 },
-            { id: "courtesies", name: "Cortesías", count: data?.courtesies.orders.length || 0 },
-            { id: "offline", name: "Ventas Offline", count: offlineSales.length || 0, icon: Banknote },
-            { id: "all", name: "Todos", count: (data?.sales.orders.length || 0) + (data?.courtesies.orders.length || 0) + (offlineSales.length || 0) }
+            { id: "sales", name: "Ventas", count: salesOrders.length || 0 },
+            { id: "courtesies", name: "Cortesías", count: courtesyTickets.length || 0 },
+            { id: "offline", name: "Ventas Offline", count: offlineSales.length || 0, icon: Banknote }
           ].map((tab) => (
             <button
               key={tab.id}
@@ -658,14 +646,8 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
       {/* Orders Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-8">
         <div className="space-y-6">
-        {(activeTab === "sales" || activeTab === "all") && (
+        {activeTab === "sales" && (
           <div className="space-y-4">
-            {activeTab === "all" && (
-              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                <DollarSign className="w-5 h-5" />
-                Ventas ({filteredSalesOrders.length})
-              </h3>
-            )}
             
             {filteredSalesOrders.length === 0 ? (
               <Card>
@@ -713,14 +695,8 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
           </div>
         )}
 
-        {(activeTab === "courtesies" || activeTab === "all") && (
+        {activeTab === "courtesies" && (
           <div className="space-y-4">
-            {activeTab === "all" && (
-              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                <Gift className="w-5 h-5" />
-                Cortesías ({filteredCourtesyOrders.length})
-              </h3>
-            )}
             
             {filteredCourtesyOrders.length === 0 ? (
               <Card>
@@ -788,108 +764,15 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
             searchTerm={searchTerm}
             currentPage={offlinePage}
             itemsPerPage={offlineLimit}
+            offlineSales={offlineSales}
+            loading={offlineLoading}
           />
-        )}
-
-        {activeTab === "all" && (
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <Banknote className="w-5 h-5" />
-              Ventas Offline ({offlineSales.filter(order => 
-                !searchTerm || 
-                order.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                order.customer_email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (order.payment_reference && order.payment_reference.toLowerCase().includes(searchTerm.toLowerCase()))
-              ).length})
-            </h3>
-            
-            {offlineSales.filter(order => 
-              !searchTerm || 
-              order.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-              order.customer_email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-              (order.payment_reference && order.payment_reference.toLowerCase().includes(searchTerm.toLowerCase()))
-            ).length === 0 ? (
-              <Card>
-                <CardContent className="p-8 text-center">
-                  <Banknote className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">
-                    Sin ventas offline
-                  </h3>
-                  <p className="text-gray-600">
-                    Las ventas registradas manualmente aparecerán aquí.
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              offlineSales.filter(order => 
-                !searchTerm || 
-                order.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                order.customer_email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (order.payment_reference && order.payment_reference.toLowerCase().includes(searchTerm.toLowerCase()))
-              ).map((order) => {
-                const PAYMENT_METHOD_LABELS: Record<string, { label: string; icon: string }> = {
-                  cash: { label: 'Efectivo', icon: '💵' },
-                  transfer: { label: 'Transferencia', icon: '🏦' },
-                  card: { label: 'Tarjeta', icon: '💳' },
-                  other: { label: 'Otro', icon: '📋' }
-                };
-                const paymentMethodInfo = PAYMENT_METHOD_LABELS[order.payment_method] || PAYMENT_METHOD_LABELS.other;
-                
-                return (
-                  <OrderCard 
-                    key={order.order_id}
-                    order={{
-                      id: order.order_id,
-                      createdAt: order.created_at,
-                      ticketCount: order.total_tickets,
-                      configuredTickets: order.tickets.filter(t => t.status === 'configured').length,
-                      pendingTickets: order.tickets.filter(t => t.status === 'purchased').length,
-                      totalAmount: order.total_amount,
-                      currency: order.currency,
-                      tickets: order.tickets
-                    }}
-                    onAction={(orderId) => {
-                      window.location.href = `/dashboard/ventas/orden/${orderId}?eventId=${event.id}`;
-                    }}
-                    actionButton={{
-                      text: "Ver boletos",
-                      variant: "outline" as const,
-                      icon: <ArrowRight className="w-4 h-4" />
-                    }}
-                    borderColor="border-orange-500"
-                    additionalInfo={
-                      <div className="space-y-1">
-                        <p className="text-xs text-gray-500">
-                          Cliente: {order.customer_name} ({order.customer_email})
-                        </p>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-300">
-                            <Banknote className="w-3 h-3 mr-1 inline" />
-                            Venta Offline
-                          </Badge>
-                          <Badge variant="outline" className="text-xs">
-                            {paymentMethodInfo.icon} {paymentMethodInfo.label}
-                          </Badge>
-                          {order.payment_reference && (
-                            <span className="text-xs text-gray-500">
-                              Ref: {order.payment_reference}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    }
-                  />
-                );
-              })
-            )}
-          </div>
         )}
         
         {/* Mensaje cuando no hay resultados - DENTRO DEL SCROLL */}
         {searchTerm && (
           (activeTab === "sales" && filteredSalesOrders.length === 0) ||
-          (activeTab === "courtesies" && filteredCourtesyOrders.length === 0) ||
-          (activeTab === "all" && filteredSalesOrders.length === 0 && filteredCourtesyOrders.length === 0)
+          (activeTab === "courtesies" && filteredCourtesyOrders.length === 0)
         ) && (
           <Card>
             <CardContent className="p-8 text-center">
@@ -917,11 +800,11 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
         <div className="border-t bg-white pt-4 space-y-4">
           {/* Paginación para Ventas - Solo en tab "sales" */}
-          {activeTab === "sales" && filteredSalesOrders.length > 0 && data?.sales && (
+          {activeTab === "sales" && salesOrders.length > 0 && (
             <PaginationControls
               currentPage={salesPage}
-              totalPages={data.sales.pagination?.totalPages || 1}
-              totalItems={data.sales.pagination?.totalItems || 0}
+              totalPages={Math.ceil(salesOrders.length / salesLimit)}
+              totalItems={salesOrders.length}
               itemsPerPage={salesLimit}
               onPageChange={handleSalesPageChange}
               onItemsPerPageChange={handleSalesLimitChange}
@@ -929,17 +812,11 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
             />
           )}
           
-          {/* Paginación para Cortesías - Solo en tab "courtesies" */}
-          {activeTab === "courtesies" && filteredCourtesyOrders.length > 0 && data?.courtesies && (
-            <PaginationControls
-              currentPage={courtesyPage}
-              totalPages={data.courtesies.pagination?.totalPages || 1}
-              totalItems={data.courtesies.pagination?.totalItems || 0}
-              itemsPerPage={courtesyLimit}
-              onPageChange={handleCourtesyPageChange}
-              onItemsPerPageChange={handleCourtesyLimitChange}
-              label="cortesías"
-            />
+          {/* 🎁 Cortesías: SIN PAGINACIÓN (ya vienen todas de Firestore) */}
+          {activeTab === "courtesies" && filteredCourtesyOrders.length > 0 && (
+            <div className="text-sm text-gray-600 text-center">
+              Mostrando {filteredCourtesyOrders.length} cortesías
+            </div>
           )}
 
           {/* Paginación para Ventas Offline - Solo en tab "offline" */}
