@@ -35,6 +35,7 @@ export default function EventAttendeesPage() {
     event,
     stats,
     isLoading,
+    isValidating,
     error: swrError,
     refresh,
     updateAttendee
@@ -124,10 +125,10 @@ export default function EventAttendeesPage() {
               <Button
                 variant="outline"
                 onClick={refresh} // 🆕 Usar función de refresh del cache
-                disabled={isLoading}
+                disabled={isValidating}
                 className="flex items-center gap-2"
               >
-                <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-4 h-4 ${isValidating ? 'animate-spin' : ''}`} />
                 <span className="hidden sm:inline">Actualizar</span>
               </Button>
             </div>
@@ -183,7 +184,7 @@ export default function EventAttendeesPage() {
               <AttendeesList
                 attendees={attendees}
                 stats={stats}
-                isLoading={isLoading}
+                isLoading={isLoading || isValidating}
                 onRefresh={handleDataRefresh}
                 onAttendeeUpdate={updateAttendee}
                 eventId={eventId}

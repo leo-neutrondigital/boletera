@@ -10,14 +10,21 @@ import {
   UserX,
   Minus,
   ChevronRight,
-  Zap
+  Zap,
+  Download,
+  Settings,
+  RefreshCw
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Skeleton } from '@/components/ui/skeleton';
 import { ManualCheckInModal } from '@/components/scanner/ManualCheckInModal';
+import { TicketCard } from '@/components/tickets/TicketCard';
 import { getTodayInMexicoTimezone } from '@/lib/utils/date-utils';
+import { useToast } from '@/hooks/use-toast';
 
 // 🆕 Importar tipos del cache unificado
 import { AttendeeTicket, EventStats } from '@/contexts/DataCacheContext';
@@ -41,6 +48,8 @@ export function AttendeesList({
   eventId,
   eventName 
 }: AttendeesListProps) {
+  const { toast } = useToast();
+  
   // Estados locales para filtros
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'checked_in' | 'not_arrived' | 'partial'>('all');
@@ -48,6 +57,10 @@ export function AttendeesList({
   // Estados para modal de check-in manual
   const [selectedAttendee, setSelectedAttendee] = useState<AttendeeTicket | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  
+  // Estados para modal de configuración
+  const [selectedTicketForConfig, setSelectedTicketForConfig] = useState<AttendeeTicket | null>(null);
+  const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
 
   // 🆕 Determinar estado de check-in para el día actual
   const getTodayCheckInStatus = (attendee: AttendeeTicket): 'checked_in' | 'not_arrived' | 'partial' => {
@@ -85,8 +98,8 @@ export function AttendeesList({
 
   // Filtrar asistentes
   const filteredAttendees = useMemo(() => {
-    // 1. Primero filtrar boletos sin asignar (status === 'purchased')
-    let filtered = attendees.filter(attendee => attendee.status !== 'purchased');
+    // 1. Iniciar con todos los asistentes (incluir todos los status)
+    let filtered = attendees;
 
     // 2. Filtrar por término de búsqueda
     if (searchTerm.trim()) {
@@ -111,10 +124,10 @@ export function AttendeesList({
     return filtered;
   }, [attendees, searchTerm, statusFilter]);
 
-  // 🆕 Calcular estadísticas del día actual (solo boletos configurados)
+  // 🆕 Calcular estadísticas del día actual (todos los boletos)
   const todayStats = useMemo(() => {
-    // Filtrar solo boletos configurados
-    const configuredAttendees = attendees.filter(a => a.status !== 'purchased');
+    // Usar todos los asistentes
+    const configuredAttendees = attendees;
     
     const todayCheckedIn = configuredAttendees.filter(attendee => {
       const status = getTodayCheckInStatus(attendee);
@@ -187,6 +200,47 @@ export function AttendeesList({
     setSelectedAttendee(null);
   };
 
+  // 📥 Handler para descargar PDF del boleto
+  const handleDownloadPDF = async (attendee: AttendeeTicket, e: React.MouseEvent) => {
+    e.stopPropagation(); // Evitar abrir modal
+    
+    try {
+      // Si ya tiene URL, abrir directamente
+      if (attendee.pdf_url) {
+        window.open(attendee.pdf_url, '_blank');
+        toast({
+          title: "PDF abierto",
+          description: "El boleto se abrió en una nueva pestaña",
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "PDF no disponible",
+          description: "Este boleto aún no tiene PDF generado",
+        });
+      }
+    } catch (error) {
+      console.error('Error abriendo PDF:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "No se pudo abrir el PDF del boleto",
+      });
+    }
+  };
+
+  // ⚙️ Handler para abrir modal de configuración
+  const handleConfigureTicket = (attendee: AttendeeTicket, e: React.MouseEvent) => {
+    e.stopPropagation(); // Evitar abrir modal de check-in
+    setSelectedTicketForConfig(attendee);
+    setIsConfigModalOpen(true);
+  };
+
+  const closeConfigModal = () => {
+    setIsConfigModalOpen(false);
+    setSelectedTicketForConfig(null);
+  };
+
   // Componente de tarjeta de asistente
   const AttendeeCard = ({ attendee }: { attendee: AttendeeTicket }) => {
     // 🎯 Usar estado calculado para HOY (igual que modal)
@@ -207,8 +261,14 @@ export function AttendeesList({
               
               <div className="flex-1 min-w-0">
                 <h3 className="font-medium text-gray-900 truncate">
-                  {attendee.attendee_name}
+                  {attendee.attendee_name || attendee.customer_email || 'Sin asignar'}
                 </h3>
+                {/* Mostrar email del comprador siempre (para identificar) */}
+                {attendee.customer_email && (
+                  <p className="text-xs text-gray-500 truncate mt-0.5">
+                    {attendee.customer_email}
+                  </p>
+                )}
                 
                 <div className="flex items-center gap-4 text-sm text-gray-600 mt-1">
                   <span className="truncate">{attendee.ticket_type_name}</span>
@@ -239,6 +299,32 @@ export function AttendeesList({
 
             {/* Acción - usar estado de HOY */}
             <div className="flex items-center gap-2">
+              {/* Botón de configuración - solo si NO está generado */}
+              {(attendee.status === 'purchased' || attendee.status === 'configured') && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={(e) => handleConfigureTicket(attendee, e)}
+                  className="flex-shrink-0"
+                  title="Configurar boleto"
+                >
+                  <Settings className="w-4 h-4" />
+                </Button>
+              )}
+              
+              {/* Botón de descarga PDF - solo si está generado */}
+              {attendee.status === 'generated' && attendee.pdf_url && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={(e) => handleDownloadPDF(attendee, e)}
+                  className="flex-shrink-0"
+                  title="Descargar PDF"
+                >
+                  <Download className="w-4 h-4" />
+                </Button>
+              )}
+              
               {todayStatus === 'not_arrived' && (
                 <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
                   Registrar
@@ -256,12 +342,52 @@ export function AttendeesList({
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <div className="animate-pulse">
-          <div className="h-4 bg-gray-300 rounded w-1/4 mb-4"></div>
-          <div className="space-y-3">
-            {[1, 2, 3, 4, 5].map(i => (
-              <div key={i} className="h-16 bg-gray-300 rounded"></div>
-            ))}
+        {/* Stats Cards Skeleton */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map(i => (
+            <Card key={i}>
+              <CardContent className="p-4 text-center">
+                <Skeleton className="h-8 w-16 mx-auto mb-2" />
+                <Skeleton className="h-4 w-20 mx-auto" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Search and Filters Skeleton */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Skeleton className="h-10 flex-1" />
+          <Skeleton className="h-10 w-full sm:w-48" />
+        </div>
+
+        {/* Attendees List Skeleton */}
+        <div className="space-y-3">
+          {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+            <Card key={i} className="hover:shadow-md transition-shadow">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <Skeleton className="w-10 h-10 rounded-full flex-shrink-0" />
+                    <div className="flex-1 min-w-0 space-y-2">
+                      <Skeleton className="h-5 w-3/4" />
+                      <Skeleton className="h-4 w-1/2" />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <Skeleton className="h-6 w-20 rounded-full" />
+                    <Skeleton className="w-4 h-4" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Loading indicator */}
+        <div className="text-center py-4">
+          <div className="inline-flex items-center gap-2 text-sm text-gray-500">
+            <RefreshCw className="w-4 h-4 animate-spin" />
+            <span>Actualizando lista de asistentes...</span>
           </div>
         </div>
       </div>
@@ -450,6 +576,47 @@ export function AttendeesList({
         eventName={eventName}
         onTicketUpdated={onAttendeeUpdate}
       />
+
+      {/* Modal de Configuración de Boleto */}
+      <Dialog open={isConfigModalOpen} onOpenChange={setIsConfigModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Configurar Boleto</DialogTitle>
+          </DialogHeader>
+          {selectedTicketForConfig && (
+            <TicketCard
+              ticket={{
+                ...selectedTicketForConfig,
+                ticket_type_name: selectedTicketForConfig.ticket_type_name,
+                created_at: new Date(),
+                purchase_date: new Date(),
+                customer_phone: '',
+                event_id: eventId,
+                ticket_type_id: '',
+                order_id: '',
+                capture_id: '',
+                qr_id: selectedTicketForConfig.qr_id || '',
+                pdf_url: selectedTicketForConfig.pdf_url || undefined,
+                authorized_days: selectedTicketForConfig.authorized_days.map(d => new Date(d)),
+                used_days: selectedTicketForConfig.used_days.map(d => new Date(d)),
+              }}
+              onUpdate={async (ticketId, updates) => {
+                // Actualización optimista local
+                onAttendeeUpdate?.(ticketId, updates);
+                closeConfigModal();
+                toast({
+                  title: "Boleto actualizado",
+                  description: updates.status === 'generated' 
+                    ? "El boleto ha sido configurado y el PDF se está generando"
+                    : "Los datos del boleto han sido guardados",
+                });
+              }}
+              autoEdit={true}
+              canEdit={true}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
     </div>
   );

@@ -207,7 +207,8 @@ export async function GET(
         qr_id: ticketData.qr_id,
         amount_paid: ticketData.amount_paid || 0,
         currency: ticketData.currency || 'MXN',
-        access_type: ticketType?.access_type
+        access_type: ticketType?.access_type,
+        pdf_url: ticketData.pdf_url || null // 🆕 Para botón de descarga PDF
       };
     });
 
