@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSalesOrders } from "@/hooks/use-sales-orders"; // 🆕 Hook SWR ventas
 import { useCourtesyOrders } from "@/hooks/use-courtesy-orders"; // 🆕 Hook SWR cortesías
 import { useOfflineSalesOrders } from "@/hooks/use-offline-sales-orders"; // 🆕 Hook SWR offline
-import { authenticatedGet } from "@/lib/utils/api"; // Para CSV con llamada directa
+import { authenticatedGet, authenticatedDelete } from "@/lib/utils/api"; // Para CSV y DELETE
 import {
   Search,
   Plus,
@@ -75,6 +75,66 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
     refreshCourtesyOrders();
     setShowCourtesyDialog(false);
   }, [refreshCourtesyOrders]);
+  
+  // 🗑️ Handler para borrar cortesía con actualización optimista
+  const handleDeleteCourtesy = useCallback(async (orderId: string, ticketIds: string[]) => {
+    if (!confirm('¿Estás seguro de eliminar esta cortesía? Esta acción no se puede deshacer.')) {
+      return;
+    }
+    
+    try {
+      const response = await authenticatedDelete(`/api/admin/courtesy-orders/${orderId}?ticketIds=${ticketIds.join(',')}`);
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Error al eliminar cortesía');
+      }
+      
+      // Actualización optimista: filtrar del cache local sin refetch
+      refreshCourtesyOrders();
+      
+      toast({
+        title: "Cortesía eliminada",
+        description: "La cortesía y sus boletos han sido eliminados.",
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error instanceof Error ? error.message : "No se pudo eliminar la cortesía",
+      });
+    }
+  }, [refreshCourtesyOrders, toast]);
+  
+  // 🗑️ Handler para borrar venta offline con actualización optimista
+  const handleDeleteOfflineSale = useCallback(async (orderId: string, ticketIds: string[]) => {
+    if (!confirm('¿Estás seguro de eliminar esta venta offline? Esta acción no se puede deshacer.')) {
+      return;
+    }
+    
+    try {
+      const response = await authenticatedDelete(`/api/admin/offline-sales/${orderId}?ticketIds=${ticketIds.join(',')}`);
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Error al eliminar venta offline');
+      }
+      
+      // Actualización optimista: filtrar del cache local sin refetch
+      refreshOfflineSales();
+      
+      toast({
+        title: "Venta eliminada",
+        description: "La venta offline y sus boletos han sido eliminados.",
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error instanceof Error ? error.message : "No se pudo eliminar la venta offline",
+      });
+    }
+  }, [refreshOfflineSales, toast]);
   
   // 📄 Estados de paginación - definir ANTES de usarlos
   const [salesPage, setSalesPage] = useState(1);
@@ -149,14 +209,28 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
       
       console.log('📥 Descargando TODOS los boletos vendidos del evento...');
       
-      // 🔄 Llamada directa a la API para obtener TODOS los datos
-      const response = await authenticatedGet(`/api/admin/events/${event.id}/sales?salesLimit=1000&courtesyLimit=1000`);
-      const result = await response.json();
+      // 🔄 Llamadas paralelas a los endpoints optimizados
+      const [salesResponse, offlineResponse] = await Promise.all([
+        authenticatedGet(`/api/admin/events/${event.id}/sales?salesLimit=1000&courtesyLimit=1000`),
+        authenticatedGet(`/api/admin/offline-sales?eventId=${event.id}`)
+      ]);
       
-      console.log('✅ Datos obtenidos:', result);
+      const result = await salesResponse.json();
+      const offlineResult = await offlineResponse.json();
       
-      if (!response.ok) {
+      console.log('✅ Datos obtenidos:', { 
+        salesOrders: result.sales?.orders?.length || 0, 
+        courtesies: result.courtesies?.orders?.length || 0,
+        offlineOrders: offlineResult.orders?.length || 0,
+        offlineRaw: offlineResult
+      });
+      
+      if (!salesResponse.ok) {
         throw new Error(result.error || 'Error cargando datos de ventas');
+      }
+      
+      if (!offlineResponse.ok) {
+        console.warn('⚠️ Error cargando ventas offline:', offlineResult.error);
       }
       
       // Preparar CSV con todos los boletos individuales
@@ -267,6 +341,51 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
                 new Date(courtesy.created_at).toLocaleDateString(),
                 '',
                 courtesy.courtesy_type || 'General'
+              ]);
+            }
+          }
+        });
+      }
+      
+      // 💵 Procesar ventas offline
+      if (offlineResponse.ok && offlineResult.orders) {
+        console.log(`💵 Procesando ${offlineResult.orders.length} ventas offline...`);
+        
+        offlineResult.orders.forEach((offline: any) => {
+          if (offline.tickets?.length > 0) {
+            offline.tickets.forEach((ticket: { id?: string; attendee_name?: string; ticket_type_name?: string; status?: string; used_at?: string }) => {
+              csvData.push([
+                'Venta Offline',
+                ticket.id || `${offline.order_id}-${Math.random().toString(36).substr(2, 9)}`,
+                offline.order_id,
+                offline.customer_name,
+                offline.customer_email,
+                ticket.attendee_name || offline.customer_name,
+                ticket.ticket_type_name || 'Boleto',
+                ticket.status || 'purchased',
+                (offline.total_amount / offline.total_tickets).toFixed(2),
+                offline.currency || 'MXN',
+                new Date(offline.created_at).toLocaleDateString(),
+                ticket.used_at ? new Date(ticket.used_at).toLocaleDateString() : '',
+                ''
+              ]);
+            });
+          } else {
+            for (let i = 0; i < (offline.total_tickets || 1); i++) {
+              csvData.push([
+                'Venta Offline',
+                `${offline.order_id}-${i + 1}`,
+                offline.order_id,
+                offline.customer_name,
+                offline.customer_email,
+                offline.customer_name,
+                'Boleto',
+                'purchased',
+                (offline.total_amount / (offline.total_tickets || 1)).toFixed(2),
+                offline.currency || 'MXN',
+                new Date(offline.created_at).toLocaleDateString(),
+                '',
+                ''
               ]);
             }
           }
@@ -745,6 +864,8 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
                     variant: "outline" as const,
                     icon: <ArrowRight className="w-4 h-4" />
                   }}
+                  showDeleteButton={true}
+                  onDelete={(orderId) => handleDeleteCourtesy(orderId, order.tickets.map(t => t.id))}
                   borderColor="border-green-500"
                   additionalInfo={
                     <div className="space-y-1">
@@ -772,6 +893,7 @@ export function EventSalesPageClient({ event }: EventSalesPageClientProps) {
             itemsPerPage={offlineLimit}
             offlineSales={offlineSales}
             loading={offlineLoading}
+            onDelete={(orderId, ticketIds) => handleDeleteOfflineSale(orderId, ticketIds)}
           />
         )}
         

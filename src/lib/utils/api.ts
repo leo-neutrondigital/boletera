@@ -76,3 +76,10 @@ export async function authenticatedGet(url: string): Promise<Response> {
     method: 'GET',
   });
 }
+
+// Wrapper para DELETE requests autenticados
+export async function authenticatedDelete(url: string): Promise<Response> {
+  return authenticatedFetch(url, {
+    method: 'DELETE',
+  });
+}

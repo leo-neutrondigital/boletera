@@ -13,6 +13,7 @@ interface OfflineSalesTabProps {
   itemsPerPage: number;
   offlineSales: any[]; // 🆕 Recibir datos como prop
   loading: boolean; // 🆕 Recibir loading como prop
+  onDelete?: (orderId: string, ticketIds: string[]) => void; // 🗑️ Handler para borrar
 }
 
 const PAYMENT_METHOD_LABELS: Record<string, { label: string; icon: string }> = {
@@ -22,7 +23,7 @@ const PAYMENT_METHOD_LABELS: Record<string, { label: string; icon: string }> = {
   other: { label: 'Otro', icon: '📋' }
 };
 
-export function OfflineSalesTab({ eventId, searchTerm, currentPage, itemsPerPage, offlineSales, loading }: OfflineSalesTabProps) {
+export function OfflineSalesTab({ eventId, searchTerm, currentPage, itemsPerPage, offlineSales, loading, onDelete }: OfflineSalesTabProps) {
   // 🔒 Ya no usa useOfflineSales aquí - recibe datos del padre
 
   // Filtrar por término de búsqueda
@@ -100,6 +101,8 @@ export function OfflineSalesTab({ eventId, searchTerm, currentPage, itemsPerPage
                 variant: "outline" as const,
                 icon: <ArrowRight className="w-4 h-4" />
               }}
+              showDeleteButton={!!onDelete}
+              onDelete={() => onDelete?.(order.id, order.tickets.map((t: any) => t.id))}
               borderColor="border-orange-500"
               additionalInfo={
                 <div className="space-y-1" key={`info-${order.order_id}`}>

@@ -176,36 +176,37 @@ export async function DELETE(
     }
 
     const { orderId } = params;
-
-    // console.log(`🗑️ Deleting courtesy order: ${orderId}`);
-
-    // Buscar todos los tickets de esta orden
-    const ticketsSnapshot = await adminDb
-      .collection('tickets')
-      .where('order_id', '==', orderId)
-      .where('is_courtesy', '==', true)
-      .get();
-
-    if (ticketsSnapshot.empty) {
+    const { searchParams } = new URL(request.url);
+    const ticketIdsParam = searchParams.get('ticketIds');
+    
+    if (!ticketIdsParam) {
       return NextResponse.json(
-        { error: 'Order not found or not a courtesy order' },
-        { status: 404 }
+        { error: 'ticketIds parameter is required' },
+        { status: 400 }
       );
     }
 
-    // Crear batch para eliminar todos los tickets
-    const batch = adminDb.batch();
-    const ticketsToDelete: any[] = []; // ← Tipo explícito para TypeScript
+    const ticketIds = ticketIdsParam.split(',');
+    console.log('[Courtesy Orders] Deleting order:', { orderId, ticketIds });
 
-    ticketsSnapshot.docs.forEach(doc => {
-      batch.delete(doc.ref);
-      const docData = doc.data();
-      ticketsToDelete.push({
-        id: doc.id,
-        attendee_name: docData.attendee_name || 'Sin configurar',
-        ticket_type_name: docData.ticket_type_name
-      });
-    });
+    // Eliminar tickets directamente por ID (sin queries innecesarios)
+    const batch = adminDb.batch();
+    const ticketsToDelete: any[] = [];
+    
+    for (const ticketId of ticketIds) {
+      const ticketRef = adminDb.collection('tickets').doc(ticketId);
+      const ticketDoc = await ticketRef.get();
+      
+      if (ticketDoc.exists) {
+        const docData = ticketDoc.data();
+        batch.delete(ticketRef);
+        ticketsToDelete.push({
+          id: ticketDoc.id,
+          attendee_name: docData?.attendee_name || 'Sin configurar',
+          ticket_type_name: docData?.ticket_type_name
+        });
+      }
+    }
 
     // Ejecutar eliminación en batch
     await batch.commit();

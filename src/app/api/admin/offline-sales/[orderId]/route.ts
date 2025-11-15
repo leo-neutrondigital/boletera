@@ -131,46 +131,52 @@ export async function DELETE(
     }
 
     const { orderId } = params;
-
-    console.log('[Offline Sales] Deleting order:', orderId);
-
-    // Obtener todos los tickets de la orden
-    const ticketsQuery = await adminDb
-      .collection('tickets')
-      .where('order_id', '==', orderId)
-      .where('is_manual_sale', '==', true)
-      .get();
-
-    if (ticketsQuery.empty) {
+    const { searchParams } = new URL(request.url);
+    const ticketIdsParam = searchParams.get('ticketIds');
+    
+    if (!ticketIdsParam) {
       return NextResponse.json(
-        { error: 'Order not found' },
-        { status: 404 }
+        { error: 'ticketIds parameter is required' },
+        { status: 400 }
       );
     }
 
-    // Soft delete: marcar tickets como cancelados
-    const batch = adminDb.batch();
-    
-    ticketsQuery.docs.forEach(doc => {
-      batch.update(doc.ref, {
-        status: 'cancelled',
-        cancelled_at: FieldValue.serverTimestamp(),
-        cancelled_by: user.uid,
-        updated_at: FieldValue.serverTimestamp()
-      });
-    });
+    const ticketIds = ticketIdsParam.split(',');
+    console.log('[Offline Sales] Deleting order:', { orderId, ticketIds });
 
+    // Eliminar tickets directamente por ID (sin queries innecesarios)
+    const batch = adminDb.batch();
+    const ticketsToDelete: any[] = [];
+    
+    for (const ticketId of ticketIds) {
+      const ticketRef = adminDb.collection('tickets').doc(ticketId);
+      const ticketDoc = await ticketRef.get();
+      
+      if (ticketDoc.exists) {
+        const docData = ticketDoc.data();
+        batch.delete(ticketRef);
+        ticketsToDelete.push({
+          id: ticketDoc.id,
+          attendee_name: docData?.attendee_name || docData?.customer_name || 'Sin nombre',
+          ticket_type_name: docData?.ticket_type_name
+        });
+      }
+    }
+
+    // Ejecutar eliminación en batch
     await batch.commit();
 
-    console.log('[Offline Sales] Order deleted (soft delete):', {
+    console.log('[Offline Sales] Order deleted:', {
       order_id: orderId,
-      tickets_cancelled: ticketsQuery.size
+      tickets_deleted: ticketsToDelete.length
     });
 
     return NextResponse.json({
       success: true,
-      message: `Order ${orderId} and ${ticketsQuery.size} ticket(s) cancelled successfully`,
-      cancelled_tickets: ticketsQuery.size
+      message: `Orden ${orderId.slice(-8).toUpperCase()} eliminada exitosamente`,
+      deleted_order_id: orderId,
+      deleted_tickets: ticketsToDelete.length,
+      tickets_details: ticketsToDelete
     });
 
   } catch (error) {
