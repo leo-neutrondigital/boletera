@@ -19,6 +19,9 @@ export interface AttendeeTicket {
   currency: string;
   // 🆕 Campo para lógica inteligente de check-in
   access_type?: 'all_days' | 'specific_days' | 'any_single_day';
+  // 🎫 Campos para badges
+  courtesy_type?: string;
+  is_courtesy?: boolean;
 }
 
 export interface EventData {

@@ -55,20 +55,33 @@ export async function GET(
       );
     }
 
-    const tickets = ticketsSnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      // Convertir timestamps de Firestore a fechas
-      created_at: doc.data().created_at?.toDate() || new Date(),
-      purchase_date: doc.data().purchase_date?.toDate() || new Date(),
-      updated_at: doc.data().updated_at?.toDate() || null,
-      authorized_days: doc.data().authorized_days?.map((day: any) => 
-        day.toDate ? day.toDate() : new Date(day)
-      ) || [],
-      used_days: doc.data().used_days?.map((day: any) => 
-        day.toDate ? day.toDate() : new Date(day)
-      ) || [],
-    } as any)); // ← Type assertion para TypeScript
+    const tickets = ticketsSnapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        // Convertir timestamps de Firestore a fechas
+        created_at: data.created_at?.toDate() || new Date(),
+        purchase_date: data.purchase_date?.toDate() || new Date(),
+        updated_at: data.updated_at?.toDate() || null,
+        authorized_days: data.authorized_days?.map((day: any) => 
+          day.toDate ? day.toDate() : new Date(day)
+        ) || [],
+        used_days: data.used_days?.map((day: any) => 
+          day.toDate ? day.toDate() : new Date(day)
+        ) || [],
+      } as any;
+    });
+
+    // 🔍 DEBUG: Ver datos RAW de Firestore
+    console.log('🔍 [API] Raw tickets from Firestore:', tickets.map(t => ({
+      id: t.id,
+      attendee_name: t.attendee_name,
+      attendee_email: t.attendee_email,
+      pdf_url: t.pdf_url,
+      pdf_path: t.pdf_path,
+      status: t.status
+    })));
 
     // Obtener información del evento
     const eventId = tickets[0].event_id;

@@ -19,6 +19,30 @@ export class TicketEmailService {
     this.emailClient = new EmailApiClient();
   }
 
+  // 🆕 Método para SOLO generar PDF (sin enviar email)
+  async generateTicketPDFOnly(
+    ticket: any
+  ): Promise<{ pdf_url: string; pdf_path: string }> {
+    try {
+      console.log('📄 Generating PDF only for ticket:', ticket.id);
+      
+      // 1. Generar PDF
+      const pdfBuffer = await generateTicketPDF(ticket);
+      
+      // 2. Subir PDF a storage
+      console.log('📤 Uploading PDF to storage...');
+      const storage = await StorageFactory.create();
+      const { url: pdf_url, path: pdf_path } = await storage.saveTicketPDF(ticket, pdfBuffer);
+      
+      console.log('✅ PDF generated successfully:', pdf_url);
+      
+      return { pdf_url, pdf_path };
+    } catch (error) {
+      console.error('❌ Error generating PDF:', error);
+      throw error;
+    }
+  }
+
   async generateAndSendTicket(
     ticket: any,
     event: any, 

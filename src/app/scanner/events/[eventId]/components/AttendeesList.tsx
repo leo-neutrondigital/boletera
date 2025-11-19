@@ -13,7 +13,8 @@ import {
   Zap,
   Download,
   Settings,
-  RefreshCw
+  RefreshCw,
+  QrCode
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -229,6 +230,51 @@ export function AttendeesList({
     }
   };
 
+  // 🎫 Handler para descargar Badge QR PNG
+  const handleDownloadBadgeQR = async (attendee: AttendeeTicket, e: React.MouseEvent) => {
+    e.stopPropagation(); // Evitar abrir modal
+    
+    try {
+      const displayName = attendee.attendee_name || attendee.customer_name || 'Sin-nombre';
+      const ticketType = attendee.ticket_type_name || 'General';
+      const courtesyType = attendee.courtesy_type || (attendee.is_courtesy ? 'Cortesía' : 'General');
+      
+      // Construir nombre de archivo usando formato completo del badge
+      const badgeData = `${ticketType}---${displayName}---${courtesyType}`;
+      const fileName = `badge-qr-${badgeData.replace(/\s+/g, '-')}.png`;
+      
+      // Descargar el PNG del endpoint
+      const response = await fetch(`/api/tickets/${attendee.id}/qr-badge-png`);
+      
+      if (!response.ok) {
+        throw new Error('Error al generar Badge QR');
+      }
+      
+      // Crear blob y descargar
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      toast({
+        title: "Badge QR descargado",
+        description: `Badge de ${displayName} descargado exitosamente`,
+      });
+    } catch (error) {
+      console.error('Error descargando Badge QR:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "No se pudo descargar el Badge QR",
+      });
+    }
+  };
+
   // ⚙️ Handler para abrir modal de configuración
   const handleConfigureTicket = (attendee: AttendeeTicket, e: React.MouseEvent) => {
     e.stopPropagation(); // Evitar abrir modal de check-in
@@ -322,6 +368,19 @@ export function AttendeesList({
                   title="Descargar PDF"
                 >
                   <Download className="w-4 h-4" />
+                </Button>
+              )}
+              
+              {/* Botón de Badge QR - disponible siempre que tenga nombre */}
+              {(attendee.attendee_name || attendee.customer_name) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={(e) => handleDownloadBadgeQR(attendee, e)}
+                  className="flex-shrink-0"
+                  title="Descargar Badge QR"
+                >
+                  <QrCode className="w-4 h-4" />
                 </Button>
               )}
               

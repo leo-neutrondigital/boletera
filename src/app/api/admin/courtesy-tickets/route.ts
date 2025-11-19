@@ -80,9 +80,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (quantity < 1 || quantity > 10) {
+    if (quantity < 1 || quantity > 25) {
       return NextResponse.json(
-        { error: 'Quantity must be between 1 and 10' },
+        { error: 'Quantity must be between 1 and 25' },
         { status: 400 }
       );
     }

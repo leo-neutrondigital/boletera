@@ -1,11 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useDataCache } from '@/contexts/DataCacheContext'; // 🆕 Cache
-import { auth } from '@/lib/firebase/client';
+import { useCourtesyOrder } from '@/hooks/use-courtesy-order'; // 🆕 SWR hook
+import { useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Gift, Package, Users, CheckCircle, Clock, FileText } from 'lucide-react';
+import { ArrowLeft, Gift, Package, Users, CheckCircle, Clock, FileText, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -28,24 +27,6 @@ interface CourtesyOrderPageContentProps {
   eventId?: string;
 }
 
-interface OrderData {
-  order_id: string;
-  tickets: any[];
-  event: any;
-  ticket_types: any[];
-  stats: {
-    total_tickets: number;
-    configured_tickets: number;
-    pending_tickets: number;
-    generated_tickets: number;
-    total_amount: number;
-    courtesy_type: string;
-    created_at: Date;
-    customer_name: string;
-    customer_email: string;
-  };
-}
-
 export function CourtesyOrderPageContent({ 
   orderId,
   pageTitle = "Orden de cortesía",
@@ -55,16 +36,36 @@ export function CourtesyOrderPageContent({
   orderType = "cortesia",
   eventId
 }: CourtesyOrderPageContentProps) {
-  const { user, userData } = useAuth();
-  const { invalidateCache } = useDataCache(); // 🆕 Para invalidar cache
-  const [loading, setLoading] = useState(true);
-  const [orderData, setOrderData] = useState<OrderData | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
+  
+  // 🆕 Usar SWR hook con localStorage y actualización optimista
+  const { 
+    orderData, 
+    tickets,
+    event,
+    stats,
+    isLoading, 
+    isValidating,
+    error: swrError, 
+    updateTicket,
+    refresh 
+  } = useCourtesyOrder(orderId, orderType);
 
-  // 🆕 Agregar estado para prevenir recargas innecesarias
-  const [isUpdatingTicket, setIsUpdatingTicket] = useState(false);
+  // 🔍 DEBUG: Ver datos recibidos
+  useEffect(() => {
+    if (tickets && tickets.length > 0) {
+      console.log('🔍 [CourtesyOrderPage] Tickets recibidos:', tickets.map(t => ({
+        id: t.id,
+        attendee_name: t.attendee_name,
+        attendee_email: t.attendee_email,
+        pdf_url: t.pdf_url,
+        pdf_path: t.pdf_path,
+        status: t.status
+      })));
+    }
+  }, [tickets]);
 
-  // Determinar URLs de navegación temprano para uso en casos de error
+  // Determinar URLs de navegación
   const finalBackPath = eventId 
     ? `/dashboard/eventos/${eventId}/boletos-vendidos`
     : breadcrumbPath;
@@ -73,63 +74,11 @@ export function CourtesyOrderPageContent({
     ? 'Volver a boletos vendidos'
     : `Volver a ${breadcrumbTitle.toLowerCase()}`;
 
-  // Cargar datos de la orden
-  useEffect(() => {
-    if (user && !isUpdatingTicket) { // 🆕 No recargar si estamos actualizando
-      loadOrderData();
-    }
-  }, [user, orderId, isUpdatingTicket]);
-
-  const loadOrderData = async () => {
-    try {
-      // 🆕 Solo mostrar loading si no tenemos datos o no estamos actualizando
-      if (!orderData && !isUpdatingTicket) {
-        setLoading(true);
-      }
-      setError(null);
-
-      const currentUser = auth.currentUser;
-      if (!currentUser) {
-        setError('Usuario no autenticado');
-        return;
-      }
-
-      const token = await currentUser.getIdToken();
-
-      // 🔄 Usar endpoint correcto según el tipo de orden
-      const endpoint = orderType === 'venta' 
-        ? `/api/admin/sales-orders/${orderId}`
-        : `/api/admin/courtesy-orders/${orderId}`;
-
-      console.log(`🔍 Loading ${orderType} order from:`, endpoint);
-
-      const response = await fetch(endpoint, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setOrderData(data);
-        console.log(`✅ ${orderType} order loaded:`, data.order_id);
-      } else {
-        const errorData = await response.json();
-        setError(errorData.error || `Error al cargar la orden de ${orderType}`);
-      }
-    } catch (error) {
-      console.error(`❌ Error loading ${orderType} order:`, error);
-      setError('Error al cargar los datos');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // Estados de carga
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 p-6">
-        <div className="max-w-7xl mx-auto space-y-6"> {/* 🆕 Mismo ancho que cortesías */}
+        <div className="max-w-7xl mx-auto space-y-6">
           <Skeleton className="h-8 w-64" />
           <Skeleton className="h-48 w-full" />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -141,13 +90,13 @@ export function CourtesyOrderPageContent({
     );
   }
 
-  if (error) {
+  if (swrError) {
     return (
       <div className="min-h-screen bg-gray-50 p-6">
-        <div className="max-w-7xl mx-auto"> {/* 🆕 Mismo ancho que cortesías */}
+        <div className="max-w-7xl mx-auto">
           <Alert className="border-red-200 bg-red-50">
             <AlertDescription className="text-red-800">
-              {error}
+              {swrError.message || 'Error al cargar la orden'}
             </AlertDescription>
           </Alert>
           <Button asChild className="mt-4">
@@ -158,10 +107,10 @@ export function CourtesyOrderPageContent({
     );
   }
 
-  if (!orderData) {
+  if (!orderData || !tickets || !event || !stats) {
     return (
       <div className="min-h-screen bg-gray-50 p-6">
-        <div className="max-w-7xl mx-auto"> {/* 🆕 Mismo ancho que cortesías */}
+        <div className="max-w-7xl mx-auto">
           <Alert>
             <AlertDescription>
               Orden no encontrada
@@ -175,34 +124,46 @@ export function CourtesyOrderPageContent({
     );
   }
 
-  const { tickets, event, stats } = orderData;
-
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header con navegación */}
       <div className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-6 py-4"> {/* 🆕 Mismo ancho que cortesías */}
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" asChild>
-              <Link href={finalBackPath} className="flex items-center gap-2">
-                <ArrowLeft className="w-4 h-4" />
-                {finalBackLabel}
-              </Link>
-            </Button>
-            <div className="h-6 border-l border-gray-300" />
-            <div>
-              <h1 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-                {orderType === 'cortesia' ? (
-                  <Gift className="w-5 h-5 text-green-600" />
-                ) : (
-                  <Package className="w-5 h-5 text-blue-600" />
-                )}
-                {pageTitle} #{orderId.slice(-8).toUpperCase()}
-              </h1>
-              <p className="text-sm text-gray-600">
-                {event.name} • {format(stats.created_at, "d 'de' MMMM, yyyy", { locale: es })}
-              </p>
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <Button variant="ghost" size="sm" asChild>
+                <Link href={finalBackPath} className="flex items-center gap-2">
+                  <ArrowLeft className="w-4 h-4" />
+                  {finalBackLabel}
+                </Link>
+              </Button>
+              <div className="h-6 border-l border-gray-300" />
+              <div>
+                <h1 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                  {orderType === 'cortesia' ? (
+                    <Gift className="w-5 h-5 text-green-600" />
+                  ) : (
+                    <Package className="w-5 h-5 text-blue-600" />
+                  )}
+                  {pageTitle} #{orderId.slice(-8).toUpperCase()}
+                </h1>
+                <p className="text-sm text-gray-600">
+                  {event.name} • {format(stats.created_at, "d 'de' MMMM, yyyy", { locale: es })}
+                </p>
+              </div>
             </div>
+            
+            {/* Botón de recarga */}
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => refresh()}
+              disabled={isValidating}
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className={`w-4 h-4 ${isValidating ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">Actualizar</span>
+            </Button>
           </div>
         </div>
       </div>
@@ -318,38 +279,11 @@ export function CourtesyOrderPageContent({
               key={ticket.id}
               ticket={ticket}
               onUpdate={async (ticketId: string, updates: any) => {
-                // 🆕 Prevenir recargas mientras actualizamos
-                setIsUpdatingTicket(true);
-                
-                // 🆕 UI optimista: Actualizar estado local inmediatamente
-                if (orderData) {
-                  const updatedTickets = orderData.tickets.map(t => 
-                    t.id === ticketId ? { ...t, ...updates } : t
-                  );
-                  
-                  // Recalcular estadísticas
-                  const newStats = {
-                    ...orderData.stats,
-                    configured_tickets: updatedTickets.filter(t => t.attendee_name && t.attendee_email).length,
-                    pending_tickets: updatedTickets.filter(t => !t.attendee_name || !t.attendee_email).length,
-                    generated_tickets: updatedTickets.filter(t => t.pdf_url && t.pdf_url !== 'generating...').length,
-                  };
-                  
-                  // Actualizar estado local inmediatamente
-                  setOrderData({
-                    ...orderData,
-                    tickets: updatedTickets,
-                    stats: newStats
-                  });
-                }
-                
-                // 🆕 Invalidar cache para lista principal (sin esperar)
-                invalidateCache(['courtesyOrders']);
-                
-                // 🆕 Permitir recargas nuevamente después de un momento
-                setTimeout(() => {
-                  setIsUpdatingTicket(false);
-                }, 2000); // 2 segundos para que termine la operación
+                // ✨ Usar actualización optimista de SWR
+                // 1. UI se actualiza inmediatamente
+                // 2. Request al servidor en background (TicketCard lo hace)
+                // 3. Revalida y obtiene datos reales después
+                await updateTicket(ticketId, updates);
               }}
               canEdit={true} // Admin puede editar
               autoEdit={!ticket.attendee_name} // Auto-editar si no tiene nombre

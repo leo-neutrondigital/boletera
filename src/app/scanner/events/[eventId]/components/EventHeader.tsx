@@ -3,8 +3,9 @@
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { ArrowLeft, RefreshCw } from 'lucide-react';
+import { ArrowLeft, RefreshCw, IdCard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 import type { EventData } from '../types';
 
 interface EventHeaderProps {
@@ -15,6 +16,46 @@ interface EventHeaderProps {
 
 export function EventHeader({ event, isLoading, onRefresh }: EventHeaderProps) {
   const router = useRouter();
+  const { toast } = useToast();
+
+  const handleDownloadBadges = async () => {
+    if (!event?.id) return;
+    
+    try {
+      toast({
+        title: 'Generando badges...',
+        description: 'Este proceso puede tomar unos segundos',
+      });
+      
+      const response = await fetch(`/api/admin/events/${event.id}/qr-badges`);
+      
+      if (!response.ok) {
+        throw new Error('Error al generar badges');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `badges-${event.name.replace(/\s+/g, '-').toLowerCase()}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      toast({
+        title: 'Badges descargados',
+        description: 'PDF generado correctamente',
+      });
+    } catch (error) {
+      console.error('Error downloading badges:', error);
+      toast({
+        title: 'Error',
+        description: 'No se pudieron generar los badges',
+        variant: 'destructive',
+      });
+    }
+  };
 
   const formatDate = (dateStr: string) => {
     try {
@@ -48,15 +89,28 @@ export function EventHeader({ event, isLoading, onRefresh }: EventHeaderProps) {
             </div>
           </div>
           
-          <Button
-            variant="outline"
-            onClick={onRefresh}
-            disabled={isLoading}
-            className="flex items-center gap-2 flex-shrink-0"
-          >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-            Actualizar
-          </Button>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Button
+              variant="outline"
+              onClick={handleDownloadBadges}
+              disabled={!event}
+              className="flex items-center gap-2"
+              title="Descargar badges con QR de identificación"
+            >
+              <IdCard className="w-4 h-4" />
+              <span className="hidden sm:inline">Badges</span>
+            </Button>
+            
+            <Button
+              variant="outline"
+              onClick={onRefresh}
+              disabled={isLoading}
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+              Actualizar
+            </Button>
+          </div>
         </div>
       </div>
     </div>

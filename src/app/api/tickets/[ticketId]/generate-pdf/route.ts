@@ -73,15 +73,38 @@ export async function POST(
       ticket_type: ticketTypeData
     };
 
-    // 7. Generar PDF y enviar email
+    // 7. Generar PDF (separado del email para mejor manejo de errores)
     const ticketEmailService = new TicketEmailService();
-    const { pdf_url, pdf_path } = await ticketEmailService.generateAndSendTicket(
-      completeTicket,
-      completeTicket.event,
-      ticketTypeData
-    );
+    let pdf_url: string;
+    let pdf_path: string;
+    let emailSent = false;
+    let emailError: string | null = null;
+    
+    // 7a. PRIMERO: Generar y guardar el PDF
+    console.log('📄 Step 1: Generating PDF...');
+    const pdfResult = await ticketEmailService.generateTicketPDFOnly(completeTicket);
+    pdf_url = pdfResult.pdf_url;
+    pdf_path = pdfResult.pdf_path;
+    console.log('✅ PDF generated and saved:', pdf_url);
+    
+    // 7b. DESPUÉS: Intentar enviar email (si falla, no es crítico)
+    try {
+      console.log('📧 Step 2: Attempting to send email...');
+      await ticketEmailService.resendTicketEmail(
+        { ...completeTicket, pdf_url, pdf_path },
+        completeTicket.event,
+        ticketTypeData
+      );
+      emailSent = true;
+      console.log('✅ Email sent successfully');
+    } catch (emailErr) {
+      // Email falló, pero el PDF ya está generado y guardado
+      emailError = emailErr instanceof Error ? emailErr.message : 'Unknown email error';
+      console.warn('⚠️ PDF generated successfully but email failed:', emailError);
+      // NO lanzar error - continuar con la actualización
+    }
 
-    // 8. Actualizar ticket en base de datos
+    // 8. Actualizar ticket en base de datos (SIEMPRE, ya que el PDF se generó exitosamente)
     const updateData: any = {
       pdf_url,
       pdf_path,
@@ -96,16 +119,24 @@ export async function POST(
       updateData.manual_generated_by = authUser.uid;
       updateData.manual_generated_at = new Date();
     }
+    
+    // Guardar información del email
+    if (!emailSent && emailError) {
+      updateData.email_error = emailError;
+      updateData.email_error_at = new Date();
+    }
 
     await adminDb.collection('tickets').doc(ticketId).update(updateData);
 
-    console.log('✅ PDF generated and email sent successfully');
-
     return NextResponse.json({
       success: true,
-      message: 'PDF generated and email sent successfully',
+      message: emailSent 
+        ? 'PDF generated and email sent successfully'
+        : 'PDF generated successfully but email failed',
       pdf_url,
       pdf_path,
+      email_sent: emailSent,
+      email_error: emailError,
       email_sent_to: ticketData.customer_email
     });
 

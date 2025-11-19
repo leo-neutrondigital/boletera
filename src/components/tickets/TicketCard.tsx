@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { 
@@ -58,7 +58,24 @@ export function TicketCard({
   const [emailError, setEmailError] = useState<string>('');
   const { triggerAutoGeneration } = useTicketAutoGeneration();
 
-  const isConfigured = ticket.status === 'configured';
+  // 🔍 DEBUG: Ver props recibidos
+  useEffect(() => {
+    console.log('🔍 [TicketCard] Props recibidos:', {
+      id: ticket.id,
+      attendee_name: ticket.attendee_name,
+      attendee_email: ticket.attendee_email,
+      pdf_url: ticket.pdf_url,
+      pdf_path: ticket.pdf_path,
+      status: ticket.status
+    });
+  }, [ticket]);
+
+  // ✅ Verificar configuración por datos reales, no solo por status
+  const isConfigured = Boolean(
+    ticket.attendee_name && 
+    ticket.attendee_email &&
+    (ticket.status === 'configured' || ticket.status === 'generated' || ticket.status === 'purchased')
+  );
   const isUsed = ticket.status === 'used';
 
   // Validación básica de email
@@ -365,7 +382,12 @@ export function TicketCard({
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-sm">
                     <User className="w-4 h-4 text-gray-500" />
-                    <span className="font-medium">{ticket.attendee_name}</span>
+                    <div>
+                      <div className="font-medium">{ticket.attendee_name}</div>
+                      {ticket.courtesy_type && (
+                        <div className="text-xs text-gray-500 mt-0.5">{ticket.courtesy_type}</div>
+                      )}
+                    </div>
                   </div>
                   
                   {ticket.attendee_email && (
@@ -419,7 +441,7 @@ export function TicketCard({
         </div>
 
         {/* Acciones del boleto */}
-        {(isConfigured || ticket.pdf_url) && ( // ✅ Mostrar si está configurado O tiene PDF
+        {(isConfigured || ticket.pdf_url || (ticket.attendee_name && ticket.attendee_email)) && ( // ✅ Mostrar si tiene datos del asistente
           <div className="border-t pt-4">
             <div className="flex flex-wrap gap-2">
               {/* Botón principal: Descargar/Generar PDF */}
@@ -439,7 +461,8 @@ export function TicketCard({
                     }
                     
                     if (!pdfUrl) {
-                      // 2. Generar PDF si no existe
+                      // 2. Generar PDF (puede fallar si ya existe, ver paso 3)
+                      console.log('📄 Attempting to generate PDF...');
                       const response = await authenticatedPost(`/api/tickets/${ticket.id}/generate-pdf`);
                       
                       if (response.ok) {
@@ -467,7 +490,14 @@ export function TicketCard({
                     
                   } catch (error) {
                     console.error('Error downloading PDF:', error);
-                    alert(`Error al descargar el PDF: ${error instanceof Error ? error.message : 'Inténtalo de nuevo.'}`);
+                    
+                    // Si el error es de email, podría ser que el PDF ya existe
+                    const errorMsg = error instanceof Error ? error.message : '';
+                    if (errorMsg.includes('email') || errorMsg.includes('smtp')) {
+                      alert('⚠️ El PDF podría ya estar generado. Por favor usa el botón "Actualizar" en el header para refrescar los datos.');
+                    } else {
+                      alert(`Error al descargar el PDF: ${errorMsg || 'Inténtalo de nuevo.'}`);
+                    }
                   }
                 }}
                 disabled={isLoading || isSaving}
@@ -505,33 +535,46 @@ export function TicketCard({
               
               {/* Botones Admin/Gestor */}
               <Can on="ticketTypes" do="update">
-                {/* Botón Regenerar PDF */}
+                {/* Botón Regenerar PDF - Siempre visible para admins */}
                 <Button
                   variant="outline"
                   size="sm"
                   className="flex items-center gap-2 text-orange-600 border-orange-300 hover:bg-orange-50"
                   onClick={async () => {
-                    if (!confirm('¿Estás seguro de regenerar el PDF? Se enviará un nuevo email al asistente.')) {
+                    const hasConflict = ticket.pdf_url === null || ticket.pdf_url === 'generating...';
+                    const confirmMsg = hasConflict 
+                      ? '⚠️ Este boleto tiene un estado inconsistente. ¿Quieres forzar la regeneración del PDF?'
+                      : '¿Estás seguro de regenerar el PDF? Se enviará un nuevo email al asistente.';
+                    
+                    if (!confirm(confirmMsg)) {
                       return;
                     }
                     
                     try {
                       setIsRegenerating(true);
-                      const response = await authenticatedPost(`/api/tickets/${ticket.id}/regenerate`);
+                      console.log('🔄 Force regenerating PDF for ticket:', ticket.id);
+                      
+                      // Usar generate-pdf con flag para forzar regeneración
+                      const response = await authenticatedPost(`/api/tickets/${ticket.id}/generate-pdf`, {
+                        autoGenerated: false,
+                        force: true // Forzar regeneración aunque ya exista
+                      });
                       
                       if (response.ok) {
                         const result = await response.json();
-                        alert(`PDF regenerado y email enviado a ${result.email_sent_to || 'el asistente'}`);
+                        alert(`✅ PDF regenerado exitosamente. Email enviado a ${result.email_sent_to || ticket.attendee_email}`);
                         
-                        // Actualizar ticket
+                        // Actualizar ticket con datos reales
                         if (onUpdate) {
                           await onUpdate(ticket.id, {
                             pdf_url: result.pdf_url,
-                            pdf_path: result.pdf_path
+                            pdf_path: result.pdf_path,
+                            status: 'generated'
                           });
                         }
                       } else {
                         const error = await response.json();
+                        console.error('❌ Regeneration failed:', error);
                         throw new Error(error.details || error.error || 'Error regenerando PDF');
                       }
                     } catch (error) {
@@ -541,14 +584,14 @@ export function TicketCard({
                       setIsRegenerating(false);
                     }
                   }}
-                  disabled={isLoading || isSaving || isRegenerating || !ticket.pdf_url}
+                  disabled={isLoading || isSaving || isRegenerating}
                 >
                   {isRegenerating ? (
                     <div className="w-4 h-4 border border-orange-600 border-t-transparent rounded-full animate-spin" />
                   ) : (
                     <RefreshCw className="w-4 h-4" />
                   )}
-                  Regenerar PDF
+                  {ticket.pdf_url ? 'Regenerar PDF' : 'Generar PDF'}
                 </Button>
                 
                 {/* Botón Reenviar Email */}

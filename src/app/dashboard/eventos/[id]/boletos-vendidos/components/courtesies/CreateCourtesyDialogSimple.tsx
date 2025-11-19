@@ -69,8 +69,8 @@ export function CreateCourtesyDialogSimple({
       errors.push('Debe ingresar un email válido');
     }
     if (!form.courtesyType) errors.push('Debe seleccionar un tipo de cortesía');
-    if (form.quantity < 1 || form.quantity > 10) {
-      errors.push('La cantidad debe estar entre 1 y 10');
+    if (form.quantity < 1 || form.quantity > 25) {
+      errors.push('La cantidad debe estar entre 1 y 25');
     }
     
     setValidationErrors(errors);
@@ -294,7 +294,7 @@ export function CreateCourtesyDialogSimple({
             <Input
               type="number"
               min="1"
-              max="10"
+              max="25"
               value={form.quantity}
               onChange={(e) => setForm(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
             />

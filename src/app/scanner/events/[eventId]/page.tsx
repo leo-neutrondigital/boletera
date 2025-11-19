@@ -20,6 +20,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useScannerAttendees } from '@/hooks/use-scanner-attendees';
 
 // Importar componentes específicos
+import { EventHeader } from './components/EventHeader';
 import { AttendeesList } from './components/AttendeesList';
 import { EventDetailsTab } from './components/EventDetailsTab';
 
@@ -77,64 +78,11 @@ export default function EventAttendeesPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            
-            {/* Título y navegación */}
-            <div className="flex items-center gap-3 flex-1 min-w-0">
-              <Button
-                variant="ghost"
-                onClick={() => router.push('/scanner/events')}
-                className="p-2 flex-shrink-0"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </Button>
-              
-              <div className="min-w-0 flex-1">
-                <h1 className="text-lg font-semibold text-gray-900 truncate">
-                  {event?.name || 'Cargando evento...'}
-                </h1>
-                {event && (
-                  <p className="text-sm text-gray-500 truncate">
-                    {formatEventDate(event.start_date)} • {event.location}
-                  </p>
-                )}
-              </div>
-            </div>
-            
-            {/* Stats y acciones */}
-            <div className="flex items-center gap-3 flex-shrink-0">
-              {stats && !isLoading && (
-                <div className="hidden sm:flex items-center gap-4 text-sm">
-                  <div className="text-center">
-                    <div className="font-bold text-gray-900">{stats.total_tickets}</div>
-                    <div className="text-gray-500">Total</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="font-bold text-green-600">{stats.checked_in_count}</div>
-                    <div className="text-gray-500">Registrados</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="font-bold text-blue-600">{stats.attendance_rate}%</div>
-                    <div className="text-gray-500">Asistencia</div>
-                  </div>
-                </div>
-              )}
-              
-              <Button
-                variant="outline"
-                onClick={refresh} // 🆕 Usar función de refresh del cache
-                disabled={isValidating}
-                className="flex items-center gap-2"
-              >
-                <RefreshCw className={`w-4 h-4 ${isValidating ? 'animate-spin' : ''}`} />
-                <span className="hidden sm:inline">Actualizar</span>
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <EventHeader 
+        event={event}
+        isLoading={isValidating}
+        onRefresh={refresh}
+      />
 
       {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">

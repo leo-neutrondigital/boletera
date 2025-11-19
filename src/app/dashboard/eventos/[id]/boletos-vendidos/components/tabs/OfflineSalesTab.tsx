@@ -82,9 +82,9 @@ export function OfflineSalesTab({ eventId, searchTerm, currentPage, itemsPerPage
           
           return (
             <OrderCard 
-              key={order.order_id || `offline-${index}`}
+              key={order.id || `offline-${index}`}
               order={{
-                id: order.order_id,
+                id: order.id,
                 createdAt: order.created_at,
                 ticketCount: order.total_tickets,
                 configuredTickets: order.tickets.filter((t: { status: string }) => t.status === 'configured').length,

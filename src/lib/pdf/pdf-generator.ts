@@ -76,6 +76,45 @@ async function generateQRCode(ticket: Ticket): Promise<Buffer> {
   }
 }
 
+/**
+ * Genera QR con datos de identificación (formato texto legible)
+ * Para badges/gafetes con información del asistente
+ */
+export async function generateBadgeQRCode(
+  ticketType: string,
+  attendeeName: string,
+  company?: string
+): Promise<string> {
+  try {
+    // Formato simple: cadena con guiones (más compatible con scanners)
+    const parts = [
+      ticketType,
+      attendeeName,
+      company || 'SIN-EMPRESA'
+    ];
+    
+    const badgeData = parts.join('---');
+    
+    console.log('🔲 Badge QR data:', badgeData);
+    
+    // Generar QR como Data URL (base64) para insertar directo en PDF
+    const qrDataUrl = await QRCode.toDataURL(badgeData, {
+      width: 400,
+      margin: 1,
+      color: {
+        dark: '#000000',
+        light: '#FFFFFF'
+      }
+    });
+    
+    return qrDataUrl;
+    
+  } catch (error) {
+    console.error('Error generating badge QR code:', error);
+    throw error;
+  }
+}
+
 async function designTicketPDF(pdf: jsPDF, ticket: Ticket, qrCodeBuffer: Buffer) {
   // Configuración de colores como tuplas constantes
   const accessCodeColor = [227, 6, 19] as const; // #E30613 - Rojo solicitado
