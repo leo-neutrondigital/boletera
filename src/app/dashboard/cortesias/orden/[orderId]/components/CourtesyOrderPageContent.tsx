@@ -13,6 +13,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 
 // 🆕 Reutilizar componentes de my-tickets
 import { TicketCard } from '@/components/tickets/TicketCard';
+import type { Ticket } from '@/types';
 
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -54,7 +55,7 @@ export function CourtesyOrderPageContent({
   // 🔍 DEBUG: Ver datos recibidos
   useEffect(() => {
     if (tickets && tickets.length > 0) {
-      console.log('🔍 [CourtesyOrderPage] Tickets recibidos:', tickets.map(t => ({
+      console.log('🔍 [CourtesyOrderPage] Tickets recibidos:', tickets.map((t: Ticket) => ({
         id: t.id,
         attendee_name: t.attendee_name,
         attendee_email: t.attendee_email,
@@ -274,7 +275,7 @@ export function CourtesyOrderPageContent({
             </Badge>
           </div>
 
-          {tickets.map((ticket, index) => (
+          {tickets.map((ticket: Ticket, index: number) => (
             <TicketCard 
               key={ticket.id}
               ticket={ticket}

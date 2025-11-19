@@ -100,6 +100,9 @@ interface AttendeeTicket {
   pdf_url?: string | null; // 🆕 URL del PDF generado (para botón descarga)
   // 🆕 Campo para lógica inteligente de check-in
   access_type?: 'all_days' | 'specific_days' | 'any_single_day';
+  // 🎫 Campos para badges
+  courtesy_type?: string;
+  is_courtesy?: boolean;
 }
 
 interface EventData {
