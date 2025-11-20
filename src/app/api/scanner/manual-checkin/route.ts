@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase/admin';
 import { getAuthFromRequest } from '@/lib/auth/server-auth';
-import { formatDateToLocalString, getTodayAsLocalString, getTodayInMexicoTimezone } from '@/lib/utils/date-utils';
+import { formatDateToMexicoTimezone, getTodayInMexicoTimezone } from '@/lib/utils/date-utils';
 
 // ✅ Forzar modo dinámico para usar request.headers y request.json()
 export const dynamic = 'force-dynamic';
@@ -132,8 +132,8 @@ export async function POST(
 
     // 7. Validar que el evento esté dentro del rango válido
     // Para manual check-in, permitimos registrar para días específicos dentro del evento
-    const eventStartDateStr = formatDateToLocalString(eventStartDate);
-    const eventEndDateStr = formatDateToLocalString(eventEndDate);
+    const eventStartDateStr = formatDateToMexicoTimezone(eventStartDate);
+    const eventEndDateStr = formatDateToMexicoTimezone(eventEndDate);
     const currentDateStr = getTodayInMexicoTimezone(); // Usar función centralizada
     
     console.log('🗓️ Event validation (FIXED with centralized functions):', {
@@ -171,17 +171,17 @@ export async function POST(
 
     // 9. Procesar días autorizados usando utilidades centralizadas
     let authorizedDays = (ticketData.authorized_days || []).map((day: any) => 
-      formatDateToLocalString(day)
+      formatDateToMexicoTimezone(day)
     );
 
     const usedDays = (ticketData.used_days || []).map((day: any) => 
-      formatDateToLocalString(day)
+      formatDateToMexicoTimezone(day)
     );
 
     // 🔧 FIX: Para tickets all_days, auto-corregir authorized_days si están fuera del rango del evento
     if (ticketTypeData.access_type === 'all_days') {
-      const eventStartDateStr = formatDateToLocalString(eventStartDate);
-      const eventEndDateStr = formatDateToLocalString(eventEndDate);
+      const eventStartDateStr = formatDateToMexicoTimezone(eventStartDate);
+      const eventEndDateStr = formatDateToMexicoTimezone(eventEndDate);
       
       // Verificar si authorized_days está mal configurado (fuera del rango del evento)
       const validDays = authorizedDays.filter((day: string) => day >= eventStartDateStr && day <= eventEndDateStr);
@@ -194,7 +194,7 @@ export async function POST(
         const endDate = new Date(eventEndDate);
         
         while (currentDate <= endDate) {
-          authorizedDays.push(formatDateToLocalString(currentDate));
+          authorizedDays.push(formatDateToMexicoTimezone(currentDate));
           currentDate.setDate(currentDate.getDate() + 1);
         }
         
@@ -205,7 +205,7 @@ export async function POST(
     console.log('🎫 Ticket data processing:', {
       ticketId,
       access_type: ticketTypeData.access_type,
-      originalAuthorizedDays: (ticketData.authorized_days || []).map((day: any) => formatDateToLocalString(day)),
+      originalAuthorizedDays: (ticketData.authorized_days || []).map((day: any) => formatDateToMexicoTimezone(day)),
       correctedAuthorizedDays: authorizedDays,
       usedDays,
       selectedDay

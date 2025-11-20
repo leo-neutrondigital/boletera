@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase/admin';
 import { getAuthFromRequest } from '@/lib/auth/server-auth';
-import { formatDateToLocalString } from '@/lib/utils/date-utils';
+import { formatDateToMexicoTimezone } from '@/lib/utils/date-utils';
 
 interface AttendeeTicket {
   id: string;
@@ -104,8 +104,8 @@ export async function GET(
         event: {
           id: eventId,
           name: eventData.name,
-          start_date: formatDateToLocalString(eventData.start_date),
-          end_date: formatDateToLocalString(eventData.end_date),
+          start_date: formatDateToMexicoTimezone(eventData.start_date),
+          end_date: formatDateToMexicoTimezone(eventData.end_date),
           location: eventData.location || '',
           description: eventData.description
         },
@@ -142,7 +142,7 @@ export async function GET(
       const current = new Date(start);
       
       while (current <= end) {
-        days.push(formatDateToLocalString(current));
+        days.push(formatDateToMexicoTimezone(current));
         current.setDate(current.getDate() + 1);
       }
       
@@ -150,17 +150,17 @@ export async function GET(
     };
 
     // Obtener rango de fechas del evento actual
-    const eventStartStr = formatDateToLocalString(eventData.start_date);
-    const eventEndStr = formatDateToLocalString(eventData.end_date);
+    const eventStartStr = formatDateToMexicoTimezone(eventData.start_date);
+    const eventEndStr = formatDateToMexicoTimezone(eventData.end_date);
 
     // 6. Procesar tickets en formato de asistentes
     const attendees: AttendeeTicket[] = ticketsSnapshot.docs.map(doc => {
       const ticketData = doc.data();
       const ticketType = ticketTypesMap.get(ticketData.ticket_type_id);
 
-      // Procesar días autorizados y usados con timezone local consistente
-      let authorizedDays = (ticketData.authorized_days || []).map(formatDateToLocalString);
-      const originalUsedDays = (ticketData.used_days || []).map(formatDateToLocalString);
+      // Procesar días autorizados y usados con timezone México consistente
+      let authorizedDays = (ticketData.authorized_days || []).map(formatDateToMexicoTimezone);
+      const originalUsedDays = (ticketData.used_days || []).map(formatDateToMexicoTimezone);
 
       // Para all_days: generar rango completo del evento (sin validación)
       if (ticketType?.access_type === 'all_days') {

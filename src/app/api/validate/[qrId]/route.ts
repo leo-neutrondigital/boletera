@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase/admin';
 import { getAuthFromRequest } from '@/lib/auth/server-auth';
 import { FieldValue } from 'firebase-admin/firestore';
-import { getTodayAsLocalString, formatDateToLocalString } from '@/lib/utils/date-utils';
+import { getTodayInMexicoTimezone, formatDateToMexicoTimezone } from '@/lib/utils/date-utils';
 
 // ✅ Forzar modo dinámico para usar request.headers y request.json()
 export const dynamic = 'force-dynamic';
@@ -110,7 +110,7 @@ export async function POST(
     const eventStartDate = eventData.start_date?.toDate() || new Date();
     const eventEndDate = eventData.end_date?.toDate() || new Date();
     const today = new Date();
-    const todayStr = getTodayAsLocalString(); // 🆕 Usar función centralizada
+    const todayStr = getTodayInMexicoTimezone(); // 🆕 Usar timezone México consistentemente
 
     console.log('📅 Validation date context:', {
       today: today,
@@ -196,8 +196,8 @@ async function handleCheckIn({
   }
 
   // 2. Verificar fechas del evento (usar función centralizada)
-  const eventStartStr = formatDateToLocalString(eventStartDate);
-  const eventEndStr = formatDateToLocalString(eventEndDate);
+  const eventStartStr = formatDateToMexicoTimezone(eventStartDate);
+  const eventEndStr = formatDateToMexicoTimezone(eventEndDate);
   
   console.log('🗓️ Event date validation:', {
     today: todayStr,
@@ -248,8 +248,8 @@ async function handleCheckIn({
   const usedDays = ticketData.used_days || [];
   
   // 🆕 Convertir fechas usando función centralizada para consistencia
-  const authorizedDayStrs = authorizedDays.map(formatDateToLocalString);
-  const usedDayStrs = usedDays.map(formatDateToLocalString);
+  const authorizedDayStrs = authorizedDays.map(formatDateToMexicoTimezone);
+  const usedDayStrs = usedDays.map(formatDateToMexicoTimezone);
 
   console.log('📅 Days validation:', {
     ticketType: ticketTypeData.access_type,

@@ -66,6 +66,50 @@ export function getTodayInMexicoTimezone(): string {
 }
 
 /**
+ * 🆕 Convierte cualquier fecha a string YYYY-MM-DD usando timezone de México
+ * Evita desfases por diferencias de timezone entre servidor y zona horaria de la app
+ */
+export function formatDateToMexicoTimezone(date: any): string {
+  if (!date) {
+    return '';
+  }
+  
+  let dateObj: Date;
+  
+  // Manejar diferentes tipos de entrada
+  if (date?.toDate) {
+    // Firestore Timestamp
+    dateObj = date.toDate();
+  } else if (typeof date === 'string') {
+    // String date
+    dateObj = new Date(date);
+  } else if (date instanceof Date) {
+    // Date object
+    dateObj = date;
+  } else {
+    // Fallback
+    dateObj = new Date(date);
+  }
+  
+  // Verificar que sea una fecha válida
+  if (isNaN(dateObj.getTime())) {
+    console.warn('⚠️ Invalid date provided to formatDateToMexicoTimezone:', date);
+    return '';
+  }
+  
+  // Convertir a timezone México antes de extraer componentes
+  const mexicoDate = new Date(
+    dateObj.toLocaleString('en-US', { timeZone: 'America/Mexico_City' })
+  );
+  
+  const year = mexicoDate.getFullYear();
+  const month = String(mexicoDate.getMonth() + 1).padStart(2, '0');
+  const day = String(mexicoDate.getDate()).padStart(2, '0');
+  
+  return `${year}-${month}-${day}`;
+}
+
+/**
  * Convierte fecha a Date object desde diferentes formatos
  */
 export function normalizeDate(date: any): Date {

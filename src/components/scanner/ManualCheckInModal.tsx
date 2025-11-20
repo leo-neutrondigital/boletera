@@ -23,7 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { authenticatedPost } from '@/lib/utils/api';
 import { formatCurrency, Currency } from '@/lib/utils/currency';
-import { getTodayAsLocalString, getTodayInMexicoTimezone, debugDate, formatDateForDisplayMexico } from '@/lib/utils/date-utils';
+import { getTodayAsLocalString, getTodayInMexicoTimezone, formatDateToMexicoTimezone, debugDate, formatDateForDisplayMexico } from '@/lib/utils/date-utils';
 
 interface AttendeeTicket {
   id: string;
